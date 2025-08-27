@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>權限管理控制台</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/dist/feather.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1><i data-feather="shield"></i> 權限管理控制台</h1>
+                <hr>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i data-feather="user"></i> 當前用戶資訊</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>用戶ID:</strong> {{ current_user.UNIQUE_ID }}</p>
+                        <p><strong>姓名:</strong> {{ current_user.NAME }}</p>
+                        <p><strong>Email:</strong> {{ current_user.EMAIL }}</p>
+                        <p><strong>帳戶到期:</strong> {{ current_user.DUEDATE }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i data-feather="key"></i> 權限統計</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>總權限數:</strong> {{ user_permissions.total_permissions or 0 }}</p>
+                        <p><strong>角色數:</strong> {{ user_permissions.roles|length or 0 }}</p>
+                        <p><strong>直接權限:</strong> {{ user_permissions.direct_permissions|length or 0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i data-feather="users"></i> 我的角色</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if user_permissions.roles %}
+                            {% for role in user_permissions.roles %}
+                                <span class="badge bg-primary me-2">{{ role.name }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">沒有分配角色</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i data-feather="list"></i> 我的權限</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if user_permissions.permissions %}
+                            <div class="row">
+                                {% for permission in user_permissions.permissions %}
+                                    <div class="col-md-4 mb-2">
+                                        <span class="badge bg-secondary">{{ permission }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted">沒有權限</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i data-feather="activity"></i> 最近操作記錄</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_logs.logs %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>時間</th>
+                                            <th>操作</th>
+                                            <th>權限</th>
+                                            <th>結果</th>
+                                            <th>IP</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for log in recent_logs.logs %}
+                                            <tr>
+                                                <td>{{ log.timestamp }}</td>
+                                                <td>{{ log.action }}</td>
+                                                <td>{{ log.permission or '-' }}</td>
+                                                <td>
+                                                    {% if log.result %}
+                                                        <span class="badge bg-success">成功</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">失敗</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ log.ip_address or '-' }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">沒有操作記錄</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <h5>快速操作</h5>
+                <a href="/sign" class="btn btn-primary me-2"><i data-feather="clock"></i> 簽到系統</a>
+                <a href="/leave" class="btn btn-success me-2"><i data-feather="calendar"></i> 請假系統</a>
+                <a href="/permission/get_user_permissions" class="btn btn-info me-2"><i data-feather="refresh-cw"></i> 刷新權限</a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/dist/feather.min.js"></script>
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

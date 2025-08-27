@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDC 系統 - 電子資料擷取系統</title>
+    <link href="assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/fontawesome.min.css" rel="stylesheet">
+    <link href="assets/css/edc_dashboard.css" rel="stylesheet">
+
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- 用戶資訊區 -->
+        <div class="user-info">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2><i class="fas fa-user-circle"></i> 歡迎回來，<span id="userName">載入中...</span></h2>
+                    <p class="mb-1">用戶ID: <span id="userId">載入中...</span></p>
+                    <p class="mb-1">角色: <span id="userRole">載入中...</span></p>
+                    <p class="mb-0">登入時間: <span id="loginTime"></span></p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-outline-light btn-lg" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> 登出
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 統計資訊區 -->
+        <div class="stats-section">
+            <div class="stats-row">
+                <div class="stats-item">
+                    <div class="stats-card">
+                        <i class="fas fa-file-medical text-primary mb-2"></i>
+                        <div class="stats-number text-primary" id="totalCRFs">0</div>
+                        <div class="stats-label">總 CRF 數</div>
+                    </div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-card">
+                        <i class="fas fa-question-circle text-warning mb-2"></i>
+                        <div class="stats-number text-warning" id="pendingQueries">0</div>
+                        <div class="stats-label">待處理查詢</div>
+                    </div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-card">
+                        <i class="fas fa-user-check text-success mb-2"></i>
+                        <div class="stats-number text-success" id="signedCRFs">0</div>
+                        <div class="stats-label">已簽署 CRF</div>
+                    </div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-card">
+                        <i class="fas fa-users text-info mb-2"></i>
+                        <div class="stats-number text-info" id="activeUsers">0</div>
+                        <div class="stats-label">活躍用戶</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作區 -->
+        <div class="quick-actions">
+            <h4><i class="fas fa-bolt text-warning"></i> 快速操作</h4>
+            <div id="quickActions">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">載入中...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主要內容區域 -->
+        <div id="mainContent" class="main-content-area">
+            <!-- 動態內容將在這裡顯示 -->
+        </div>
+    </div>
+
+    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="assets/js/fontawesome.min.js"></script>
+    <script src="assets/js/chart.min.js"></script>
+    <script src="assets/js/edc/edc_loader.js"></script>
+
+</body>
+</html>

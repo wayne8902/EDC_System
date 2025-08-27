@@ -1,0 +1,7 @@
+Flask
+Flask-Login
+python-dotenv
+PyMySQL
+requests
+msal
+numpy

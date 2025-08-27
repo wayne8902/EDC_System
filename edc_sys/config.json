@@ -1,0 +1,18 @@
+{
+  "system_name": "EDC System",
+  "version": "1.0.0",
+  "sql_host": "localhost",
+  "sql_port": 3306,
+  "sql_user": "root",
+  "sql_passwd": "89020810",
+  "sql_dbname": "edc_sys",
+  "upload": {
+    "max_file_size": 10485760,
+    "allowed_extensions": ["pdf", "jpg", "jpeg", "png", "dicom"],
+    "upload_folder": "/uploads/edc/"
+  },
+  "api": {
+    "rate_limit": 100,
+    "timeout": 30
+  }
+}

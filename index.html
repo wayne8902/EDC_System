@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>EDC / eCRF 前端範例</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --primary:#155eef; --ok:#16a34a; --warn:#b45309; --danger:#dc2626; --muted:#6b7280; --bg:#f8fafc; --card:#ffffff; --line:#e5e7eb;
+      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    
+    * { box-sizing: border-box; }
+    
+    body{
+      font-family: system-ui, -apple-system, "PingFang TC","Noto Sans TC", sans-serif; 
+      background:var(--bg); 
+      color:#111827; 
+      margin:0;
+      line-height: 1.6;
+    }
+    
+    header{
+      padding:20px 24px; 
+      background:linear-gradient(135deg, #0b2fa6 0%, #155eef 100%);
+      color:#fff;
+      box-shadow: var(--shadow-lg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    h1{
+      font-size:24px; 
+      margin:0;
+      font-weight: 600;
+    }
+    
+    .wrap{
+      max-width:1200px; 
+      margin:32px auto; 
+      padding:0 20px;
+    }
+    
+    .grid{
+      display:grid; 
+      grid-template-columns: repeat(12,1fr); 
+      gap:20px;
+    }
+    
+    .card{
+      background:var(--card); 
+      border:1px solid var(--line); 
+      border-radius:12px; 
+      padding:24px;
+      box-shadow: var(--shadow);
+      transition: all 0.2s ease;
+    }
+    
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+    
+    .col-12{grid-column: span 12;}
+    .col-6{grid-column: span 6;}
+    .col-4{grid-column: span 4;}
+    .col-3{grid-column: span 3;}
+    
+    h2{
+      font-size:20px; 
+      margin:0 0 20px;
+      color: var(--primary);
+      font-weight: 600;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 8px;
+    }
+    
+    h3{
+      font-size:16px; 
+      margin:24px 0 12px; 
+      color:#374151;
+      font-weight: 500;
+    }
+    
+    label{
+      display:block; 
+      font-size:14px; 
+      color:#374151; 
+      margin:12px 0 6px;
+      font-weight: 500;
+    }
+    
+    input[type="text"], input[type="date"], input[type="number"], select, textarea{
+      width:100%; 
+      padding:12px 16px; 
+      border:2px solid var(--line); 
+      border-radius:8px; 
+      font-size:14px; 
+      background:#fff;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    
+    input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus, select:focus, textarea:focus{
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(21, 94, 239, 0.1);
+    }
+    
+    .row{
+      display:flex; 
+      gap:16px; 
+      align-items:center; 
+      flex-wrap:wrap;
+    }
+    
+    .hint{
+      font-size:12px; 
+      color:var(--muted);
+      margin-top: 6px;
+      font-style: italic;
+    }
+    
+    .pill{
+      display:inline-block; 
+      padding:6px 12px; 
+      border-radius:999px; 
+      font-size:12px; 
+      border:1px solid var(--line); 
+      background:#f3f4f6; 
+      margin-right:8px;
+      font-weight: 500;
+    }
+    
+    .role{
+      display:flex; 
+      gap:12px; 
+      align-items:center;
+    }
+    
+    .role select{
+      width:auto;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.1);
+      color: white;
+      font-size: 14px;
+    }
+    
+    .role select option {
+      background: white;
+      color: #111827;
+    }
+    
+    .readonly input, .readonly select, .readonly textarea{
+      background:#f8f9fa !important; 
+      pointer-events:none !important; 
+      opacity:.8 !important;
+      cursor: not-allowed !important;
+    }
+    
+    /* 確保非唯讀狀態下的正常樣式 */
+    input, select, textarea {
+      background: #fff !important;
+      pointer-events: auto !important;
+      opacity: 1 !important;
+      cursor: auto !important;
+    }
+    
+    /* 唯讀狀態樣式 */
+    body.readonly input, body.readonly select, body.readonly textarea {
+      background: #f8f9fa !important;
+      pointer-events: none !important;
+      opacity: 0.8 !important;
+      cursor: not-allowed !important;
+    }
+    
+    .actions{
+      display:flex; 
+      gap:16px; 
+      justify-content:flex-end; 
+      margin-top:24px;
+      flex-wrap: wrap;
+    }
+    
+    button{
+      border:0; 
+      padding:12px 20px; 
+      border-radius:8px; 
+      font-size:14px; 
+      cursor:pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      min-width: 100px;
+    }
+    
+    .btn-primary{
+      background:var(--primary); 
+      color:#fff;
+      box-shadow: var(--shadow);
+    }
+    
+    .btn-primary:hover {
+      background: #0f4fd8;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .btn-ghost{
+      background:#fff; 
+      border:2px solid var(--line);
+      color: #374151;
+    }
+    
+    .btn-ghost:hover {
+      background: #f9fafb;
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    
+    .btn-danger{
+      background:var(--danger); 
+      color:#fff;
+    }
+    
+    .btn-danger:hover {
+      background: #b91c1c;
+      transform: translateY(-1px);
+    }
+    
+    .tag-ok{color:#065f46; background:#d1fae5; border-color: #10b981;}
+    .tag-warn{color:#8a4b12; background:#fef3c7; border-color: #f59e0b;}
+    .tag-danger{color:#991b1b; background:#fee2e2; border-color: #ef4444;}
+    
+    .table{
+      width:100%; 
+      border-collapse:collapse; 
+      font-size:14px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    
+    .table th,.table td{
+      border-bottom:1px solid var(--line); 
+      padding:12px 16px; 
+      text-align:left;
+    }
+    
+    .table th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #374151;
+    }
+    
+    .table tr:hover {
+      background: #f9fafb;
+    }
+    
+    .flex-between{
+      display:flex; 
+      justify-content:space-between; 
+      align-items:center;
+    }
+    
+    .block{margin-top:12px;}
+    .inline{display:inline-block; margin-right:16px;}
+    
+    .error{
+      color:var(--danger); 
+      font-size:12px; 
+      margin-top:6px;
+      font-weight: 500;
+    }
+    
+    .success {
+      color: var(--ok);
+      font-size: 12px;
+      margin-top: 6px;
+      font-weight: 500;
+    }
+    
+    /* 響應式設計 */
+    @media (max-width: 768px) {
+      .wrap { padding: 0 16px; margin: 20px auto; }
+      .grid { gap: 16px; }
+      .card { padding: 20px; }
+      .col-3, .col-4 { grid-column: span 6; }
+      .actions { justify-content: center; }
+      .role { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+    
+    @media (max-width: 480px) {
+      .col-3, .col-4, .col-6 { grid-column: span 12; }
+      .row { flex-direction: column; align-items: stretch; }
+      .actions { flex-direction: column; }
+      button { width: 100%; }
+    }
+    
+    /* 確保表單元素的基本功能 */
+    input:not([disabled]), select:not([disabled]), textarea:not([disabled]) {
+      pointer-events: auto !important;
+      user-select: auto !important;
+    }
+    
+    /* 強制啟用表單交互 */
+    .card input, .card select, .card textarea {
+      pointer-events: auto !important;
+      user-select: auto !important;
+    }
+    
+    /* 動畫效果 */
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* 表單驗證樣式 */
+    .valid { border-color: var(--ok) !important; }
+    .invalid { border-color: var(--danger) !important; }
+    
+    /* 載入狀態 */
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    
+    .loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin: -10px 0 0 -10px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="flex-between">
+    <h1>EDC / eCRF 範例表單</h1>
+    <div class="role">
+      <span>目前角色：</span>
+      <select id="roleSelect" aria-label="role">
+        <option value="sysadmin">系統管理員（唯讀）</option>
+        <option value="sponsor">試驗委託者（唯讀）</option>
+        <option value="investigator">研究人員（可編輯）</option>
+        <option value="pi">試驗主持人（可編輯/簽章）</option>
+        <option value="monitor">試驗監測者（唯讀/可凍結）</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- 權限矩陣 -->
+  <section class="card col-12 fade-in">
+    <h2>權限矩陣</h2>
+    <div class="grid">
+      <div class="col-12">
+        <table class="table" aria-label="permissions">
+          <thead>
+            <tr>
+              <th>試驗角色</th>
+              <th>系統角色</th>
+              <th>系統操作權限</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>EDC系統管理員</td><td>系統管理員</td><td>帳號與權限設定（不參與資料輸入與修改）</td></tr>
+            <tr><td>試驗委託者</td><td>資料讀取者</td><td>資料審查（唯讀）</td></tr>
+            <tr><td>研究人員</td><td>資料編輯者</td><td>新增、編輯資料，回應監測者 Query</td></tr>
+            <tr><td>試驗主持人（PI）</td><td>資料編輯者 / 電子簽章者</td><td>新增、編輯、審查並簽屬 eCRF</td></tr>
+            <tr><td>試驗監測者（CRA）</td><td>資料審核者 / Query 發起者</td><td>資料審查與凍結（唯讀處理）</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 受試者識別 -->
+  <section class="card col-12 fade-in">
+    <h2>受試者識別與納入</h2>
+    <div class="grid">
+      <div class="col-4">
+        <label for="enrollDate">個案納入日期 <span style="color: var(--danger);">*</span></label>
+        <input id="enrollDate" type="date" required />
+        <div class="hint">格式：yyyy/mm/dd</div>
+        <div class="error" id="enrollDateErr" hidden>請選擇納入日期</div>
+      </div>
+      <div class="col-8">
+        <label for="subjectCode">受試者代碼 <span style="color: var(--danger);">*</span></label>
+        <input id="subjectCode" type="text" placeholder="P(1碼)+機構代碼(2碼)+流水號(4碼)，例：P01-0001" pattern="^P[A-Za-z0-9]{1}[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}$" />
+        <div class="hint">P(一碼)+試驗機構代碼(兩碼)+試驗者流水號(四碼)</div>
+        <div class="error" id="subjectCodeErr" hidden>請輸入正確格式的受試者代碼</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 系統輸入變項：基本、檢驗、病史 -->
+  <section class="card col-12 fade-in">
+    <h2>系統輸入變項</h2>
+    <h3>受試者基本資料</h3>
+    <div class="grid">
+      <div class="col-3">
+        <label for="sex">性別 <span style="color: var(--danger);">*</span></label>
+        <select id="sex" required>
+          <option value="">請選擇</option>
+          <option value="male">男</option>
+          <option value="female">女</option>
+        </select>
+        <div class="error" id="sexErr" hidden>請選擇性別</div>
+      </div>
+      <div class="col-3">
+        <label for="age">年齡（yrs） <span style="color: var(--danger);">*</span></label>
+        <input id="age" type="number" min="0" max="120" step="1" placeholder="整數" required />
+        <div class="error" id="ageErr" hidden>請輸入有效年齡</div>
+      </div>
+      <div class="col-3">
+        <label for="bmi">BMI（kg/m²） <span style="color: var(--danger);">*</span></label>
+        <input id="bmi" type="number" step="0.1" placeholder="小數一位" required />
+        <div class="error" id="bmiErr" hidden>請輸入有效BMI值</div>
+      </div>
+    </div>
+
+    <h3>檢驗資料</h3>
+    <div class="grid">
+      <div class="col-3">
+        <label for="egfr">eGFR（mL/min/1.73m²）</label>
+        <input id="egfr" type="number" step="0.1" min="0" />
+        <div class="hint">正常值：≥90</div>
+      </div>
+      <div class="col-3">
+        <label for="ph">尿液 pH</label>
+        <input id="ph" type="number" step="0.1" min="0" max="14" />
+        <div class="hint">正常值：4.5-8.0</div>
+      </div>
+      <div class="col-3">
+        <label for="sg">尿液比重（SG）</label>
+        <input id="sg" type="number" step="0.001" min="1.000" max="1.050" />
+        <div class="hint">正常值：1.005-1.030</div>
+      </div>
+      <div class="col-3">
+        <label for="rbc">尿液紅血球（RBC/HPF）</label>
+        <input id="rbc" type="number" step="0.5" min="0" />
+        <div class="hint">正常值：≤3</div>
+      </div>
+      <div class="col-3">
+        <label for="bac">是否菌尿（bacteriuria）</label>
+        <select id="bac">
+          <option value="">未填</option>
+          <option value="yes">是</option>
+          <option value="no">否</option>
+        </select>
+      </div>
+      <div class="col-3">
+        <label for="labDate">檢驗日期</label>
+        <input id="labDate" type="date" />
+      </div>
+    </div>
+
+    <h3>病史資料</h3>
+    <div class="grid">
+      <div class="col-3">
+        <label>糖尿病病史</label>
+        <div class="row">
+          <label class="inline"><input type="radio" name="dm" value="yes"> 有</label>
+          <label class="inline"><input type="radio" name="dm" value="no"> 無</label>
+        </div>
+        <input id="dmDate" type="text" placeholder="若有：診斷年份(yyyy)或日期(yyyy/mm/dd)" />
+      </div>
+      <div class="col-3">
+        <label>痛風病史</label>
+        <div class="row">
+          <label class="inline"><input type="radio" name="gout" value="yes"> 有</label>
+          <label class="inline"><input type="radio" name="gout" value="no"> 無</label>
+        </div>
+        <input id="goutDate" type="text" placeholder="若有：診斷年份(yyyy)或日期(yyyy/mm/dd)" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 影像資料 -->
+  <section class="card col-12 fade-in">
+    <h2>影像資料</h2>
+    <div class="grid">
+      <div class="col-3">
+        <label>影像檢查類型 <span style="color: var(--danger);">*</span></label>
+        <label class="inline"><input type="checkbox" name="imgType" value="CT"> CT</label>
+        <label class="inline"><input type="checkbox" name="imgType" value="PET-CT"> PET-CT</label>
+        <div class="error" id="imgTypeErr" hidden>至少勾選一項</div>
+      </div>
+      <div class="col-3">
+        <label for="imgDate">影像檢查日期 <span style="color: var(--danger);">*</span></label>
+        <input id="imgDate" type="date" required />
+        <div class="hint">不得為未來日期；與檢驗日期需在7日內</div>
+        <div class="error" id="imgDateErr" hidden>影像日期不可為未來，且需在檢驗日期±7日內</div>
+      </div>
+      <div class="col-3">
+        <label>腎結石診斷結果</label>
+        <div class="row">
+          <label class="inline"><input type="radio" name="stone" value="yes"> 是</label>
+          <label class="inline"><input type="radio" name="stone" value="no"> 否</label>
+          <label class="inline"><input type="radio" name="stone" value="unk"> 未知</label>
+        </div>
+      </div>
+      <div class="col-12">
+        <label for="imgReport">影像報告上傳（可多檔）</label>
+        <input id="imgReport" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.dcm" />
+        <div class="hint">至少上傳影像或報告其中之一；實務建議兩者皆留存</div>
+        <div class="success" id="fileUploadStatus" hidden></div>
+      </div>
+    </div>
+
+    <h3>影像可視性檢核（必填）</h3>
+    <div class="grid">
+      <div class="col-4"><label class="inline"><input type="checkbox" id="visKidney"> 影像可完整顯現腎臟結構</label></div>
+      <div class="col-4"><label class="inline"><input type="checkbox" id="visMidUreter"> 影像可完整顯現中輸尿管結構</label></div>
+      <div class="col-4"><label class="inline"><input type="checkbox" id="visLowerUreter"> 影像可完整顯現下輸尿管結構</label></div>
+      <div class="col-6"><label class="inline"><input type="checkbox" id="imgLabWithin7"> 影像與檢驗資料之時間間隔未超過7日</label></div>
+      <div class="col-6"><label class="inline"><input type="checkbox" id="noTx"> 檢查期間未有任何治療處置紀錄</label></div>
+    </div>
+  </section>
+
+  <!-- 藥物、手術 -->
+  <section class="card col-12 fade-in">
+    <h2>治療紀錄（選填）</h2>
+    <div class="grid">
+      <div class="col-12">
+        <h3>藥物</h3>
+        <div id="drugList"></div>
+        <button class="btn-ghost" type="button" onclick="addDrug()">+ 新增藥物</button>
+      </div>
+      <div class="col-12">
+        <h3>手術</h3>
+        <div id="surgList"></div>
+        <button class="btn-ghost" type="button" onclick="addSurg()">+ 新增手術</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 納入條件 -->
+  <section class="card col-12 fade-in">
+    <h2>納入條件檢核</h2>
+    <div class="grid">
+      <div class="col-3"><label class="inline"><input type="checkbox" id="age18"> 患者是否為18歲以上</label></div>
+      <!-- 其餘條件已在影像可視性檢核區塊呈現 -->
+    </div>
+    <div class="block">
+      <span class="pill tag-warn" id="eligHint">尚未完成所有必填檢核</span>
+    </div>
+  </section>
+
+  <!-- 動作 -->
+  <section class="card col-12 fade-in" id="actionBar">
+    <div class="actions">
+      <button class="btn-ghost" type="button" onclick="testForm()" id="testBtn">測試表單</button>
+      <button class="btn-ghost" type="button" onclick="saveDraft()" id="saveBtn">儲存草稿</button>
+      <button class="btn-primary" type="button" onclick="submitForm()" id="submitBtn">提交 eCRF</button>
+      <button class="btn-danger" type="button" id="signBtn" onclick="eSign()" hidden>PI 電子簽章</button>
+    </div>
+  </section>
+</div>
+
+<script>
+  // 角色權限：切換唯讀/可編輯/可簽章狀態
+  const roleSelect = document.getElementById('roleSelect');
+  const actionBar = document.getElementById('actionBar');
+  const signBtn = document.getElementById('signBtn');
+
+  function applyRole(role){
+    const formRoot = document.body;
+    const readOnlyRoles = ['sysadmin','sponsor','monitor'];
+    const canSignRoles = ['pi'];
+
+    console.log('Applying role:', role, 'Readonly:', readOnlyRoles.includes(role));
+
+    // 移除之前的唯讀狀態
+    formRoot.classList.remove('readonly');
+    
+    // 只有唯讀角色才添加唯讀狀態
+    if (readOnlyRoles.includes(role)) {
+      formRoot.classList.add('readonly');
+      console.log('Added readonly class');
+    } else {
+      console.log('Form is editable');
+    }
+    
+    signBtn.hidden = !canSignRoles.includes(role);
+    
+    // 更新按鈕狀態
+    const saveBtn = document.getElementById('saveBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (readOnlyRoles.includes(role)) {
+      saveBtn.disabled = true;
+      submitBtn.disabled = true;
+      saveBtn.textContent = '唯讀模式';
+      submitBtn.textContent = '唯讀模式';
+    } else {
+      saveBtn.disabled = false;
+      submitBtn.disabled = false;
+      saveBtn.textContent = '儲存草稿';
+      submitBtn.textContent = '提交 eCRF';
+    }
+  }
+  
+  roleSelect.addEventListener('change', e => applyRole(e.target.value));
+  applyRole(roleSelect.value);
+
+  // 動態新增：藥物與手術
+  function addDrug(){
+    const id = `drug-${crypto.randomUUID().slice(0,8)}`;
+    const wrap = document.createElement('div');
+    wrap.className='row block fade-in';
+    wrap.innerHTML = `
+      <input type="date" aria-label="藥物開立日期" />
+      <input type="text" placeholder="藥物名稱" />
+      <button class="btn-ghost" type="button" onclick="removeItem(this)">刪除</button>
+    `;
+    document.getElementById('drugList').appendChild(wrap);
+  }
+  
+  function addSurg(){
+    const wrap = document.createElement('div');
+    wrap.className='row block fade-in';
+    wrap.innerHTML = `
+      <input type="date" aria-label="手術日期" />
+      <input type="text" placeholder="手術名稱" />
+      <button class="btn-ghost" type="button" onclick="removeItem(this)">刪除</button>
+    `;
+    document.getElementById('surgList').appendChild(wrap);
+  }
+  
+  function removeItem(btn) {
+    btn.parentElement.style.animation = 'fadeOut 0.3s ease-out';
+    setTimeout(() => btn.parentElement.remove(), 300);
+  }
+
+  // 表單驗證
+  function validateField(fieldId, errorId, validator) {
+    const field = document.getElementById(fieldId);
+    const error = document.getElementById(errorId);
+    
+    // 確保元素存在
+    if (!field || !error) {
+      console.warn(`Validation elements not found: ${fieldId}, ${errorId}`);
+      return false;
+    }
+    
+    const isValid = validator(field.value);
+    
+    error.hidden = isValid;
+    field.classList.toggle('valid', isValid && field.value);
+    field.classList.toggle('invalid', !isValid && field.value);
+    
+    return isValid;
+  }
+
+  // 驗證：影像日期不可為未來，且需與檢驗日期<=7日
+  const imgDateEl = document.getElementById('imgDate');
+  const labDateEl = document.getElementById('labDate');
+  const imgDateErr = document.getElementById('imgDateErr');
+  const imgTypeErr = document.getElementById('imgTypeErr');
+
+  function daysBetween(a,b){
+    const ms = Math.abs(a.getTime() - b.getTime());
+    return Math.floor(ms / (1000*60*60*24));
+  }
+
+  function validateImaging(){
+    const today = new Date(); today.setHours(0,0,0,0);
+    const img = imgDateEl.value ? new Date(imgDateEl.value) : null;
+    const lab = labDateEl.value ? new Date(labDateEl.value) : null;
+
+    let ok = true;
+    if(img && img > today) ok = false;
+    if(img && lab){
+      if(daysBetween(img, lab) > 7) ok = false;
+    }
+    imgDateErr.hidden = ok;
+    
+    // 勾選至少一個影像類型
+    const checkedAny = [...document.querySelectorAll('input[name="imgType"]')].some(i=>i.checked);
+    imgTypeErr.hidden = checkedAny;
+    
+    // 更新樣式
+    imgDateEl.classList.toggle('valid', ok && img);
+    imgDateEl.classList.toggle('invalid', !ok && img);
+    
+    return ok && checkedAny;
+  }
+  
+  // 確保元素存在後再添加事件監聽器
+  if (imgDateEl) {
+    imgDateEl.addEventListener('change', validateImaging);
+  }
+  if (labDateEl) {
+    labDateEl.addEventListener('change', validateImaging);
+  }
+  document.querySelectorAll('input[name="imgType"]').forEach(i=>i.addEventListener('change', validateImaging));
+
+  // 納入條件狀態提示
+  const eligHint = document.getElementById('eligHint');
+  const reqChecks = ['visKidney','visMidUreter','visLowerUreter','imgLabWithin7','noTx','age18'];
+  
+  // 確保元素存在後再添加事件監聽器
+  function setupEligibilityListeners() {
+    reqChecks.forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) {
+        el.addEventListener('change', updateEligibility);
+      }
+    });
+  }
+  
+  function updateEligibility(){
+    const allOk = reqChecks.every(id=>{
+      const el = document.getElementById(id);
+      return el ? el.checked : true;
+    });
+    eligHint.textContent = allOk ? '納入條件已達成（可提交）' : '尚未完成所有必填檢核';
+    eligHint.className = 'pill ' + (allOk ? 'tag-ok' : 'tag-warn');
+    return allOk;
+  }
+  updateEligibility();
+
+  // 文件上傳處理
+  function setupFileUploadListener() {
+    const fileInput = document.getElementById('imgReport');
+    const fileStatus = document.getElementById('fileUploadStatus');
+    
+    if (fileInput && fileStatus) {
+      fileInput.addEventListener('change', function(e) {
+        const files = e.target.files;
+        if (files.length > 0) {
+          const fileNames = Array.from(files).map(f => f.name).join(', ');
+          fileStatus.textContent = `已選擇 ${files.length} 個檔案：${fileNames}`;
+          fileStatus.hidden = false;
+          fileStatus.className = 'success';
+        } else {
+          fileStatus.hidden = true;
+        }
+      });
+    }
+  }
+
+  // 提交/儲存/簽章（示意）
+  function saveDraft(){
+    if (roleSelect.value === 'sysadmin' || roleSelect.value === 'sponsor' || roleSelect.value === 'monitor') {
+      alert('唯讀模式無法儲存');
+      return;
+    }
+    
+    const btn = document.getElementById('saveBtn');
+    btn.classList.add('loading');
+    btn.textContent = '儲存中...';
+    
+    setTimeout(() => {
+      btn.classList.remove('loading');
+      btn.textContent = '儲存草稿';
+      alert('草稿已儲存（示意）。實務請串接後端並保留稽核軌跡。');
+    }, 1000);
+  }
+  
+  function submitForm(){
+    // 基本必填校驗
+    const requiredFields = [
+      { id: 'enrollDate', errorId: 'enrollDateErr', validator: v => v.trim() !== '' },
+      { id: 'subjectCode', errorId: 'subjectCodeErr', validator: v => /^P[A-Za-z0-9]{1}[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}$/.test(v) },
+      { id: 'sex', errorId: 'sexErr', validator: v => v.trim() !== '' },
+      { id: 'age', errorId: 'ageErr', validator: v => v > 0 && v <= 120 },
+      { id: 'bmi', errorId: 'bmiErr', validator: v => v > 0 && v < 100 }
+    ];
+    
+    let allValid = true;
+    requiredFields.forEach(field => {
+      if (!validateField(field.id, field.errorId, field.validator)) {
+        allValid = false;
+      }
+    });
+    
+    if (!validateImaging()) allValid = false;
+    if (!updateEligibility()) allValid = false;
+    
+    if (!allValid) {
+      alert('請完成必填欄位與檢核。');
+      return;
+    }
+    
+    const btn = document.getElementById('submitBtn');
+    btn.classList.add('loading');
+    btn.textContent = '提交中...';
+    
+    setTimeout(() => {
+      btn.classList.remove('loading');
+      btn.textContent = '提交 eCRF';
+      alert('已提交 eCRF（示意）。');
+    }, 1500);
+  }
+  
+  function eSign(){
+    if(roleSelect.value !== 'pi'){ 
+      alert('僅 PI 可簽章'); 
+      return; 
+    }
+    
+    const btn = document.getElementById('signBtn');
+    btn.classList.add('loading');
+    btn.textContent = '簽章中...';
+    
+    setTimeout(() => {
+      btn.classList.remove('loading');
+      btn.textContent = 'PI 電子簽章';
+      alert('電子簽章完成（示意）。');
+    }, 2000);
+  }
+  
+  // 測試表單功能
+  function testForm() {
+    console.log('=== 表單測試 ===');
+    console.log('當前角色:', roleSelect.value);
+    console.log('Body readonly class:', document.body.classList.contains('readonly'));
+    
+    // 測試輸入框
+    const testInputs = ['enrollDate', 'subjectCode', 'sex', 'age', 'bmi'];
+    testInputs.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        console.log(`${id}:`, {
+          disabled: el.disabled,
+          readonly: el.readOnly,
+          pointerEvents: window.getComputedStyle(el).pointerEvents,
+          userSelect: window.getComputedStyle(el).userSelect,
+          value: el.value
+        });
+      } else {
+        console.log(`${id}: 元素不存在`);
+      }
+    });
+    
+    // 測試下拉選單
+    const testSelects = ['sex', 'roleSelect'];
+    testSelects.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        console.log(`${id} select:`, {
+          disabled: el.disabled,
+          options: Array.from(el.options).map(opt => opt.value),
+          selectedIndex: el.selectedIndex
+        });
+      }
+    });
+    
+    alert('請查看瀏覽器控制台的測試結果');
+  }
+
+  // 即時驗證 - 確保元素存在後再添加事件監聽器
+  function setupValidationListeners() {
+    const enrollDate = document.getElementById('enrollDate');
+    const subjectCode = document.getElementById('subjectCode');
+    const sex = document.getElementById('sex');
+    const age = document.getElementById('age');
+    const bmi = document.getElementById('bmi');
+    
+    if (enrollDate) {
+      enrollDate.addEventListener('change', function() {
+        validateField('enrollDate', 'enrollDateErr', v => v.trim() !== '');
+      });
+    }
+    
+    if (subjectCode) {
+      subjectCode.addEventListener('input', function() {
+        validateField('subjectCode', 'subjectCodeErr', v => /^P[A-Za-z0-9]{1}[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}$/.test(v));
+      });
+    }
+    
+    if (sex) {
+      sex.addEventListener('change', function() {
+        validateField('sex', 'sexErr', v => v.trim() !== '');
+      });
+    }
+    
+    if (age) {
+      age.addEventListener('input', function() {
+        validateField('age', 'ageErr', v => v > 0 && v <= 120);
+      });
+    }
+    
+    if (bmi) {
+      bmi.addEventListener('input', function() {
+        validateField('bmi', 'bmiErr', v => v > 0 && v < 100);
+      });
+    }
+  }
+
+  // 頁面載入完成後的初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    // 添加載入動畫
+    document.querySelectorAll('.fade-in').forEach((el, index) => {
+      el.style.animationDelay = `${index * 0.1}s`;
+    });
+    
+    // 設置驗證監聽器
+    setupValidationListeners();
+    
+    // 設置納入條件監聽器
+    setupEligibilityListeners();
+    
+    // 設置文件上傳監聽器
+    setupFileUploadListener();
+    
+    // 初始化表單狀態
+    updateEligibility();
+    
+    // 確保預設角色是研究人員（可編輯）
+    console.log('Initial role:', roleSelect.value);
+    if (roleSelect.value === 'sysadmin') {
+      roleSelect.value = 'investigator';
+      console.log('Changed role to investigator');
+    }
+    applyRole(roleSelect.value);
+  });
+</script>
+</body>
+</html>

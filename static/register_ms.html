@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html data-bs-theme="light" lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>確認使用者資訊</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/3979logo_text.png">
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i&amp;display=swap">
+    <link rel="stylesheet" href="assets/fonts/fontawesome-all.min.css">
+</head>
+
+<body class="bg-gradient-primary">
+    <div class="container">
+        <div class="card shadow-lg o-hidden border-0 my-5">
+            <div class="card-body p-0">
+                <div class="row">
+                    <div class="col-lg-5 d-none d-lg-flex">
+                        <div class="flex-grow-1 bg-register-image"
+                            style="background-image: url(&quot;assets/img/dogs/image2.jpeg&quot;);"></div>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="p-5">
+                            <div class="text-center">
+                                <h4 class="text-dark mb-4">請確認您的資訊</h4>
+                            </div>
+                            <form id="confirmForm" class="user">
+                                <div class="mb-3">
+                                    <label class="form-label">姓名</label>
+                                    <input class="form-control form-control-user" type="text" id="displayName" name="displayName" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">員工編號</label>
+                                    <input class="form-control form-control-user" type="text" id="unique_id" name="unique_id" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">電子郵件</label>
+                                    <input class="form-control form-control-user" type="text" id="mail" name="mail" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">手機</label>
+                                    <input class="form-control form-control-user" type="text" id="mobilePhone" name="mobilePhone" readonly>
+                                </div>
+                                <button class="btn btn-primary d-block btn-user w-100" type="submit">確認</button>
+                            </form>
+                            <div class="text-center mt-3">
+                                <a class="small" href="login.html">返回登入</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var user_info = null;
+        window.onload = function() {
+            var info = localStorage.getItem('register_user_info');
+            if (info) {
+                user_info = JSON.parse(info);
+                console.log(user_info.id)
+                document.getElementById('displayName').value = user_info.displayName || '';
+                document.getElementById('mail').value = user_info.mail || '';
+                document.getElementById('mobilePhone').value = user_info.mobilePhone || '';
+                // localStorage.removeItem('register_user_info');
+            }
+        };
+        document.getElementById('confirmForm').addEventListener('submit', async function(e){
+            e.preventDefault();
+            const data = {
+                ms_id: user_info ? user_info.id : '',
+                displayName: document.getElementById('displayName').value,
+                unique_id: document.getElementById('unique_id').value,
+                mail: document.getElementById('mail').value,
+                mobilePhone: document.getElementById('mobilePhone').value
+            };
+
+            try {
+                const response = await fetch('/login/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if(result.status === 'success'){
+                    alert('註冊成功！');
+                    window.location.href = '/login/sign_sys';
+                } else {
+                    alert('註冊失敗：' + (result.msg || ''));
+                }
+            } catch (err) {
+                alert('發生錯誤，請稍後再試');
+            }
+        });
+    </script>
+    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="assets/js/script.min.js"></script>
+</body>
+
+</html>

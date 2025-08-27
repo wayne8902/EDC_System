@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>權限管理儀表板</title>
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/fontawesome.min.css" rel="stylesheet">
+    <style>
+        .permission-card {
+            border-left: 4px solid #007bff;
+            margin-bottom: 20px;
+        }
+        .permission-card.has-permission {
+            border-left-color: #28a745;
+        }
+        .permission-card.no-permission {
+            border-left-color: #dc3545;
+        }
+        .user-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .permission-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .permission-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .permission-badge {
+            font-size: 0.8em;
+            padding: 4px 8px;
+        }
+        .role-badge {
+            background: #17a2b8;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- 用戶資訊區 -->
+        <div class="user-info">
+            <div class="row">
+                <div class="col-md-8">
+                    <h2><i class="fas fa-user-circle"></i> 歡迎回來，<span id="userName">載入中...</span></h2>
+                    <p class="mb-0">用戶ID: <span id="userId">載入中...</span></p>
+                    <p class="mb-0">登入時間: <span id="loginTime"></span></p>
+                </div>
+                <div class="col-md-4 text-right">
+                    <button class="btn btn-outline-light" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> 登出
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 權限測試區 -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="permission-section">
+                    <h4><i class="fas fa-key"></i> 權限測試</h4>
+                    <div class="form-group">
+                        <label for="testPermission">測試權限:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="testPermission" 
+                                   placeholder="例如: users.delete, leave.approve" 
+                                   value="reports.view">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" onclick="testPermission()">
+                                    <i class="fas fa-search"></i> 測試
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="permissionResult" class="mt-3"></div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="permission-section">
+                    <h4><i class="fas fa-sync-alt"></i> 權限刷新</h4>
+                    <button class="btn btn-success btn-block" onclick="refreshPermissions()">
+                        <i class="fas fa-sync-alt"></i> 刷新權限資訊
+                    </button>
+                    <div class="mt-3">
+                        <small class="text-muted">點擊按鈕重新載入您的權限資訊</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 權限概覽區 -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="permission-section">
+                    <h4><i class="fas fa-list"></i> 直接權限</h4>
+                    <div id="directPermissions">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> 載入中...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="permission-section">
+                    <h4><i class="fas fa-users"></i> 角色權限</h4>
+                    <div id="rolePermissions">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> 載入中...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 權限詳細列表 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="permission-section">
+                    <h4><i class="fas fa-th-list"></i> 所有權限列表</h4>
+                    <div id="allPermissions">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> 載入中...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/bootstrap.min.js"></script>
+    <script src="assets/js/fontawesome.min.js"></script>
+    <script>
+        // 頁面載入時執行
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserInfo();
+            loadUserPermissions();
+            updateLoginTime();
+        });
+
+        // 載入用戶資訊
+        function loadUserInfo() {
+            // 從 cookie 或 session 獲取用戶資訊
+            const userName = getCookie('user_id') || '未知用戶';
+            const uniqueId = getCookie('unique_id') || '未知ID';
+            
+            document.getElementById('userName').textContent = decodeURIComponent(userName);
+            document.getElementById('userId').textContent = uniqueId;
+        }
+
+        // 更新登入時間
+        function updateLoginTime() {
+            const now = new Date();
+            document.getElementById('loginTime').textContent = now.toLocaleString('zh-TW');
+        }
+
+        // 載入用戶權限
+        function loadUserPermissions() {
+            fetch('/permission/get_user_permissions')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        displayDirectPermissions(data.direct_permissions);
+                        displayRolePermissions(data.roles);
+                        displayAllPermissions(data.permissions);
+                    } else {
+                        console.error('載入權限失敗:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('載入權限時出錯:', error);
+                });
+        }
+
+        // 顯示直接權限
+        function displayDirectPermissions(permissions) {
+            const container = document.getElementById('directPermissions');
+            if (permissions && permissions.length > 0) {
+                let html = '';
+                permissions.forEach(permission => {
+                    html += `
+                        <div class="permission-item">
+                            <span><i class="fas fa-check-circle text-success"></i> ${permission}</span>
+                            <span class="badge badge-success permission-badge">直接授予</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="text-muted">無直接權限</div>';
+            }
+        }
+
+        // 顯示角色權限
+        function displayRolePermissions(roles) {
+            const container = document.getElementById('rolePermissions');
+            if (roles && roles.length > 0) {
+                let html = '';
+                roles.forEach(role => {
+                    html += `
+                        <div class="permission-item">
+                            <div>
+                                <strong>${role.name}</strong>
+                                <div class="mt-1">
+                                    ${role.permissions.map(p => `<span class="role-badge">${p}</span>`).join('')}
+                                </div>
+                            </div>
+                            <span class="badge badge-info permission-badge">角色權限</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="text-muted">無角色權限</div>';
+            }
+        }
+
+        // 顯示所有權限
+        function displayAllPermissions(permissions) {
+            const container = document.getElementById('allPermissions');
+            if (permissions && permissions.length > 0) {
+                let html = '';
+                permissions.forEach(permission => {
+                    html += `
+                        <div class="permission-item">
+                            <span><i class="fas fa-key"></i> ${permission}</span>
+                            <span class="badge badge-primary permission-badge">有效權限</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="text-muted">無權限</div>';
+            }
+        }
+
+        // 測試權限
+        function testPermission() {
+            const permission = document.getElementById('testPermission').value.trim();
+            if (!permission) {
+                alert('請輸入要測試的權限');
+                return;
+            }
+            
+            fetch(`/permission/check_permission?permission=${encodeURIComponent(permission)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const resultDiv = document.getElementById('permissionResult');
+                    if (data.status === 'success') {
+                        const hasPermission = data.has_permission;
+                        const source = data.source || 'unknown';
+                        
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-${hasPermission ? 'success' : 'danger'}">
+                                <h6>權限測試結果</h6>
+                                <p><strong>權限:</strong> ${permission}</p>
+                                <p><strong>結果:</strong> ${hasPermission ? '✓ 有權限' : '✗ 無權限'}</p>
+                                <p><strong>來源:</strong> ${source}</p>
+                                ${data.role ? `<p><strong>角色:</strong> ${data.role}</p>` : ''}
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-warning">
+                                <h6>測試失敗</h6>
+                                <p>${data.message || '未知錯誤'}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('測試權限時出錯:', error);
+                    document.getElementById('permissionResult').innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6>測試失敗</h6>
+                            <p>網路錯誤或伺服器無回應</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // 刷新權限
+        function refreshPermissions() {
+            loadUserPermissions();
+            updateLoginTime();
+        }
+
+        // 登出
+        function logout() {
+            if (confirm('確定要登出嗎？')) {
+                window.location.href = '/login/logout';
+            }
+        }
+
+        // 獲取 cookie 值
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+    </script>
+</body>
+</html>

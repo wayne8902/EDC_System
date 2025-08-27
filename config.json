@@ -1,0 +1,9 @@
+{
+        "crt_path":"/home/adpei/cert/cert.pem",
+        "key_path":"/home/adpei/cert/privkey.pem",
+        "domain":"webservice.united-khh.com.tw",
+        "port":"8000",
+        "sql_host":"localhost",
+        "sql_port":3306,
+        "sql_dbname":"istone_finance_db"
+}

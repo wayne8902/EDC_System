@@ -1,0 +1,45 @@
+{
+  "message": {
+    "subject": "測試郵件主旨",
+    "body": {
+      "contentType": "HTML",
+      "content": "<h2>這是 HTML 格式內容</h2><p>這是一封自動寄送的測試郵件。</p>"
+    },
+    "toRecipients": [
+      {
+        "emailAddress": {
+          "address": "to_user1@example.com"
+        }
+      },
+      {
+        "emailAddress": {
+          "address": "to_user2@example.com"
+        }
+      }
+    ],
+    "ccRecipients": [
+      {
+        "emailAddress": {
+          "address": "cc_user@example.com"
+        }
+      }
+    ],
+    "bccRecipients": [
+      {
+        "emailAddress": {
+          "address": "bcc_user@example.com"
+        }
+      }
+    ],
+    "attachments": [
+      {
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        "name": "hello.txt",
+        "contentType": "text/plain",
+        "contentBytes": "aGVsbG8gd29ybGQh"  // base64 編碼內容
+      }
+    ]
+    // 你也可以加入 replyTo、importance、internetMessageHeaders 等進階欄位
+  },
+  "saveToSentItems": true
+}
