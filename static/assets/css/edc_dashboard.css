@@ -527,7 +527,7 @@ body {
 .main-content-area .col-9 { grid-column: span 4; }
 .main-content-area .col-10 { grid-column: span 5; }
 .main-content-area .col-11 { grid-column: span 5; }
-.main-content-area .col-12 { grid-column: span 6; }
+.main-content-area .col-12 { grid-column: span 12; }
 
 /* 特殊寬度調整 - 讓某些欄位更寬 */
 .main-content-area .col-2-wide { grid-column: span 4; } /* 比col-2更寬的選項 */

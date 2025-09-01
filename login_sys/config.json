@@ -2,6 +2,6 @@
     "sql_host":"localhost",
     "sql_port":3306,
     "sql_user":"root",
-    "sql_passwd":"89020810",
+    "sql_passwd":"password",
     "sql_dbname":"united_khh"
 }

@@ -13,9 +13,6 @@ edc_sys/
 ├── __init__.py              # 系統初始化，導出主要組件
 ├── b_edc.py                # 主要 Blueprint 路由
 ├── edc_function.py         # 核心業務邏輯
-├── models.py               # 資料模型定義
-├── database.py             # 資料庫操作
-├── config.py               # 系統配置
 ├── config.json             # 配置檔案
 └── README.md               # 系統說明
 ```

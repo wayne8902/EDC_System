@@ -48,6 +48,7 @@ const DataEntryManager = {
     async handleFormSubmit(form) {
         if (this.validateForm(form)) {
             const formData = this.collectFormData(form);
+            console.log('formData: ', formData);
             await this.submitData(formData);
         }
     },
@@ -163,6 +164,11 @@ const DataEntryManager = {
                 height_cm: form.querySelector('#height')?.value,
                 weight_kg: form.querySelector('#weight')?.value,
                 bmi: form.querySelector('#bmi')?.getAttribute('data-precise-value') || form.querySelector('#bmi')?.value,
+                scr: form.querySelector('#scr')?.value,
+                egfr: form.querySelector('#egfr')?.value,
+                ph: form.querySelector('#ph')?.value,
+                sg: form.querySelector('#sg')?.value,
+                rbc: form.querySelector('#rbc')?.value,
                 bac: form.querySelector('input[name="bacteriuria"]:checked')?.value,
                 dm: form.querySelector('input[name="dm"]:checked')?.value,
                 gout: form.querySelector('input[name="gout"]:checked')?.value,
@@ -604,10 +610,10 @@ function eSign() {
 }
 
 // 顯示研究人員表單
-function showResearcherForm() {
+async function showResearcherForm() {
     const mainContent = document.getElementById('mainContent');
     if (mainContent) {
-        mainContent.innerHTML = generateResearcherFormHTML();
+        mainContent.innerHTML = await generateResearcherFormHTML();
         initializeResearcherForm();
     }
 }
@@ -647,15 +653,22 @@ function fillDebugValues() {
         'height': '170',
         'weight': '70',
         'biochemDate': today,
-        'creatinine': '1.0',
+        'scr': '1.0',
         'egfr': '90.0',
-        'bac': '0',
-        'imgDate': today,
-        'imgReadingReport': 'DEBUG: 影像檢查報告摘要',
-        // 尿液檢驗資料
         'ph': '6.5',
         'sg': '1.020',
         'rbc': '2',
+        'bac': '0',
+        'dm': '0',
+        'gout': '0',
+        'imaging_type': 'CT',
+        'imaging_date': today,
+        'kidney_stone_diagnosis': '0',
+        'imaging_report_summary': 'DEBUG: 影像檢查報告摘要',
+        'imgDate': today,
+        'imgReadingReport': 'DEBUG: 影像檢查報告摘要',
+        // 尿液檢驗資料
+
         'urineDate': today,
         'urinalysisDate': today
     };
@@ -1045,512 +1058,21 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // 生成研究人員表單 HTML
-function generateResearcherFormHTML() {
-    return `
-        <div class="wrap">
-            <!-- DEBUG 模式開關 -->
-            <section class="card col-12 fade-in" style="background-color: #fff3cd; border: 1px solid #ffeaa7;">
-                <h2 style="color: #856404;">🐛 DEBUG 模式</h2>
-                <div class="grid">
-                    <div class="col-12">
-                        <label class="inline">
-                            <input type="checkbox" id="debugMode" onchange="toggleDebugMode()"> 
-                            啟用 DEBUG 模式（自動填入預設值）
-                        </label>
-                        <div class="hint" style="color: #856404;">
-                            開啟後會自動填入：納入條件全部為1，排除條件全部為0，以及一些基本預設值
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 受試者識別 -->
-            <section class="card col-12 fade-in">
-                <h2>受試者識別與納入</h2>
-                <div class="grid">
-                    <div class="col-9">
-                        <label for="enrollDate">個案納入日期 <span style="color: var(--danger);">*</span></label>
-                        <input id="enrollDate" type="date" required />
-                        <div class="hint">格式：yyyy/mm/dd</div>
-                        <div class="error" id="enrollDateErr" hidden>請選擇納入日期</div>
-                    </div>
-                    <div class="col-9">
-                        <label for="subjectCode">受試者代碼 <span style="color: var(--danger);">*</span></label>
-                        <input id="subjectCode" type="text" placeholder="P(1碼)+機構代碼(2碼)+流水號(4碼)，例：P01-0001" pattern="^P[A-Za-z0-9]{2}?[A-Za-z0-9]{4}$" />
-                        <div class="hint">P(一碼)+試驗機構代碼(兩碼)+試驗者流水號(四碼)</div>
-                        <div class="error" id="subjectCodeErr" hidden>請輸入正確格式的受試者代碼</div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 索引頁導航 -->
-            <div class="tab-navigation col-12">
-                <button class="tab-btn active" data-tab="subject">受試者特性資料</button>
-                <button class="tab-btn" data-tab="criteria">納入條件</button>
-                <button class="tab-btn" data-tab="exclusion">排除條件</button>
-            </div>
-
-            <!-- 受試者特性資料頁 -->
-            <div id="subject-tab" class="tab-content active">
-                <!-- 基本資料 -->
-                <section class="card col-12 fade-in">
-                    <h2>受試者基本資料</h2>
-                    <div class="grid">
-                        <div class="col-9">
-                            <label>性別 <span style="color: var(--danger);">*</span></label>
-                            <div class="row">
-                                <label class="inline"><input type="radio" name="gender" value="1"> 男</label>
-                                <label class="inline"><input type="radio" name="gender" value="0"> 女</label>
-                            </div>
-                        </div>
-                        <div class="col-9">
-                            <label for="birthDate">出生日期 <span style="color: var(--danger);">*</span></label>
-                            <input id="birthDate" type="date" value="1990-01-01" required />
-                            <div class="hint">格式：yyyy/mm/dd</div>
-                            <div class="error" id="birthDateErr" hidden>請選擇出生日期</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="age">年齡（yrs） <span style="color: var(--danger);">*</span></label>
-                            <input id="age" type="number" min="0" max="120" step="1" placeholder="自動計算" readonly required />
-                            <div class="hint">系統根據出生日期自動計算</div>
-                            <div class="error" id="ageErr" hidden>請選擇出生日期以計算年齡</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="measureDate">身高體重測量日期 <span style="color: var(--danger);">*</span></label>
-                            <input id="measureDate" type="date" required />
-                            <div class="hint">格式：yyyy/mm/dd</div>
-                            <div class="error" id="measureDateErr" hidden>請選擇測量日期</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="height">身高（cm） <span style="color: var(--danger);">*</span></label>
-                            <input id="height" type="number" step="0.1" min="0" required />
-                            <div class="error" id="heightErr" hidden>請輸入有效身高</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="weight">體重（kg） <span style="color: var(--danger);">*</span></label>
-                            <input id="weight" type="number" step="0.1" min="0" required />
-                            <div class="error" id="weightErr" hidden>請輸入有效體重</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="bmi">BMI（kg/m²） <span style="color: var(--danger);">*</span></label>
-                            <input id="bmi" type="number" step="0.1" placeholder="自動計算" readonly />
-                            <div class="hint">由身高體重自動計算，單位：kg/m²（顯示一位小數，實際保存三位小數）</div>
-                            <div class="error" id="bmiErr" hidden>請輸入有效的身高和體重</div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 檢驗資料 -->
-                <section class="card col-12 fade-in">
-                    <h2>檢驗資料</h2>
-                    <h3>生化檢驗</h3>
-                    <div class="grid">
-                        <div class="col-9">
-                            <label for="biochemDate">生化檢驗-採檢日期 <span style="color: var(--danger);">*</span></label>
-                            <input id="biochemDate" type="date" required />
-                            <div class="hint">格式：yyyy/mm/dd</div>
-                            <div class="error" id="biochemDateErr" hidden>請選擇採檢日期</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="creatinine">血清肌酸酐濃度（mg/dL）</label>
-                            <input id="creatinine" type="number" step="0.01" min="0" step="0.01" />
-                            <div class="hint">正常值：0.6-1.2 mg/dL</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="egfr">eGFR（mL/min/1.73m²） <span style="color: var(--danger);">*</span></label>
-                            <input id="egfr" type="number" step="0.1" min="0" required />
-                            <div class="hint">正常值：≥90 mL/min/1.73m²（可手動輸入或由肌酸酐自動計算，使用IDMS-MDRD公式）</div>
-                            <div class="error" id="egfrErr" hidden>請輸入eGFR值</div>
-                        </div>
-                    </div>
-                    <h3>尿液檢驗</h3>
-                    <div class="grid">
-                        <div class="col-9">
-                            <label for="urineDate">尿液檢驗-採檢日期 <span style="color: var(--danger);">*</span></label>
-                            <input id="urineDate" type="date" required />
-                            <div class="hint">格式：yyyy/mm/dd</div>
-                            <div class="error" id="urineDateErr" hidden>請選擇採檢日期</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="ph">尿液 pH <span style="color: var(--danger);">*</span></label>
-                            <input id="ph" type="number" step="0.1" min="0" max="14" required />
-                            <div class="hint">正常值：4.5-8.0</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="sg">尿液比重（SG） <span style="color: var(--danger);">*</span></label>
-                            <input id="sg" type="number" step="0.001" min="1.000" max="1.050" required />
-                            <div class="hint">正常值：1.005-1.030</div>
-                        </div>
-                    </div>
-                    <h3>尿液鏡檢</h3>
-                    <div class="grid">
-                        <div class="col-9">
-                            <label for="urinalysisDate">尿液鏡檢-採檢日期 <span style="color: var(--danger);">*</span></label>
-                            <input id="urinalysisDate" type="date" required />
-                            <div class="hint">格式：yyyy/mm/dd</div>
-                            <div class="error" id="urinalysisDateErr" hidden>請選擇採檢日期</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="rbc">尿液紅血球（RBC/HPF） <span style="color: var(--danger);">*</span></label>
-                            <input id="rbc" type="number" step="1" min="0" required />
-                            <div class="hint">正常值：≤3</div>
-                        </div>
-                        <div class="col-9">
-                            <label>是否有菌尿症 <span style="color: var(--danger);">*</span></label>
-                            <div class="row">
-                                <label class="inline"><input type="radio" name="bacteriuria" value="1"> 是</label>
-                                <label class="inline"><input type="radio" name="bacteriuria" value="0"> 否</label>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-                <!-- 病史 -->
-                <section class="card col-12 fade-in">
-                    <h2>病史</h2>
-                    <div class="grid">
-                        <div class="col-9">
-                            <label>是否有糖尿病病史 <span style="color: var(--danger);">*</span></label>
-                            <div class="row">
-                                <label class="inline"><input type="radio" name="dm" value="1" required> 有</label>
-                                <label class="inline"><input type="radio" name="dm" value="0" required> 無</label>
-                            </div>
-                            <div id="dmDateSection" style="display: none;">
-                                <label for="dmDate">糖尿病診斷日期</label>
-                                <input id="dmDate" type="date" />
-                                <div class="hint">若有：請選擇診斷日期（選填）</div>
-                            </div>
-                            <div class="error" id="dmErr" hidden>請選擇糖尿病病史</div>
-                        </div>
-                        <div class="col-9">
-                            <label>是否有痛風病史 <span style="color: var(--danger);">*</span></label>
-                            <div class="row">
-                                <label class="inline"><input type="radio" name="gout" value="1" required> 有</label>
-                                <label class="inline"><input type="radio" name="gout" value="0" required> 無</label>
-                            </div>
-                            <div id="goutDateSection" style="display: none;">
-                                <label for="goutDate">痛風診斷日期</label>
-                                <input id="goutDate" type="date" />
-                                <div class="hint">若有：請選擇診斷日期（選填）</div>
-                            </div>
-                            <div class="error" id="goutErr" hidden>請選擇痛風病史</div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 影像資料 -->
-                <section class="card col-12 fade-in">
-                    <h2>影像資料</h2>
-                    <div class="grid">
-                        <div class="col-9">
-                            <label>影像檢查類型 <span style="color: var(--danger);">*</span></label>
-                            <label class="inline"><input type="radio" name="imgType" value="CT"> CT</label>
-                            <label class="inline"><input type="radio" name="imgType" value="PET-CT"> PET-CT</label>
-                            <div class="error" id="imgTypeErr" hidden>請選擇影像檢查類型</div>
-                        </div>
-                        <div class="col-9">
-                            <label for="imgDate">影像檢查日期 <span style="color: var(--danger);">*</span></label>
-                            <input id="imgDate" type="date" required />
-                            <div class="hint">不得為未來日期；與檢驗日期需在7日內</div>
-                            <div class="error" id="imgDateErr" hidden>影像日期不可為未來，且需在檢驗日期±7日內</div>
-                        </div>
-                        <div class="col-9">
-                            <label>腎結石診斷結果 <span style="color: var(--danger);">*</span></label>
-                            <div class="row">
-                                <label class="inline"><input type="radio" name="stone" value="1" required> 是</label>
-                                <label class="inline"><input type="radio" name="stone" value="0" required> 否</label>
-                                <label class="inline"><input type="radio" name="stone" value="2" required> 未知</label>
-                            </div>
-                        </div>
-                        <div class="col-9">
-                            <label for="imgReport">影像報告上傳（可多檔）</label>
-                            <input id="imgReport" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.dcm" />
-                            <div class="hint">至少上傳影像或報告其中之一；實務建議兩者皆留存</div>
-                            <div class="success" id="fileUploadStatus" hidden></div>
-                        </div>
-                        <div class="col-12">
-                            <label for="imgReadingReport">影像伴讀報告摘要</label>
-                            <textarea id="imgReadingReport" rows="6" placeholder="請輸入影像伴讀報告摘要內容..."></textarea>
-                            <div class="hint">人工核對用，非邏輯判斷依據。無固定格式，請依實際情況填寫。</div>
-                        </div>
-                    </div>
-                </section>
-
-            </div>
-
-            <!-- 納入條件頁 -->
-            <div id="criteria-tab" class="tab-content">
-                <section class="card col-12 fade-in">
-                    <h2>納入條件檢核</h2>
-                    <div class="grid">
-                        <div class="col-12">
-                            <h3>1. 患者年齡是否18歲(含)以上?</h3>
-                            <div class="col-9"><label class="inline"><input type="checkbox" id="age18" disabled> 是</label></div>
-                            <div class="hint">系統自動判讀輸入變項中的年齡資訊是否≥18</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>2. 病歷中是否記載以下基本資料與病史:</h3>
-                            
-                            <div class="sub-section">
-                                <h4>基本資料</h4>
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasGender" disabled> 性別</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的性別資訊</div>
-                                
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasAge" disabled> 年齡</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的年齡資訊</div>
-                                
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasBMI" disabled> 身體質量指數(BMI)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的身體質量指數(BMI)資訊</div>
-                            </div>
-                            
-                            <div class="sub-section">
-                                <h4>病史</h4>
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasDMHistory" disabled> 病史(糖尿病)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的病史(糖尿病)資訊</div>
-                                
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasGoutHistory" disabled> 病史(痛風)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的病史(痛風)資訊</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>3. 病歷中具備以下完整之檢驗資料:</h3>
-                            
-                            <div class="sub-section">
-                                <h4>檢驗資料</h4>
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasEGFR" disabled> 腎絲球過濾率估計值(eGFR)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的eGFR資訊</div>
-                                
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasUrinePH" disabled> 尿液酸鹼值(urine pH)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的尿液pH資訊</div>
-                                
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasUrineSG" disabled> 尿液比重(urine SG)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的尿液SG資訊</div>
-                                
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasUrineRBC" disabled> 尿液紅血球數量(urine RBC counts)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的尿液RBC counts資訊</div>
-                                
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="hasBacteriuria" disabled> 菌尿症(bacteriuria)</label></div>
-                                <div class="hint">系統自動判讀輸入變項中的菌尿症資訊</div>
-                            </div>
-                            
-                            <div class="sub-section">
-                                <h4>時間間隔檢查</h4>
-                                <div class="col-9"><label class="inline"><input type="checkbox" id="labTimeWithin7" disabled> 以上各檢驗項目採檢時間之間隔是否皆未超過7天?</label></div>
-                                <div class="hint">系統自動計算生化檢驗、尿液檢驗、尿液鏡檢採檢日期間隔是否≤7天</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>4. 病歷中曾記錄任一項影像資料 (腹部電腦斷層掃描(CT)或正子斷層造影檢查(PET-CT))?</h3>
-                            <div class="col-9"><label class="inline"><input type="checkbox" id="hasImagingData" disabled> 是</label></div>
-                            <div class="hint">系統自動判讀影像檢查類型資訊</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>4.1 影像資料是否可完整顯現腎臟結構?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="visKidney" name="visKidney" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="visKidneyNo" name="visKidney" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工判斷，請勾選"是"或"否"</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>4.2 影像資料是否可完整顯現中段輸尿管結構?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="visMidUreter" name="visMidUreter" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="visMidUreterNo" name="visMidUreter" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工判斷，請勾選"是"或"否"</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>4.3 影像資料是否可完整顯現下段輸尿管結構?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="visLowerUreter" name="visLowerUreter" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="visLowerUreterNo" name="visLowerUreter" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工判斷，請勾選"是"或"否"</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>4.4 影像資料與檢驗資料之時間間隔是否皆未超過7天?</h3>
-                            <div class="col-9"><label class="inline"><input type="checkbox" id="imgLabWithin7" disabled> 是</label></div>
-                            <div class="hint">系統自動計算影像檢查日期與各項檢驗採檢日期間隔是否≤7天</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>4.5 檢查期間未有任何治療處置紀錄(包括但不限於因症狀而開立之藥物、手術等)?</h3>
-                            <div class="col-12">
-                                <label class="inline"><input type="radio" id="noTx" name="noTx" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="noTxNo" name="noTx" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工判斷，請勾選"是"或"否"。若勾選"否"，請繼續選擇並填寫下列藥物及手術資訊</div>
-                        </div>
-                        
-                        <!-- 治療紀錄（當4.5選擇"否"時顯示） -->
-                        <div class="col-12" id="treatmentSection" style="display: none;">
-                            <h3>治療紀錄詳情</h3>
-                            <div class="grid">
-                                <div class="col-12">
-                                    <h4>藥物</h4>
-                                    <div id="drugList"></div>
-                                    <button class="btn-ghost" type="button" onclick="addDrug()">+ 新增藥物</button>
-                                </div>
-                                <div class="col-12">
-                                    <h4>手術</h4>
-                                    <div id="surgList"></div>
-                                    <button class="btn-ghost" type="button" onclick="addSurg()">+ 新增手術</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </section>
-            </div>
-
-            <!-- 排除條件頁 -->
-            <div id="exclusion-tab" class="tab-content">
-                <section class="card col-12 fade-in">
-                    <h2>排除條件檢核</h2>
-                    <div class="grid">
-                        <div class="col-12">
-                            <h3>1. 患者是否為懷孕女性?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="pregnantFemale" name="pregnantFemale" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="pregnantFemaleNo" name="pregnantFemale" value="no"> 否</label>
-                            </div>
-                            <div class="hint">系統會根據輸入變數自動判斷性別。若為男性，系統自動勾選"否"；若為女性，此欄位留空供人員人工檢核勾選</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>2. 患者是否接受過腎臟移植?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="kidneyTransplant" name="kidneyTransplant" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="kidneyTransplantNo" name="kidneyTransplant" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工勾選"是"或"否"</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>3. 患者是否為合併泌尿道異物者?</h3>
-                            <div class="hint">（包含但不限於：經影像檢查發現有輸尿管支架、經皮腎造廔管、中段或下段輸尿管異物等非腎結石之異物）</div>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="urinaryForeignBody" name="urinaryForeignBody" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="urinaryForeignBodyNo" name="urinaryForeignBody" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工勾選"是"或"否"。若勾選"是"，請填寫泌尿道異物種類名稱</div>
-                            
-                            <div class="col-12" id="foreignBodyTypeSection" style="display: none;">
-                                <label for="foreignBodyType">3.1 泌尿道異物種類名稱</label>
-                                <input type="text" id="foreignBodyType" placeholder="請填寫泌尿道異物種類名稱">
-                                <div class="hint">若"患者是否為合併泌尿道異物者"勾選"是"，請填寫此欄位</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>4. 患者是否患有合併非腎結石相關之泌尿系統重大病變?</h3>
-                            <div class="hint">（例如膀胱腫瘤、尿道狹窄等）</div>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="urinarySystemLesion" name="urinarySystemLesion" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="urinarySystemLesionNo" name="urinarySystemLesion" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工勾選"是"或"否"。若勾選"是"，請填寫非腎結石相關之泌尿道重大病變名稱</div>
-                            
-                            <div class="col-12" id="lesionTypeSection" style="display: none;">
-                                <label for="lesionType">4.1 非腎結石相關之泌尿道重大病變名稱</label>
-                                <input type="text" id="lesionType" placeholder="請填寫泌尿道重大病變名稱">
-                                <div class="hint">若"患者是否患有合併非腎結石相關之泌尿系統重大病變"勾選"是"，請填寫此欄位</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>5. 患者是否正在接受腎臟替代治療?</h3>
-                            <div class="hint">（例如血液透析、腹膜透析等）</div>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="renalReplacementTherapy" name="renalReplacementTherapy" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="renalReplacementTherapyNo" name="renalReplacementTherapy" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工勾選"是"或"否"。若勾選"是"，請填寫腎臟替代治療名稱</div>
-                            
-                            <div class="col-12" id="therapyTypeSection" style="display: none;">
-                                <label for="lesionType">5.1 腎臟替代治療名稱</label>
-                                <input type="text" id="therapyType" placeholder="請填寫腎臟替代治療名稱">
-                                <div class="hint">若"患者是否正在接受腎臟替代治療"勾選"是"，請填寫此欄位</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>6. 患者是否有病歷資料缺失或無腎結石診斷依據?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="missingData" name="missingData" value="yes" disabled> 是</label>
-                                <label class="inline"><input type="radio" id="missingDataNo" name="missingData" value="no" disabled> 否</label>
-                            </div>
-                            <div class="hint">系統自動判斷，此欄位為唯讀</div>
-                            <div class="hint">系統會根據輸入變數自動判斷受試者基本資料、生化檢驗、尿液檢驗、尿液鏡檢、影像資料腎結石診斷結果等欄位是否完整填寫。若完整填寫，系統自動勾選"否"；若未完整填寫，系統自動勾選"是"</div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>7. 患者是否患有合併重大血液、免疫或惡性腫瘤疾病?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="hematologicalDisease" name="hematologicalDisease" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="hematologicalDiseaseNo" name="hematologicalDisease" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工勾選"是"或"否"。若勾選"是"，請填寫重大血液、免疫或惡性腫瘤疾病名稱</div>
-                            
-                            <div class="col-12" id="hematologicalDiseaseTypeSection" style="display: none;">
-                                <label for="hematologicalDiseaseType">7.1 重大血液、免疫或惡性腫瘤疾病名稱</label>
-                                <input type="text" id="hematologicalDiseaseType" placeholder="請填寫疾病名稱">
-                                <div class="hint">若"患者是否患有合併重大血液、免疫或惡性腫瘤疾病"勾選"是"，請填寫此欄位</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>8. 患者是否患有合併罕見代謝性疾病，可能顯著影響腎功能評估者?</h3>
-                            <div class="hint">（不含糖尿病與痛風）</div>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="rareMetabolicDisease" name="rareMetabolicDisease" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="rareMetabolicDiseaseNo" name="rareMetabolicDisease" value="no"> 否</label>
-                            </div>
-                            <div class="hint">人工勾選"是"或"否"。若勾選"是"，請填寫罕見代謝性疾病名稱</div>
-                            
-                            <div class="col-12" id="metabolicDiseaseTypeSection" style="display: none;">
-                                <label for="metabolicDiseaseType">8.1 罕見代謝性疾病名稱</label>
-                                <input type="text" id="metabolicDiseaseType" placeholder="請填寫疾病名稱">
-                                <div class="hint">若"患者是否患有合併罕見代謝性疾病，可能顯著影響腎功能評估者"勾選"是"，請填寫此欄位</div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-12">
-                            <h3>9. 患者是否經試驗主持人專業判斷，認定不適合納入本研究?</h3>
-                            <div class="col-9">
-                                <label class="inline"><input type="radio" id="piJudgment" name="piJudgment" value="yes"> 是</label>
-                                <label class="inline"><input type="radio" id="piJudgment" name="piJudgment" value="no"> 否</label>
-                            </div>
-                            <div class="hint">經專業判斷後人工勾選"是"或"否"。若勾選"是"，請說明試驗主持人認定不適合納入本研究之原因</div>
-                            
-                            <div class="col-12" id="piJudgmentReasonSection" style="display: none;">
-                                <label for="piJudgmentReason">9.1 試驗主持人認定不適合納入本研究之原因</label>
-                                <textarea id="piJudgmentReason" rows="4" placeholder="請說明試驗主持人認定不適合納入本研究之原因"></textarea>
-                                <div class="hint">若"患者是否經試驗主持人專業判斷，認定不適合納入本研究"勾選"是"，請填寫此欄位</div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            <!-- 動作 -->
-            <section class="card col-12 fade-in" id="actionBar">
-                <div class="actions">
-                    <button class="btn-ghost" type="button" onclick="testForm()" id="testBtn">測試表單</button>
-                    <button class="btn-ghost" type="button" onclick="saveDraft()" id="saveBtn">儲存草稿</button>
-                    <button class="btn-primary" type="button" onclick="submitForm()" id="submitBtn">提交 eCRF</button>
-                    <button class="btn-danger" type="button" id="signBtn" onclick="eSign()" hidden>PI 電子簽章</button>
-                </div>
-            </section>
-        </div>
-    `;
+async function generateResearcherFormHTML() {
+    try {
+        const response = await fetch('/static/assets/js/edc/edc_data_entry_config.json');
+        const config = await response.json(); 
+        // 建立生成器並生成表單
+        const generator = new FormGenerator(config); 
+        return generator.generateForm(); 
+    } catch (error) { 
+        console.error('生成表單失敗:', error);
+        return ` 
+        <div class="alert alert-warning"> 
+            <h4>表單載入中...</h4> <p>無法載入表單配置，請檢查網路連線或重新整理頁面。</p> 
+            <button class="btn btn-primary" onclick="showResearcherForm()">重試</button> 
+        </div> `; 
+    }
 }
 
 // 收集表單資料
@@ -1564,6 +1086,11 @@ function collectFormData() {
             height_cm: document.getElementById('height')?.value || '',
             weight_kg: document.getElementById('weight')?.value || '',
             bmi: document.getElementById('bmi')?.getAttribute('data-precise-value') || document.getElementById('bmi')?.value || '',
+            scr: document.getElementById('scr')?.value || '',
+            egfr: document.getElementById('egfr')?.value || '',
+            ph: document.getElementById('ph')?.value || '',
+            sg: document.getElementById('sg')?.value || '',
+            rbc: document.getElementById('rbc')?.value || '',
             bac: document.querySelector('input[name="bacteriuria"]:checked')?.value || '',
             dm: document.querySelector('input[name="dm"]:checked')?.value || '',
             gout: document.querySelector('input[name="gout"]:checked')?.value || '',
@@ -1608,7 +1135,6 @@ function collectFormData() {
             judgment_reason: document.getElementById('piJudgmentReason')?.value || ''
         }
     };
-    
     return formData;
 }
 

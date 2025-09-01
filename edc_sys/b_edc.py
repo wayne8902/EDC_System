@@ -66,7 +66,7 @@ def submit_ecrf():
         })
         
         # 獲取使用者資訊
-        user_id = current_user.UNIQUE_ID if hasattr(current_user, 'UNIQUE_ID') else 'system_user'
+        user_id = current_user.UNIQUE_ID
         ip = get_client_ip(request)
         timestamp = datetime.now().strftime("%Y%m%d-%H:%M:%S")
         
@@ -286,7 +286,7 @@ def update_subject(subject_id):
             "content": "update_subject"
         })
         
-        user_id = current_user.UNIQUE_ID if hasattr(current_user, 'UNIQUE_ID') else 'system_user'
+        user_id = current_user.UNIQUE_ID
         
         update_result = edc_sys.update_subject(
             subject_id, 
@@ -347,25 +347,24 @@ def dashboard():
             "content": "dashboard"
         }), 500
 
-# ==================== 新增：資料瀏覽相關 API ====================
-
 @edc_blueprints.route('/search-subjects-advanced', methods=['POST'])
 @login_required
 def search_subjects_advanced():
-    """進階搜尋受試者資料（支援分頁和排序）"""
+    """進階搜尋受試者資料（分頁、排序、篩選）"""
     try:
         data = request.get_json()
         print("data: ", data)
+        print("Current User: ", current_user.UNIQUE_ID)
+        user_id = current_user.UNIQUE_ID
         
-        # 提取搜尋參數
         filters = data.get('filters', {})
-        page = data.get('page', 1)
-        page_size = data.get('page_size', 20)
-        sort_field = data.get('sort_field', 'id')
-        sort_direction = data.get('sort_direction', 'DESC')
+        page = data.get('page', 1) # 頁碼
+        page_size = data.get('page_size', 20) # 每頁顯示的資料數量
+        sort_field = data.get('sort_field', 'id') # 排序欄位
+        sort_direction = data.get('sort_direction', 'DESC') # 排序方向
         
-        # 執行搜尋
         result = edc_sys.search_subjects(
+            user_id=user_id,
             filters=filters,
             page=page,
             page_size=page_size,
@@ -488,4 +487,164 @@ def get_subject_by_id_api(subject_id):
         return jsonify({
             'success': False,
             'message': f'獲取受試者資料失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/subject-detail-id/<subject_code>', methods=['GET'])
+@login_required
+def get_subject_detail_by_id_api(subject_code):
+    """根據受試者編號獲取受試者完整詳細資料（包含納入和排除條件）"""
+    try:
+        result = edc_sys.get_subject_detail_by_code(subject_code, verbose=VERBOSE)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '受試者不存在'
+            }), 404
+        
+    except Exception as e:
+        logging.error(f"獲取受試者詳細資料失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'獲取受試者詳細資料失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/subject-detail-code/<subject_code>', methods=['GET'])
+@login_required
+def get_subject_detail_by_code_api(subject_code):
+    """根據受試者編號獲取受試者完整詳細資料（包含納入和排除條件）"""
+    try:
+        result = edc_sys.get_subject_detail_by_code(subject_code, verbose=VERBOSE)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '受試者不存在'
+            }), 404
+        
+    except Exception as e:
+        logging.error(f"獲取受試者詳細資料失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'獲取受試者詳細資料失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/update-subject/<subject_code>', methods=['PUT'])
+@login_required
+def update_subject_with_criteria_api(subject_code):
+    """
+    更新受試者資料、納入條件和排除條件 API
+    
+    請求格式:
+    {
+        "subject_data": {...},
+        "inclusion_data": {...},
+        "exclusion_data": {...},
+        "edit_log_data": {
+            "log_id": "20250901002",
+            "changes": [
+                {
+                    "log_id": "20250901002",
+                    "subject_code": "P010013",
+                    "table_name": "subjects",
+                    "field_name": "height_cm",
+                    "old_value": "170.0",
+                    "new_value": "175.0",
+                    "action": "UPDATE",
+                    "user_id": "kh00001"
+                }
+            ]
+        }
+    }
+    
+    回應格式:
+    {
+        "success": true,
+        "message": "更新成功",
+        "subject_code": "S001",
+        "subject_id": 123
+    }
+    """
+    try:
+        content = request.get_json()
+        if not content:
+            return jsonify({
+                "success": False,
+                "message": "缺少請求內容",
+                "content": "update_subject"
+            })
+        
+        # 獲取使用者資訊
+        user_id = current_user.UNIQUE_ID
+        print("user_id: ", user_id)
+        ip = get_client_ip(request)
+        timestamp = datetime.now().strftime("%Y%m%d-%H:%M:%S")
+        
+        # 使用事務性更新，確保三個表都能成功更新
+        result = edc_sys.update_subject_with_criteria(
+            subject_code,
+            content.get('subject_data', {}),
+            content.get('inclusion_data', {}),
+            content.get('exclusion_data', {}),
+            user_id,
+            edit_log_data=content.get('edit_log_data'),
+            verbose=VERBOSE
+        )
+        
+        if not result['success']:
+            return jsonify({
+                "success": False,
+                "message": f"事務性更新失敗: {result['message']}",
+                "content": "update_subject"
+            })
+        
+        return jsonify({
+            "success": True,
+            "message": "受試者資料更新成功",
+            "subject_code": result['subject_code'],
+            "subject_id": result['subject_id'],
+            "timestamp": timestamp
+        })
+        
+    except Exception as e:
+        logging.error(f"更新受試者資料失敗: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"更新失敗: {str(e)}",
+            "content": "update_subject"
+        }), 500
+
+@edc_blueprints.route('/subject-history/<subject_code>', methods=['GET'])
+@login_required
+def get_subject_history(subject_code):
+    """獲取受試者的歷程記錄"""
+    try:
+        result = edc_sys.get_subject_history(subject_code, verbose=VERBOSE)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '受試者不存在或無歷程記錄'
+            }), 404
+        
+    except Exception as e:
+        logging.error(f"獲取受試者歷程記錄失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'獲取歷程記錄失敗: {str(e)}'
         }), 500

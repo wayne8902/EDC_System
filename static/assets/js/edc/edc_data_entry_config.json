@@ -1,0 +1,865 @@
+{
+    "formTitle": "EDC eCRF 資料輸入表單",
+    "debugMode": {
+      "enabled": true,
+      "title": "🐛 DEBUG 模式",
+      "description": "開啟後會自動填入：納入條件全部為1，排除條件全部為0，以及一些基本預設值"
+    },
+    "tabs": [
+      {
+        "id": "subject",
+        "title": "受試者特性資料",
+        "active": true
+      },
+      {
+        "id": "criteria", 
+        "title": "納入條件",
+        "active": false
+      },
+      {
+        "id": "exclusion",
+        "title": "排除條件", 
+        "active": false
+      }
+    ],
+    "sections": [
+      {
+        "id": "identification",
+        "title": "受試者識別與納入",
+        "tab": "subject",
+        "fields": [
+          {
+            "id": "enrollDate",
+            "label": "個案納入日期",
+            "type": "date",
+            "required": true,
+            "hint": "格式：yyyy/mm/dd",
+            "colClass": "col-9"
+          },
+          {
+            "id": "subjectCode", 
+            "label": "受試者代碼",
+            "type": "text",
+            "required": true,
+            "placeholder": "P(1碼)+機構代碼(2碼)+流水號(4碼)，例：P01-0001",
+            "pattern": "^P[A-Za-z0-9]{2}?[A-Za-z0-9]{4}$",
+            "hint": "P(一碼)+試驗機構代碼(兩碼)+試驗者流水號(四碼)",
+            "colClass": "col-9"
+          }
+        ]
+      },
+      {
+        "id": "basicData",
+        "title": "受試者基本資料",
+        "tab": "subject",
+        "fields": [
+          {
+            "id": "gender",
+            "label": "性別",
+            "type": "radio",
+            "required": true,
+            "options": [
+              {"value": "1", "text": "男"},
+              {"value": "0", "text": "女"}
+            ],
+            "colClass": "col-9"
+          },
+          {
+            "id": "birthDate",
+            "label": "出生日期", 
+            "type": "date",
+            "required": true,
+            "defaultValue": "1990-01-01",
+            "hint": "格式：yyyy/mm/dd",
+            "colClass": "col-9"
+          },
+          {
+            "id": "age",
+            "label": "年齡（yrs）",
+            "type": "number",
+            "required": true,
+            "readonly": true,
+            "min": 0,
+            "max": 120,
+            "step": 1,
+            "placeholder": "自動計算",
+            "hint": "系統根據出生日期自動計算",
+            "colClass": "col-9"
+          },
+          {
+            "id": "measureDate",
+            "label": "身高體重測量日期",
+            "type": "date", 
+            "required": true,
+            "hint": "格式：yyyy/mm/dd",
+            "colClass": "col-9"
+          },
+          {
+            "id": "height",
+            "label": "身高（cm）",
+            "type": "number",
+            "required": true,
+            "step": 0.1,
+            "min": 0,
+            "colClass": "col-9"
+          },
+          {
+            "id": "weight", 
+            "label": "體重（kg）",
+            "type": "number",
+            "required": true,
+            "step": 0.1,
+            "min": 0,
+            "colClass": "col-9"
+          },
+          {
+            "id": "bmi",
+            "label": "BMI（kg/m²）",
+            "type": "number",
+            "required": true,
+            "readonly": true,
+            "step": 0.1,
+            "placeholder": "自動計算",
+            "hint": "由身高體重自動計算，單位：kg/m²（顯示一位小數，實際保存三位小數）",
+            "colClass": "col-9"
+          }
+        ]
+      },
+      {
+        "id": "labData",
+        "title": "檢驗資料",
+        "tab": "subject",
+        "subsections": [
+          {
+            "title": "生化檢驗",
+            "fields": [
+              {
+                "id": "biochemDate",
+                "label": "生化檢驗-採檢日期",
+                "type": "date",
+                "required": true,
+                "hint": "格式：yyyy/mm/dd",
+                "colClass": "col-9"
+              },
+              {
+                "id": "scr",
+                "label": "血清肌酸酐濃度（mg/dL）",
+                "type": "number",
+                "step": 0.01,
+                "min": 0,
+                "hint": "正常值：0.6-1.2 mg/dL",
+                "colClass": "col-9"
+              },
+              {
+                "id": "egfr",
+                "label": "eGFR（mL/min/1.73m²）",
+                "type": "number",
+                "required": true,
+                "step": 0.1,
+                "min": 0,
+                "hint": "正常值：≥90 mL/min/1.73m²（可手動輸入或由肌酸酐自動計算，使用IDMS-MDRD公式）",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "尿液檢驗",
+            "fields": [
+              {
+                "id": "urineDate",
+                "label": "尿液檢驗-採檢日期",
+                "type": "date",
+                "required": true,
+                "hint": "格式：yyyy/mm/dd",
+                "colClass": "col-9"
+              },
+              {
+                "id": "ph",
+                "label": "尿液 pH",
+                "type": "number",
+                "required": true,
+                "step": 0.1,
+                "min": 0,
+                "max": 14,
+                "hint": "正常值：4.5-8.0",
+                "colClass": "col-9"
+              },
+              {
+                "id": "sg",
+                "label": "尿液比重（SG）",
+                "type": "number", 
+                "required": true,
+                "step": 0.001,
+                "min": 1.000,
+                "max": 1.050,
+                "hint": "正常值：1.005-1.030",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "尿液鏡檢",
+            "fields": [
+              {
+                "id": "urinalysisDate",
+                "label": "尿液鏡檢-採檢日期",
+                "type": "date",
+                "required": true,
+                "hint": "格式：yyyy/mm/dd",
+                "colClass": "col-9"
+              },
+              {
+                "id": "rbc",
+                "label": "尿液紅血球（RBC/HPF）",
+                "type": "number",
+                "required": true,
+                "step": 1,
+                "min": 0,
+                "hint": "正常值：≤3",
+                "colClass": "col-9"
+              },
+              {
+                "id": "bacteriuria",
+                "label": "是否有菌尿症",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
+                ],
+                "colClass": "col-9"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "medicalHistory",
+        "title": "病史",
+        "tab": "subject",
+        "fields": [
+          {
+            "id": "dm",
+            "label": "是否有糖尿病病史",
+            "type": "radio",
+            "required": true,
+            "options": [
+              {"value": "1", "text": "有"},
+              {"value": "0", "text": "無"}
+            ],
+            "colClass": "col-9",
+            "conditionalSections": [
+              {
+                "id": "dmDateSection",
+                "style": "display: none;",
+                "fields": [
+                  {
+                    "id": "dmDate",
+                    "label": "糖尿病診斷日期",
+                    "type": "date",
+                    "required": false,
+                    "hint": "若有：請選擇診斷日期（選填）"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "gout",
+            "label": "是否有痛風病史",
+            "type": "radio",
+            "required": true,
+            "options": [
+              {"value": "1", "text": "有"},
+              {"value": "0", "text": "無"}
+            ],
+            "colClass": "col-9",
+            "conditionalSections": [
+              {
+                "id": "goutDateSection",
+                "style": "display: none;",
+                "fields": [
+                  {
+                    "id": "goutDate",
+                    "label": "痛風診斷日期",
+                    "type": "date",
+                    "required": false,
+                    "hint": "若有：請選擇診斷日期（選填）"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "imagingData",
+        "title": "影像資料",
+        "tab": "subject",
+        "fields": [
+          {
+            "id": "imgType",
+            "label": "影像檢查類型",
+            "type": "radio",
+            "required": true,
+            "options": [
+              {"value": "CT", "text": "CT"},
+              {"value": "PET-CT", "text": "PET-CT"}
+            ],
+            "hint": "請選擇影像檢查類型",
+            "colClass": "col-9"
+          },
+          {
+            "id": "imgDate",
+            "label": "影像檢查日期",
+            "type": "date",
+            "required": true,
+            "hint": "不得為未來日期；與檢驗日期需在7日內",
+            "colClass": "col-9"
+          },
+          {
+            "id": "stone",
+            "label": "腎結石診斷結果",
+            "type": "radio",
+            "required": true,
+            "options": [
+              {"value": "1", "text": "是"},
+              {"value": "0", "text": "否"},
+              {"value": "2", "text": "未知"}
+            ],
+            "hint": "請選擇腎結石診斷結果",
+            "colClass": "col-9"
+          },
+          {
+            "id": "imgReport",
+            "label": "影像報告上傳（可多檔）",
+            "type": "file",
+            "multiple": true,
+            "accept": ".pdf,.jpg,.jpeg,.png,.dcm",
+            "hint": "至少上傳影像或報告其中之一；實務建議兩者皆留存",
+            "colClass": "col-9"
+          },
+          {
+            "id": "imgReadingReport",
+            "label": "影像伴讀報告摘要",
+            "type": "textarea",
+            "rows": 6,
+            "placeholder": "請輸入影像伴讀報告摘要內容...",
+            "hint": "人工核對用，非邏輯判斷依據。無固定格式，請依實際情況填寫。",
+            "colClass": "col-12"
+          }
+        ]
+      },
+      {
+        "id": "inclusionCriteria",
+        "title": "納入條件檢核",
+        "tab": "criteria",
+        "subsections": [
+          {
+            "title": "1. 患者年齡是否18歲(含)以上?",
+            "fields": [
+              {
+                "id": "age18",
+                "label": "是",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的年齡資訊是否≥18",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "2. 病歷中是否記載以下基本資料與病史:",
+            "fields": [
+              {
+                "id": "hasGender",
+                "label": "性別",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的性別資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasAge",
+                "label": "年齡",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的年齡資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasBMI",
+                "label": "身體質量指數(BMI)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的身體質量指數(BMI)資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasDMHistory",
+                "label": "病史(糖尿病)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的病史(糖尿病)資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasGoutHistory",
+                "label": "病史(痛風)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的病史(痛風)資訊",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "3. 病歷中具備以下完整之檢驗資料:",
+            "fields": [
+              {
+                "id": "hasEGFR",
+                "label": "腎絲球過濾率估計值(eGFR)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的eGFR資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasUrinePH",
+                "label": "尿液酸鹼值(urine pH)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的尿液pH資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasUrineSG",
+                "label": "尿液比重(urine SG)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的尿液SG資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasUrineRBC",
+                "label": "尿液紅血球數量(urine RBC counts)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的尿液RBC counts資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "hasBacteriuria",
+                "label": "菌尿症(bacteriuria)",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀輸入變項中的菌尿症資訊",
+                "colClass": "col-9"
+              },
+              {
+                "id": "labTimeWithin7",
+                "label": "以上各檢驗項目採檢時間之間隔是否皆未超過7天?",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動計算生化檢驗、尿液檢驗、尿液鏡檢採檢日期間隔是否≤7天",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "4. 病歷中曾記錄任一項影像資料 (腹部電腦斷層掃描(CT)或正子斷層造影檢查(PET-CT))?",
+            "fields": [
+              {
+                "id": "hasImagingData",
+                "label": "是",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動判讀影像檢查類型資訊",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "4.1 影像資料是否可完整顯現腎臟結構?",
+            "fields": [
+              {
+                "id": "visKidney",
+                "label": "影像資料是否可完整顯現腎臟結構?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工判斷，請勾選\"是\"或\"否\"",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "4.2 影像資料是否可完整顯現中段輸尿管結構?",
+            "fields": [
+              {
+                "id": "visMidUreter",
+                "label": "影像資料是否可完整顯現中段輸尿管結構?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工判斷，請勾選\"是\"或\"否\"",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "4.3 影像資料是否可完整顯現下段輸尿管結構?",
+            "fields": [
+              {
+                "id": "visLowerUreter",
+                "label": "影像資料是否可完整顯現下段輸尿管結構?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工判斷，請勾選\"是\"或\"否\"",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "4.4 影像資料與檢驗資料之時間間隔是否皆未超過7天?",
+            "fields": [
+              {
+                "id": "imgLabWithin7",
+                "label": "是",
+                "type": "checkbox",
+                "disabled": true,
+                "hint": "系統自動計算影像檢查日期與各項檢驗採檢日期間隔是否≤7天",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "4.5 檢查期間未有任何治療處置紀錄(包括但不限於因症狀而開立之藥物、手術等)?",
+            "fields": [
+              {
+                "id": "noTx",
+                "label": "檢查期間未有任何治療處置紀錄?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工判斷，請勾選\"是\"或\"否\"。若勾選\"否\"，請繼續選擇並填寫下列藥物及手術資訊",
+                "colClass": "col-12",
+                "conditionalSections": [
+                  {
+                    "id": "treatmentSection",
+                    "style": "display: none;",
+                    "fields": [
+                      {
+                        "id": "treatmentTitle",
+                        "label": "",
+                        "type": "html",
+                        "html": "<h3>治療紀錄詳情</h3><div class=\"grid\"><div class=\"col-12\"><h4>藥物</h4><div id=\"drugList\"></div><button class=\"btn-ghost\" type=\"button\" onclick=\"addDrug()\">+ 新增藥物</button></div><div class=\"col-12\"><h4>手術</h4><div id=\"surgList\"></div><button class=\"btn-ghost\" type=\"button\" onclick=\"addSurg()\">+ 新增手術</button></div></div>",
+                        "colClass": "col-12"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "exclusionCriteria",
+        "title": "排除條件檢核",
+        "tab": "exclusion",
+        "subsections": [
+          {
+            "title": "1. 患者是否為懷孕女性?",
+            "fields": [
+              {
+                "id": "pregnantFemale",
+                "label": "患者是否為懷孕女性?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "系統會根據輸入變數自動判斷性別。若為男性，系統自動勾選\"否\"；若為女性，此欄位留空供人員人工檢核勾選",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "2. 患者是否接受過腎臟移植?",
+            "fields": [
+              {
+                "id": "kidneyTransplant",
+                "label": "患者是否接受過腎臟移植?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工勾選\"是\"或\"否\"",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "3. 患者是否為合併泌尿道異物者?",
+            "fields": [
+              {
+                "id": "urinaryForeignBody",
+                "label": "患者是否為合併泌尿道異物者?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫泌尿道異物種類名稱",
+                "colClass": "col-9",
+                "conditionalSections": [
+                  {
+                    "id": "foreignBodyTypeSection",
+                    "style": "display: none;",
+                    "fields": [
+                      {
+                        "id": "foreignBodyType",
+                        "label": "3.1 泌尿道異物種類名稱",
+                        "type": "text",
+                        "required": false,
+                        "placeholder": "請填寫泌尿道異物種類名稱",
+                        "hint": "若\"患者是否為合併泌尿道異物者\"勾選\"是\"，請填寫此欄位"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "4. 患者是否患有合併非腎結石相關之泌尿系統重大病變?",
+            "fields": [
+              {
+                "id": "urinarySystemLesion",
+                "label": "患者是否患有合併非腎結石相關之泌尿系統重大病變?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫非腎結石相關之泌尿道重大病變名稱",
+                "colClass": "col-9",
+                "conditionalSections": [
+                  {
+                    "id": "lesionTypeSection",
+                    "style": "display: none;",
+                    "fields": [
+                      {
+                        "id": "lesionType",
+                        "label": "4.1 非腎結石相關之泌尿道重大病變名稱",
+                        "type": "text",
+                        "required": false,
+                        "placeholder": "請填寫泌尿道重大病變名稱",
+                        "hint": "若\"患者是否患有合併非腎結石相關之泌尿系統重大病變\"勾選\"是\"，請填寫此欄位"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "5. 患者是否正在接受腎臟替代治療?",
+            "fields": [
+              {
+                "id": "renalReplacementTherapy",
+                "label": "患者是否正在接受腎臟替代治療?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫腎臟替代治療名稱",
+                "colClass": "col-9",
+                "conditionalSections": [
+                  {
+                    "id": "therapyTypeSection",
+                    "style": "display: none;",
+                    "fields": [
+                      {
+                        "id": "therapyType",
+                        "label": "5.1 腎臟替代治療名稱",
+                        "type": "text",
+                        "required": false,
+                        "placeholder": "請填寫腎臟替代治療名稱",
+                        "hint": "若\"患者是否正在接受腎臟替代治療\"勾選\"是\"，請填寫此欄位"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "6. 患者是否有病歷資料缺失或無腎結石診斷依據?",
+            "fields": [
+              {
+                "id": "missingData",
+                "label": "患者是否有病歷資料缺失或無腎結石診斷依據?",
+                "type": "radio",
+                "disabled": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "系統自動判斷，此欄位為唯讀",
+                "colClass": "col-9"
+              }
+            ]
+          },
+          {
+            "title": "7. 患者是否患有合併重大血液、免疫或惡性腫瘤疾病?",
+            "fields": [
+              {
+                "id": "hematologicalDisease",
+                "label": "患者是否患有合併重大血液、免疫或惡性腫瘤疾病?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫重大血液、免疫或惡性腫瘤疾病名稱",
+                "colClass": "col-9",
+                "conditionalSections": [
+                  {
+                    "id": "hematologicalDiseaseTypeSection",
+                    "style": "display: none;",
+                    "fields": [
+                      {
+                        "id": "hematologicalDiseaseType",
+                        "label": "7.1 重大血液、免疫或惡性腫瘤疾病名稱",
+                        "type": "text",
+                        "required": false,
+                        "placeholder": "請填寫疾病名稱",
+                        "hint": "若\"患者是否患有合併重大血液、免疫或惡性腫瘤疾病\"勾選\"是\"，請填寫此欄位"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "8. 患者是否患有合併罕見代謝性疾病，可能顯著影響腎功能評估者?",
+            "fields": [
+              {
+                "id": "rareMetabolicDisease",
+                "label": "患者是否患有合併罕見代謝性疾病，可能顯著影響腎功能評估者?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫罕見代謝性疾病名稱",
+                "colClass": "col-9",
+                "conditionalSections": [
+                  {
+                    "id": "metabolicDiseaseTypeSection",
+                    "style": "display: none;",
+                    "fields": [
+                      {
+                        "id": "metabolicDiseaseType",
+                        "label": "8.1 罕見代謝性疾病名稱",
+                        "type": "text",
+                        "required": false,
+                        "placeholder": "請填寫疾病名稱",
+                        "hint": "若\"患者是否患有合併罕見代謝性疾病，可能顯著影響腎功能評估者\"勾選\"是\"，請填寫此欄位"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "9. 患者是否經試驗主持人專業判斷，認定不適合納入本研究?",
+            "fields": [
+              {
+                "id": "piJudgment",
+                "label": "患者是否經試驗主持人專業判斷，認定不適合納入本研究?",
+                "type": "radio",
+                "required": true,
+                "options": [
+                  {"value": "yes", "text": "是"},
+                  {"value": "no", "text": "否"}
+                ],
+                "hint": "經專業判斷後人工勾選\"是\"或\"否\"。若勾選\"是\"，請說明試驗主持人認定不適合納入本研究之原因",
+                "colClass": "col-9",
+                "conditionalSections": [
+                  {
+                    "id": "piJudgmentReasonSection",
+                    "style": "display: none;",
+                    "fields": [
+                      {
+                        "id": "piJudgmentReason",
+                        "label": "9.1 試驗主持人認定不適合納入本研究之原因",
+                        "type": "textarea",
+                        "rows": 4,
+                        "required": false,
+                        "placeholder": "請說明試驗主持人認定不適合納入本研究之原因",
+                        "hint": "若\"患者是否經試驗主持人專業判斷，認定不適合納入本研究\"勾選\"是\"，請填寫此欄位"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "testBtn",
+        "text": "測試表單",
+        "class": "btn-ghost",
+        "onclick": "testForm()"
+      },
+      {
+        "id": "saveBtn", 
+        "text": "儲存草稿",
+        "class": "btn-ghost",
+        "onclick": "saveDraft()"
+      },
+      {
+        "id": "submitBtn",
+        "text": "提交 eCRF", 
+        "class": "btn-primary",
+        "onclick": "submitForm()"
+      },
+      {
+        "id": "signBtn",
+        "text": "PI 電子簽章",
+        "class": "btn-danger",
+        "onclick": "eSign()",
+        "hidden": true
+      }
+    ]
+  }

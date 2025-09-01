@@ -25,6 +25,26 @@ const DataBrowserManager = {
         direction: 'DESC' // 'ASC' 或 'DESC'
     },
     
+
+    
+    /**
+     * 檢查使用者是否有特定權限
+     */
+    hasPermission(permission) {
+        // 檢查全域權限變數
+        if (typeof userPermissions !== 'undefined' && Array.isArray(userPermissions)) {
+            return userPermissions.includes(permission);
+        }
+        return false;
+    },
+
+    /**
+     * 檢查使用者是否有編輯權限
+     */
+    hasEditPermission() {
+        return this.hasPermission('edc.data.edit');
+    },
+
     /**
      * 初始化資料瀏覽器
      */
@@ -32,6 +52,11 @@ const DataBrowserManager = {
         this.setupEventListeners();
         this.setupFilters();
         this.loadInitialData();
+        
+        // 初始化資料編輯器
+        if (typeof DataEditorManager !== 'undefined') {
+            DataEditorManager.init();
+        }
     },
     
     /**
@@ -197,6 +222,26 @@ const DataBrowserManager = {
             this.currentFilters.bmi_max = parseFloat(bmiMaxInput.value);
         }
         
+        // 血清肌酸酐範圍
+        const scrMinInput = document.getElementById('scrMin');
+        const scrMaxInput = document.getElementById('scrMax');
+        if (scrMinInput && scrMinInput.value.trim()) {
+            this.currentFilters.scr_min = parseFloat(scrMinInput.value);
+        }
+        if (scrMaxInput && scrMaxInput.value.trim()) {
+            this.currentFilters.scr_max = parseFloat(scrMaxInput.value);
+        }
+        
+        // eGFR 範圍
+        const egfrMinInput = document.getElementById('egfrMin');
+        const egfrMaxInput = document.getElementById('egfrMax');
+        if (egfrMinInput && egfrMinInput.value.trim()) {
+            this.currentFilters.egfr_min = parseFloat(egfrMinInput.value);
+        }
+        if (egfrMaxInput && egfrMaxInput.value.trim()) {
+            this.currentFilters.egfr_max = parseFloat(egfrMaxInput.value);
+        }
+        
         // 影像檢查類型
         const imagingTypeSelect = document.getElementById('imagingTypeFilter');
         if (imagingTypeSelect && imagingTypeSelect.value !== '') {
@@ -235,18 +280,12 @@ const DataBrowserManager = {
         }
     },
     
-    /**
-     * 載入初始資料
-     */
+    // 載入初始資料
     async loadInitialData() {
         await this.performSearch();
     },
     
-
-    
-    /**
-     * 執行搜尋
-     */
+    // 執行進階搜尋
     async performSearch() {
         console.log('performSearch 被調用');
         this.updateFilters();
@@ -295,11 +334,10 @@ const DataBrowserManager = {
         
         if (this.currentData.length === 0) {
             const noDataRow = document.createElement('tr');
-            noDataRow.innerHTML = '<td colspan="15" class="text-center">沒有找到符合條件的資料</td>';
+            noDataRow.innerHTML = '<td colspan="20" class="text-center">沒有找到符合條件的資料</td>';
             tableBody.appendChild(noDataRow);
             return;
         }
-        
         this.currentData.forEach(subject => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -310,20 +348,28 @@ const DataBrowserManager = {
                 <td>${subject.height_cm || ''}</td>
                 <td>${subject.weight_kg || ''}</td>
                 <td>${subject.bmi || ''}</td>
+                <td>${subject.scr || ''}</td>
+                <td>${subject.egfr || ''}</td>
+                <td>${subject.ph || ''}</td>
+                <td>${subject.sg || ''}</td>
+                <td>${subject.rbc || ''}</td>
                 <td>${subject.bac === 1 ? '有' : '無'}</td>
                 <td>${subject.dm === 1 ? '有' : '無'}</td>
                 <td>${subject.gout === 1 ? '有' : '無'}</td>
                 <td>${subject.imaging_type || ''}</td>
                 <td>${subject.imaging_date || ''}</td>
                 <td>${subject.kidney_stone_diagnosis === 1 ? '是' : '否'}</td>
+                <td>${subject.status || ''}</td>
                 <td>${subject.created_at || ''}</td>
                 <td>
                     <button class="btn-ghost" onclick="DataBrowserManager.viewDetails('${subject.subject_code}')">
                         詳細資料
                     </button>
-                    <button class="btn-ghost" onclick="DataBrowserManager.editSubject('${subject.subject_code}')">
-                        編輯
-                    </button>
+                    ${this.hasEditPermission() ? `
+                        <button class="btn-ghost" onclick="DataBrowserManager.editSubject('${subject.subject_code}')">
+                            編輯
+                        </button>
+                    ` : ''}
                 </td>
             `;
             tableBody.appendChild(row);
@@ -487,25 +533,217 @@ const DataBrowserManager = {
         }
     },
     
-    /**
-     * 查看詳細資料
-     */
+    // 查看詳細資料
     viewDetails(subjectCode) {
-        // 這裡可以實現查看詳細資料的功能
-        // 例如：開啟模態視窗顯示完整資料
-        alert(`查看受試者 ${subjectCode} 的詳細資料`);
+        // 調用後台API獲取詳細資料
+        this.fetchSubjectDetails(subjectCode);
+    },
+    
+    // 獲取受試者詳細資料
+    async fetchSubjectDetails(subjectCode) {
+        try {
+            // 顯示載入狀態
+            console.log(`正在獲取受試者 ${subjectCode} 的詳細資料...`);
+            
+            // 調用後台API
+            const response = await fetch(`/edc/subject-detail-id/${subjectCode}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin' // 包含cookies
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // 用console.log顯示獲取到的資料
+                console.log('受試者詳細資料:', result.data);
+                console.log('基本資料:', result.data.subject);
+                console.log('納入條件:', result.data.inclusion_criteria);
+                console.log('排除條件:', result.data.exclusion_criteria);
+                
+                // 顯示成功訊息
+                this.showSuccess(`成功獲取受試者 ${subjectCode} 的詳細資料`);
+                this.showSubjectDetailBlock(result.data); // 顯示詳細資料區塊
+            } else {
+                // 顯示錯誤訊息
+                this.showError(result.message || '獲取詳細資料失敗');
+            }
+            
+        } catch (error) {
+            console.error('獲取詳細資料時發生錯誤:', error);
+            this.showError('獲取詳細資料失敗: ' + error.message);
+        }
     },
     
     /**
      * 編輯受試者資料
      */
     editSubject(subjectCode) {
+        // 檢查編輯權限
+        if (!this.hasEditPermission()) {
+            alert('您沒有編輯權限');
+            return;
+        }
+        
         // 這裡可以實現編輯功能
         // 例如：跳轉到編輯頁面或開啟編輯模態視窗
         alert(`編輯受試者 ${subjectCode} 的資料`);
     },
     
+    /**
+     * 顯示受試者詳細資料區塊
+     */
+    async showSubjectDetailBlock(data) {
+        const mainContent = document.getElementById('mainContent');
+        if (!mainContent) return;
+        
+        try {
+            // 創建詳細資料頁面
+            const detailPage = await this.createSubjectDetailPage(data);
+            
+            // 替換主內容區域
+            mainContent.innerHTML = detailPage;
+            
+            // 設置返回按鈕事件
+            this.setupDetailPageEvents();
+            
+            // 載入歷程記錄
+            this.loadSubjectHistory(data.subject?.subject_code);
+        } catch (error) {
+            console.error('創建詳細資料頁面失敗:', error);
+            // 使用預設方法作為備用
+            const detailPage = this.createDefaultSubjectDetailPage(data);
+            mainContent.innerHTML = detailPage;
+            this.setupDetailPageEvents();
+            
+            // 載入歷程記錄
+            this.loadSubjectHistory(data.subject?.subject_code);
+        }
+    },
+    
+    /**
+     * 創建受試者詳細資料頁面
+     */
+    async createSubjectDetailPage(data) {
+        console.log('createSubjectDetailPage 被調用');
+        console.log('dataBrowserGenerator 狀態:', {
+            exists: typeof dataBrowserGenerator !== 'undefined',
+            loaded: typeof dataBrowserGenerator !== 'undefined' ? dataBrowserGenerator.loaded : 'N/A',
+            hasConfig: typeof dataBrowserGenerator !== 'undefined' ? !!dataBrowserGenerator.config : 'N/A'
+        });
+        
+        // 使用動態生成器創建頁面
+        if (typeof dataBrowserGenerator !== 'undefined') {
+            console.log('✓ 嘗試使用動態生成器');
+            try {
+                const result = await dataBrowserGenerator.generateSubjectDetailPage(data);
+                console.log('✓ 動態生成器執行成功');
+                return result;
+            } catch (error) {
+                console.error('動態生成器執行失敗:', error);
+                console.warn('回退到預設方法');
+                return this.createDefaultSubjectDetailPage(data);
+            }
+        } else {
+            // 如果生成器未載入，使用預設方法
+            console.warn('使用預設的頁面生成方法 - 生成器未定義');
+            return this.createDefaultSubjectDetailPage(data);
+        }
+    },
+    
+    /**
+     * 創建預設的受試者詳細資料頁面（備用方法）
+     */
+    createDefaultSubjectDetailPage(data) {
+        const subject = data.subject;
+        const inclusion = data.inclusion_criteria;
+        const exclusion = data.exclusion_criteria;
+        
+        return `
+            <div class="wrap">
+                <section class="card col-12 fade-in">
+                    <h2><i class="fas fa-user"></i> 受試者詳細資料</h2>
+                    <p class="text-muted">受試者編號: ${subject?.subject_code || 'N/A'}</p>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="DataBrowserManager.backToDataBrowser()">
+                            <i class="fas fa-arrow-left"></i> 返回資料瀏覽
+                        </button>
+                        ${this.hasEditPermission() ? `
+                                            <button class="btn btn-primary" onclick="DataEditorManager.switchToEditMode()">
+                    <i class="fas fa-edit"></i> 編輯模式
+                </button>
+                        ` : ''}
+                    </div>
+                </section>
+                <div class="card fade-in">
+                    <h3>基本資料</h3>
+                    <p>受試者編號: ${subject?.subject_code || 'N/A'}</p>
+                    <p>年齡: ${subject?.age || 'N/A'}</p>
+                    <p>性別: ${subject?.gender === 1 ? '男' : subject?.gender === 0 ? '女' : 'N/A'}</p>
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * 設置詳細資料頁面的事件
+     */
+    setupDetailPageEvents() {
+        // 這裡可以添加詳細資料頁面的特定事件處理
+        console.log('詳細資料頁面事件已設置');
+    },
+    
+    /**
+     * 切換到編輯模式
+     */
+    switchToEditMode() {
+        // 調用 DataEditorManager 的編輯模式功能
+        if (typeof DataEditorManager !== 'undefined') {
+            DataEditorManager.switchToEditMode();
+        } else {
+            console.error('DataEditorManager 未載入');
+        }
+    },
 
+
+
+
+
+
+
+    /**
+     * 切換回瀏覽模式
+     */
+    switchToViewMode() {
+        // 調用 DataEditorManager 的瀏覽模式功能
+        if (typeof DataEditorManager !== 'undefined') {
+            DataEditorManager.switchToViewMode();
+        } else {
+            console.error('DataEditorManager 未載入');
+        }
+    },
+
+
+
+
+
+
+
+
+
+    /**
+     * 返回資料瀏覽器
+     */
+    backToDataBrowser() {
+        // 重新顯示資料瀏覽器
+        showDataBrowser();
+    },
     
     /**
      * 顯示成功訊息
@@ -527,6 +765,121 @@ const DataBrowserManager = {
         } else {
             alert('錯誤: ' + message);
         }
+    },
+    
+    /**
+     * 載入受試者歷程記錄
+     */
+    async loadSubjectHistory(subjectCode) {
+        if (!subjectCode) return;
+        
+        try {
+            console.log(`正在載入受試者 ${subjectCode} 的歷程記錄...`);
+            
+            const response = await fetch(`/edc/subject-history/${subjectCode}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.displaySubjectHistory(result.data);
+            } else {
+                this.displaySubjectHistory([]);
+            }
+            
+        } catch (error) {
+            console.error('載入歷程記錄失敗:', error);
+            this.displaySubjectHistory([]);
+        }
+    },
+    
+    /**
+     * 顯示受試者歷程記錄
+     */
+    displaySubjectHistory(historyData) {
+        const historyContainer = document.getElementById('historyRecordContent');
+        if (!historyContainer) return;
+        
+        if (!historyData || historyData.length === 0) {
+            historyContainer.innerHTML = `
+                <div class="text-center" style="padding: 3rem;">
+                    <i class="fas fa-clock" style="font-size: 4rem; color: #ccc; margin-bottom: 1rem;"></i>
+                    <p class="text-muted" style="font-size: 1.1rem; margin-bottom: 0.5rem;">尚無歷程記錄</p>
+                    <p class="text-muted">此受試者尚未有任何資料變更記錄</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // 按 log_id 分組
+        const groupedHistory = {};
+        historyData.forEach(record => {
+            if (!groupedHistory[record.log_id]) {
+                groupedHistory[record.log_id] = [];
+            }
+            groupedHistory[record.log_id].push(record);
+        });
+        
+        // 生成歷程記錄 HTML
+        let historyHTML = '<div class="history-timeline">';
+        
+        Object.keys(groupedHistory).sort().reverse().forEach(logId => {
+            const records = groupedHistory[logId];
+            const firstRecord = records[0];
+            
+            historyHTML += `
+                <div class="history-item" style="border-left: 3px solid #007bff; padding-left: 1rem; margin-bottom: 2rem;">
+                    <div class="history-header" style="margin-bottom: 1rem;">
+                        <h5 style="color: #007bff; margin-bottom: 0.5rem;">
+                            <i class="fas fa-edit"></i> 資料變更批次 ${logId}
+                        </h5>
+                        <small class="text-muted">
+                            <i class="fas fa-user"></i> ${firstRecord.user_id} | 
+                            <i class="fas fa-clock"></i> ${firstRecord.created_at}
+                        </small>
+                    </div>
+                    <div class="history-changes">
+            `;
+            
+            records.forEach(record => {
+                const tableNameMap = {
+                    'subjects': '基本資料',
+                    'inclusion_criteria': '納入條件',
+                    'exclusion_criteria': '排除條件'
+                };
+                
+                historyHTML += `
+                    <div class="change-item" style="background: #f8f9fa; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 4px;">
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">
+                            ${tableNameMap[record.table_name] || record.table_name} - ${record.field_name}
+                        </div>
+                        <div style="font-size: 0.9rem; color: #6c757d;">
+                            <span style="color: #dc3545;">${record.old_value || '空值'}</span>
+                            <i class="fas fa-arrow-right" style="margin: 0 0.5rem; color: #6c757d;"></i>
+                            <span style="color: #28a745;">${record.new_value || '空值'}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            historyHTML += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        historyHTML += '</div>';
+        
+        historyContainer.innerHTML = historyHTML;
     }
 };
 
@@ -567,6 +920,20 @@ function showDataBrowser() {
                         <div class="row">
                             <input type="number" id="bmiMin" placeholder="最小 BMI" step="0.1">
                             <input type="number" id="bmiMax" placeholder="最大 BMI" step="0.1">
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <label>血清肌酸酐範圍</label>
+                        <div class="row">
+                            <input type="number" id="scrMin" placeholder="最小值" step="0.01">
+                            <input type="number" id="scrMax" placeholder="最大值" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <label>eGFR 範圍</label>
+                        <div class="row">
+                            <input type="number" id="egfrMin" placeholder="最小值" step="0.1">
+                            <input type="number" id="egfrMax" placeholder="最大值" step="0.1">
                         </div>
                     </div>
                     <div class="col-3">
@@ -646,12 +1013,18 @@ function showDataBrowser() {
                                 <th class="sortable-header" data-field="height_cm">身高(cm)</th>
                                 <th class="sortable-header" data-field="weight_kg">體重(kg)</th>
                                 <th class="sortable-header" data-field="bmi">BMI</th>
+                                <th class="sortable-header" data-field="scr">血清肌酸酐</th>
+                                <th class="sortable-header" data-field="egfr">eGFR</th>
+                                <th class="sortable-header" data-field="ph">尿液pH</th>
+                                <th class="sortable-header" data-field="sg">尿液比重</th>
+                                <th class="sortable-header" data-field="rbc">尿液RBC</th>
                                 <th class="sortable-header" data-field="bac">菌尿症</th>
                                 <th class="sortable-header" data-field="dm">糖尿病</th>
                                 <th class="sortable-header" data-field="gout">痛風</th>
                                 <th class="sortable-header" data-field="imaging_type">影像檢查類型</th>
                                 <th class="sortable-header" data-field="imaging_date">影像檢查日期</th>
                                 <th class="sortable-header" data-field="kidney_stone_diagnosis">腎結石診斷</th>
+                                <th class="sortable-header" data-field="status">狀態</th>
                                 <th class="sortable-header" data-field="created_at">建立時間</th>
                                 <th>操作</th>
                             </tr>

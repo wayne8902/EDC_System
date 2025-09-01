@@ -35,19 +35,29 @@ function setupInclusionCriteriaMonitoring() {
     const genderRadios = document.querySelectorAll('input[name="gender"]');
     genderRadios.forEach(radio => {
         radio.addEventListener('change', () => {
-            // 性別變化時，需要同時更新納入條件和排除條件
             if (typeof hasUserStartedFillingForm === 'function' && hasUserStartedFillingForm()) {
                 updateInclusionCriteria();
-                updateExclusionCriteria(); // 添加這行來觸發懷孕女性的自動判斷
             }
+            // 自動處理懷孕女性選項
+            updatePregnantFemaleSelection();
         });
     });
     
     // 監聽病史選擇
     const dmRadios = document.querySelectorAll('input[name="dm"]');
     const goutRadios = document.querySelectorAll('input[name="gout"]');
-    dmRadios.forEach(radio => radio.addEventListener('change', debouncedUpdate));
-    goutRadios.forEach(radio => radio.addEventListener('change', debouncedUpdate));
+    dmRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            debouncedUpdate();
+            toggleHistoryDateSection('dm', 'dmDateSection');
+        });
+    });
+    goutRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            debouncedUpdate();
+            toggleHistoryDateSection('gout', 'goutDateSection');
+        });
+    });
     
     // 監聽影像檢查類型
     const imgTypeRadios = document.querySelectorAll('input[name="imgType"]');
@@ -184,21 +194,7 @@ function updateInclusionCriteria() {
 
 // 更新排除條件
 function updateExclusionCriteria() {
-    // 1. 懷孕女性自動判斷
-    const genderRadios = document.querySelectorAll('input[name="gender"]:checked');
-    const pregnantFemaleNoRadio = document.getElementById('pregnantFemaleNo');
-    
-    if (genderRadios.length > 0 && pregnantFemaleNoRadio) {
-        const selectedGender = genderRadios[0].value;
-        if (selectedGender === '1') {
-            // 如果是男性，自動勾選"否"
-            pregnantFemaleNoRadio.checked = true;
-            // 直接調用 toggleExclusionDetails 而不觸發 change 事件
-            toggleExclusionDetails();
-        }
-    }
-    
-    // 6. 病歷資料缺失自動判斷
+    // 病歷資料缺失自動判斷
     const missingDataRadio = document.getElementById('missingData');
     const missingDataNoRadio = document.getElementById('missingDataNo');
     
@@ -224,19 +220,19 @@ function updateExclusionCriteria() {
                     missingFields.push(`${fieldId} (radio not selected)`);
                 } else {
                     // 特殊處理：如果選擇"有"病史，檢查對應的日期欄位
-                    if (fieldId === 'dm' && radioGroup[0].value === 'yes') {
+                    if (fieldId === 'dm' && radioGroup[0].value === '1') {
                         const dmDateField = document.getElementById('dmDate');
                         if (dmDateField && (!dmDateField.value || dmDateField.value.trim() === '')) {
                             isComplete = false;
-                            missingFields.push(`dmDate (diabetes date required when dm=yes)`);
+                            missingFields.push(`dmDate (diabetes date required when dm=1)`);
                         }
                     }
                     
-                    if (fieldId === 'gout' && radioGroup[0].value === 'yes') {
+                    if (fieldId === 'gout' && radioGroup[0].value === '1') {
                         const goutDateField = document.getElementById('goutDate');
                         if (goutDateField && (!goutDateField.value || goutDateField.value.trim() === '')) {
                             isComplete = false;
-                            missingFields.push(`goutDate (gout date required when gout=yes)`);
+                            missingFields.push(`goutDate (gout date required when gout=1)`);
                         }
                     }
                 }
@@ -464,6 +460,79 @@ function validateTreatmentData() {
     }
 }
 
+// 控制病史日期區段的顯示/隱藏
+function toggleHistoryDateSection(historyType, sectionId) {
+    console.log(`切換 ${historyType} 日期區段顯示狀態`);
+    
+    // 檢查病史選擇
+    const historyRadios = document.querySelectorAll(`input[name="${historyType}"]:checked`);
+    const dateSection = document.getElementById(sectionId);
+    
+    if (historyRadios.length > 0 && dateSection) {
+        const selectedValue = historyRadios[0].value;
+        console.log(`${historyType} 選擇值:`, selectedValue);
+        
+        if (selectedValue === '1') { // 有病史
+            // 顯示日期區段
+            dateSection.style.display = 'block';
+            console.log(`${sectionId} 顯示`);
+            
+            // 可選：啟用日期輸入欄位
+            const dateInput = dateSection.querySelector('input[type="date"]');
+            if (dateInput) {
+                dateInput.disabled = false;
+                dateInput.required = true;
+            }
+        } else if (selectedValue === '0') { // 無病史
+            // 隱藏日期區段
+            dateSection.style.display = 'none';
+            console.log(`${sectionId} 隱藏`);
+            
+            // 可選：禁用並清空日期輸入欄位
+            const dateInput = dateSection.querySelector('input[type="date"]');
+            if (dateInput) {
+                dateInput.disabled = true;
+                dateInput.required = false;
+                dateInput.value = '';
+            }
+        }
+    } else {
+        console.log(`未找到 ${historyType} 選擇或 ${sectionId} 區段`);
+    }
+}
+
+// 自動處理懷孕女性選項
+function updatePregnantFemaleSelection() {
+    
+    // 檢查性別選擇
+    const genderRadios = document.querySelectorAll('input[name="gender"]:checked');
+    const pregnantFemaleRadios = document.querySelectorAll('input[name="pregnantFemale"]');
+    
+    if (genderRadios.length > 0 && pregnantFemaleRadios.length > 0) {
+        const selectedGender = genderRadios[0].value;
+        
+        if (selectedGender === '1') { // 男性
+            // 如果是男性，自動勾選懷孕女性為"否"
+            const pregnantFemaleNoRadio = document.querySelector('input[name="pregnantFemale"][value="no"]');
+            if (pregnantFemaleNoRadio) {
+                pregnantFemaleNoRadio.checked = true;
+                // 觸發 change 事件以更新相關顯示
+                pregnantFemaleNoRadio.dispatchEvent(new Event('change'));
+                // console.log('男性選擇：自動勾選懷孕女性為「否」');
+                
+                // 可選：禁用懷孕女性選項，因為男性不可能懷孕
+                pregnantFemaleRadios.forEach(radio => {
+                    radio.disabled = true;
+                });
+            } else {
+                // console.log('未找到懷孕女性「否」選項');
+            }
+        } 
+    } else {
+        console.log('未找到性別選擇或懷孕女性欄位');
+    }
+}
+
 // 匯出模組
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -473,6 +542,8 @@ if (typeof module !== 'undefined' && module.exports) {
         toggleTreatmentSection,
         toggleExclusionDetails,
         setupTabNavigation,
-        validateTreatmentData
+        validateTreatmentData,
+        updatePregnantFemaleSelection,
+        toggleHistoryDateSection
     };
 }

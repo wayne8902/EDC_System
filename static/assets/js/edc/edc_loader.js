@@ -7,10 +7,12 @@ const MODULE_DEPENDENCIES = {
     'edc_utils': ['edc_core'],
     'edc_calculations': ['edc_core', 'edc_utils'],
     'edc_validation': ['edc_core', 'edc_utils'],
-    'edc_form_handlers': ['edc_core', 'edc_utils', 'edc_calculations'],
-    'edc_data_entry': ['edc_core', 'edc_utils', 'edc_calculations', 'edc_validation', 'edc_form_handlers'],
-    'edc_data_browser': ['edc_core', 'edc_utils'],
-    'edc_data_editor': ['edc_core', 'edc_utils', 'edc_calculations', 'edc_validation']
+    'edc_data_entry_handler': ['edc_core', 'edc_utils', 'edc_calculations'],
+    'edc_data_entry_generator': [],
+    'edc_data_entry': ['edc_core', 'edc_utils', 'edc_calculations', 'edc_validation', 'edc_data_entry_handler', 'edc_data_entry_generator'],
+    
+    'edc_data_browser': ['edc_core', 'edc_utils', 'edc_data_browser_generator', 'edc_data_editor'],
+    'edc_data_editor': ['edc_core', 'edc_utils']
 };
 
 // 模組載入狀態
@@ -90,7 +92,7 @@ class EDCModuleLoader {
             this.loadingModules.delete(moduleName);
             
             console.log(`✓ 模組載入成功: ${moduleName}`);
-            return true;
+            return true
             
         } catch (error) {
             this.loadingModules.delete(moduleName);
@@ -208,7 +210,7 @@ function waitForEDCReady() {
 
 // 初始化儀表板
 function initializeDashboard() {
-    console.log('初始化 EDC 儀表板...');
+    // console.log('初始化 EDC 儀表板...');
     
     // 載入用戶資訊
     if (typeof loadUserInfo === 'function') {
@@ -264,17 +266,14 @@ function openSystemConfig() {
 }
 
 // 功能按鈕點擊處理 - 試驗委託者
-function openDataBrowser() { 
-    console.log('🔍 openDataBrowser 被調用');
-    console.log('🔍 檢查 showDataBrowser 函數:', typeof showDataBrowser);
-    console.log('🔍 檢查 DataBrowserManager:', typeof DataBrowserManager);
-    
+function openDataBrowser() {
+
     if (typeof showDataBrowser === 'function') {
-        console.log('✅ 調用 showDataBrowser 函數');
+        console.log('✓ 調用 showDataBrowser 函數');
         showDataBrowser();
     } else {
-        console.error('❌ showDataBrowser 函數未找到');
-        console.error('❌ 可用的全域函數:', Object.keys(window).filter(key => key.includes('Data')));
+        console.error('✗ showDataBrowser 函數未找到');
+        console.error('✗ 可用的全域函數:', Object.keys(window).filter(key => key.includes('Data')));
         showErrorMessage('資料瀏覽功能載入失敗，請重新整理頁面');
     }
 }
@@ -547,13 +546,8 @@ async function initializeEDC() {
         const success = await edcModuleLoader.loadAllModules();
         
         if (success) {
-            // 隱藏載入進度
-            progress.hide();
-            
-            // 初始化儀表板
-            initializeDashboard();
-            
-            console.log('🎉 EDC 系統初始化完成！');
+            progress.hide(); // 隱藏載入進度
+            initializeDashboard(); // 初始化儀表板
         } else {
             throw new Error('模組載入失敗');
         }
@@ -570,43 +564,41 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEDC();
 });
 
-// 匯出模組
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        EDCModuleLoader,
-        edcModuleLoader,
-        showEDCLoadingProgress,
-        isEDCReady,
-        waitForEDCReady,
-        initializeDashboard,
-        initializeEDC,
-        openUserManagement,
-        openPermissionManagement,
-        openSystemMonitoring,
-        openAuditLogs,
-        openBackupRestore,
-        openSystemConfig,
-        openDataBrowser,
-        openReports,
-        openDataExport,
-        openDataEntry,
-        openDataEditor,
-        openQueryResponse,
-        openDataValidation,
-        openCRFReview,
-        openDigitalSignature,
-        openPatientConsent,
-        openAdverseEvents,
-        openDataAudit,
-        openDataFreeze,
-        openQueryCreation,
-        openQueryManagement,
-        openSiteVisits,
-        openComplianceCheck,
-        openSystemManagement,
-        logout,
-        generateRoleDashboard,
-        loadDashboardStats,
-        manageRoleForms
-    };
+// 瀏覽器環境模組匯出
+if (typeof window !== 'undefined') {
+    window.EDCModuleLoader = EDCModuleLoader;
+    window.edcModuleLoader = edcModuleLoader;
+    window.showEDCLoadingProgress = showEDCLoadingProgress;
+    window.isEDCReady = isEDCReady;
+    window.waitForEDCReady = waitForEDCReady;
+    window.initializeDashboard = initializeDashboard;
+    window.initializeEDC = initializeEDC;
+    window.openUserManagement = openUserManagement;
+    window.openPermissionManagement = openPermissionManagement;
+    window.openSystemMonitoring = openSystemMonitoring;
+    window.openAuditLogs = openAuditLogs;
+    window.openBackupRestore = openBackupRestore;
+    window.openSystemConfig = openSystemConfig;
+    window.openDataBrowser = openDataBrowser;
+    window.openReports = openReports;
+    window.openDataExport = openDataExport;
+    window.openDataEntry = openDataEntry;
+    window.openDataEditor = openDataEditor;
+    window.openQueryResponse = openQueryResponse;
+    window.openDataValidation = openDataValidation;
+    window.openCRFReview = openCRFReview;
+    window.openDigitalSignature = openDigitalSignature;
+    window.openPatientConsent = openPatientConsent;
+    window.openAdverseEvents = openAdverseEvents;
+    window.openDataAudit = openDataAudit;
+    window.openDataFreeze = openDataFreeze;
+    window.openQueryCreation = openQueryCreation;
+    window.openQueryManagement = openQueryManagement;
+    window.openSiteVisits = openSiteVisits;
+    window.openComplianceCheck = openComplianceCheck;
+    window.openSystemManagement = openSystemManagement;
+    window.logout = logout;
+    window.generateRoleDashboard = generateRoleDashboard;
+    window.loadDashboardStats = loadDashboardStats;
+    window.manageRoleForms = manageRoleForms;
 }

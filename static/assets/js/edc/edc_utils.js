@@ -123,15 +123,67 @@ function showMessage(message, type = 'info') {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    const container = document.querySelector('.container') || document.body;
-    container.insertBefore(messageDiv, container.firstChild);
+    // 設定懸浮樣式
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 300px;
+        min-width: 200px;
+        font-size: 14px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    // 添加動畫樣式
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // 直接添加到 body，不影響頁面佈局
+    document.body.appendChild(messageDiv);
     
     // 自動隱藏
     setTimeout(() => {
         if (messageDiv.parentNode) {
-            messageDiv.remove();
+            messageDiv.style.animation = 'slideOutRight 0.3s ease-in';
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 300);
         }
-    }, 5000);
+    }, 3000);
+    
+    // 添加滑出動畫
+    const slideOutStyle = document.createElement('style');
+    slideOutStyle.textContent = `
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(slideOutStyle);
 }
 
 // 確認對話框
