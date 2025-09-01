@@ -1802,3 +1802,253 @@ class edc_db:
         finally:
             self.disconnect()
 
+    def submit_for_review(self, subject_code, user_id, verbose=0):
+        """提交受試者資料供審核
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 提交者ID
+            verbose: 詳細模式 (0/1)
+            
+        Returns:
+            提交結果字典
+        """
+        try:
+            # 重新連接資料庫
+            self.connect()
+            
+            # 開始事務
+            self.sql.execute("START TRANSACTION")
+            
+            # 檢查受試者是否存在
+            subject_result = self.sql.search('subjects', ['id', 'status'], criteria=f"`subject_code`='{subject_code}'")
+            if not subject_result:
+                self.sql.execute("ROLLBACK")
+                return {
+                    'success': False,
+                    'message': '受試者不存在',
+                    'error_code': 'SUBJECT_NOT_FOUND'
+                }
+            
+            subject_id, current_status = subject_result[0]
+            
+            # 檢查當前狀態是否允許提交
+            if current_status != 'draft':
+                self.sql.execute("ROLLBACK")
+                return {
+                    'success': False,
+                    'message': f'受試者狀態為 {current_status}，無法提交審核',
+                    'error_code': 'INVALID_STATUS'
+                }
+            
+            # 獲取當前時間戳
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # 更新三個表的狀態為 'submitted'
+            tables = ['subjects', 'inclusion_criteria', 'exclusion_criteria']
+            
+            for table in tables:
+                update_data = f"`status`='submitted', `updated_by`='{user_id}', `updated_at`='{timestamp}'"
+                update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+                
+                if isinstance(update_result, str):
+                    self.sql.execute("ROLLBACK")
+                    return {
+                        'success': False,
+                        'message': f'更新 {table} 狀態失敗: {update_result}',
+                        'error_code': 'UPDATE_STATUS_FAILED'
+                    }
+            
+            # 記錄操作日誌
+            log_id = self._generate_log_id()
+            log_fields = ['log_id', 'subject_code', 'table_name', 'field_name', 'old_value', 'new_value', 'action', 'user_id']
+            log_values = [log_id, subject_code, 'system', 'status', 'draft', 'submitted', 'SUBMIT', user_id]
+            
+            log_insert_result = self.sql.insert('edit_log', log_fields, log_values, verbose=verbose)
+            if isinstance(log_insert_result, str):
+                # 日誌插入失敗不影響主要操作，但要記錄錯誤
+                logger.warning(f"插入提交日誌失敗: {log_insert_result}")
+            
+            # 提交事務
+            self.sql.execute("COMMIT")
+            
+            return {
+                'success': True,
+                'message': '已成功提交審核，等待試驗主持人簽署',
+                'subject_code': subject_code,
+                'subject_id': subject_id,
+                'status': 'submitted',
+                'submitted_at': timestamp,
+                'submitted_by': user_id
+            }
+            
+        except Exception as e:
+            # 發生異常，回滾事務
+            try:
+                self.sql.execute("ROLLBACK")
+            except:
+                pass  # 忽略回滾失敗的錯誤
+            
+            logger.error(f"提交審核失敗: {e}")
+            return {
+                'success': False,
+                'message': f'提交審核失敗: {str(e)}',
+                'error_code': 'SUBMIT_ERROR'
+            }
+        finally:
+            self.disconnect()
+    
+    def _generate_log_id(self):
+        """生成日誌ID"""
+        from datetime import datetime
+        import hashlib
+        
+        # 使用當前時間戳生成唯一ID
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        hash_obj = hashlib.md5(timestamp.encode())
+        return hash_obj.hexdigest()[:7].upper()
+
+    def validate_required_fields(self, subject_code, verbose=0):
+        """驗證必填欄位是否完整
+        
+        Args:
+            subject_code: 受試者編號
+            verbose: 詳細模式 (0/1)
+            
+        Returns:
+            驗證結果字典
+        """
+        try:
+            self.connect()
+            
+            missing_fields = []
+            validation_details = {
+                'subjects': {'checked': False, 'missing': []},
+                'inclusion_criteria': {'checked': False, 'missing': []},
+                'exclusion_criteria': {'checked': False, 'missing': []}
+            }
+            
+            # 1. 檢查 subjects 表的必填欄位
+            subject_result = self.sql.search('subjects', ['*'], criteria=f"`subject_code`='{subject_code}'")
+            if not subject_result:
+                return {
+                    'success': False,
+                    'message': '受試者不存在於資料庫中',
+                    'error_code': 'SUBJECT_NOT_FOUND',
+                    'validation_details': validation_details
+                }
+            
+            subject_data = subject_result[0]
+            validation_details['subjects']['checked'] = True
+            
+            # 定義必填欄位（根據臨床試驗需求）
+            required_subject_fields = {
+                2: 'date_of_birth',   # 出生日期
+                4: 'gender',          # 性別  
+                5: 'height_cm',       # 身高
+                6: 'weight_kg',       # 體重
+                16: 'imaging_type',   # 影像檢查類型
+                17: 'imaging_date'    # 影像檢查日期
+            }
+            
+            for idx, field_name in required_subject_fields.items():
+                # 特別處理數值型欄位：0 是有效值，None 和空字串才是無效的
+                value = subject_data[idx]
+                if value is None or value == '':
+                    missing_fields.append(f'受試者資料.{field_name}')
+                    validation_details['subjects']['missing'].append(field_name)
+            
+            # 2. 檢查 inclusion_criteria 表（納入條件評估）
+            inclusion_result = self.sql.search('inclusion_criteria', ['*'], criteria=f"`subject_code`='{subject_code}'")
+            if not inclusion_result:
+                missing_fields.append('納入條件評估表（整個表格未建立）')
+                validation_details['inclusion_criteria']['missing'].append('entire_table')
+            else:
+                validation_details['inclusion_criteria']['checked'] = True
+                inclusion_data = inclusion_result[0]
+                # 檢查關鍵的納入條件欄位
+                inclusion_field_mapping = {
+                    2: 'age_18_above',              # 索引2
+                    3: 'gender_available',          # 索引3
+                    4: 'age_available',             # 索引4
+                    5: 'bmi_available',             # 索引5
+                    6: 'dm_history_available',      # 索引6
+                    7: 'gout_history_available',    # 索引7
+                    8: 'egfr_available',            # 索引8
+                    9: 'urine_ph_available',        # 索引9
+                    10: 'urine_sg_available',       # 索引10
+                    11: 'urine_rbc_available',      # 索引11
+                    12: 'bacteriuria_available',    # 索引12
+                    13: 'lab_interval_7days',       # 索引13
+                    14: 'imaging_available',        # 索引14
+                    15: 'kidney_structure_visible', # 索引15
+                    16: 'mid_ureter_visible',       # 索引16
+                    17: 'lower_ureter_visible',     # 索引17
+                    18: 'imaging_lab_interval_7days', # 索引18
+                    19: 'no_treatment_during_exam'  # 索引19
+                }
+                
+                for idx, field_name in inclusion_field_mapping.items():
+                    if idx < len(inclusion_data):
+                        value = inclusion_data[idx]
+                        # 對於納入條件，0 和 1 都是有效值，只有 None 才是無效的
+                        if value is None:
+                            missing_fields.append(f'納入條件.{field_name}')
+                            validation_details['inclusion_criteria']['missing'].append(field_name)
+            
+            # 3. 檢查 exclusion_criteria 表（排除條件評估）
+            exclusion_result = self.sql.search('exclusion_criteria', ['*'], criteria=f"`subject_code`='{subject_code}'")
+            if not exclusion_result:
+                missing_fields.append('排除條件評估表（整個表格未建立）')
+                validation_details['exclusion_criteria']['missing'].append('entire_table')
+            else:
+                validation_details['exclusion_criteria']['checked'] = True
+                exclusion_data = exclusion_result[0]
+                # 檢查關鍵的排除條件欄位
+                exclusion_field_mapping = {
+                    2: 'pregnant_female',           # 索引2
+                    3: 'kidney_transplant',         # 索引3  
+                    4: 'urinary_tract_foreign_body', # 索引4
+                    6: 'non_stone_urological_disease', # 索引6
+                    8: 'renal_replacement_therapy',  # 索引8
+                    10: 'medical_record_incomplete', # 索引10
+                    11: 'major_blood_immune_cancer', # 索引11
+                    13: 'rare_metabolic_disease',    # 索引13
+                    15: 'investigator_judgment'      # 索引15
+                }
+                
+                for idx, field_name in exclusion_field_mapping.items():
+                    if idx < len(exclusion_data):
+                        value = exclusion_data[idx]
+                        # 對於排除條件，0 和 1 都是有效值，只有 None 才是無效的
+                        if value is None:
+                            missing_fields.append(f'排除條件.{field_name}')
+                            validation_details['exclusion_criteria']['missing'].append(field_name)
+            
+            # 返回驗證結果
+            if missing_fields:
+                return {
+                    'success': False,
+                    'message': f'資料庫中發現 {len(missing_fields)} 個必填欄位未完成',
+                    'missing_fields': missing_fields,
+                    'validation_details': validation_details,
+                    'error_code': 'MISSING_REQUIRED_FIELDS'
+                }
+            
+            return {
+                'success': True,
+                'message': '資料庫中所有必填欄位已完成，可以提交審核',
+                'validation_details': validation_details
+            }
+            
+        except Exception as e:
+            logger.error(f"驗證必填欄位失敗: {e}")
+            return {
+                'success': False,
+                'message': f'驗證失敗: {str(e)}',
+                'error_code': 'VALIDATION_ERROR'
+            }
+        finally:
+            self.disconnect()
+

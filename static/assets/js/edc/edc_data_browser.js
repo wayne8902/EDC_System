@@ -46,6 +46,29 @@ const DataBrowserManager = {
     },
 
     /**
+     * 檢查受試者狀態是否允許編輯
+     * @param {Object} subject - 受試者資料對象
+     * @returns {boolean} - 是否允許編輯
+     */
+    canEditByStatus(subject) {
+        if (!subject || !subject.status) {
+            return true; // 如果沒有狀態資訊，預設允許編輯
+        }
+        
+        const status = subject.status.toLowerCase();
+        return status !== 'submitted' && status !== 'signed';
+    },
+
+    /**
+     * 檢查是否可以顯示編輯按鈕（結合權限和狀態檢查）
+     * @param {Object} subject - 受試者資料對象
+     * @returns {boolean} - 是否可以顯示編輯按鈕
+     */
+    canShowEditButton(subject) {
+        return this.hasEditPermission() && this.canEditByStatus(subject);
+    },
+
+    /**
      * 初始化資料瀏覽器
      */
     init() {
@@ -287,7 +310,7 @@ const DataBrowserManager = {
     
     // 執行進階搜尋
     async performSearch() {
-        console.log('performSearch 被調用');
+
         this.updateFilters();
         
         try {
@@ -306,9 +329,7 @@ const DataBrowserManager = {
             });
             
             const result = await response.json();
-            console.log('result: ', result);
-            console.log('result.data: ', result.data);
-            console.log('result.pagination: ', result.pagination);
+
             if (result.success) {
                 this.currentData = result.data;
                 this.pagination = result.pagination;
@@ -365,7 +386,7 @@ const DataBrowserManager = {
                     <button class="btn-ghost" onclick="DataBrowserManager.viewDetails('${subject.subject_code}')">
                         詳細資料
                     </button>
-                    ${this.hasEditPermission() ? `
+                    ${this.canShowEditButton(subject) ? `
                         <button class="btn-ghost" onclick="DataBrowserManager.editSubject('${subject.subject_code}')">
                             編輯
                         </button>
@@ -543,7 +564,7 @@ const DataBrowserManager = {
     async fetchSubjectDetails(subjectCode) {
         try {
             // 顯示載入狀態
-            console.log(`正在獲取受試者 ${subjectCode} 的詳細資料...`);
+
             
             // 調用後台API
             const response = await fetch(`/edc/subject-detail-id/${subjectCode}`, {
@@ -561,11 +582,7 @@ const DataBrowserManager = {
             const result = await response.json();
             
             if (result.success) {
-                // 用console.log顯示獲取到的資料
-                console.log('受試者詳細資料:', result.data);
-                console.log('基本資料:', result.data.subject);
-                console.log('納入條件:', result.data.inclusion_criteria);
-                console.log('排除條件:', result.data.exclusion_criteria);
+
                 
                 // 顯示成功訊息
                 this.showSuccess(`成功獲取受試者 ${subjectCode} 的詳細資料`);
@@ -631,28 +648,23 @@ const DataBrowserManager = {
      * 創建受試者詳細資料頁面
      */
     async createSubjectDetailPage(data) {
-        console.log('createSubjectDetailPage 被調用');
-        console.log('dataBrowserGenerator 狀態:', {
-            exists: typeof dataBrowserGenerator !== 'undefined',
-            loaded: typeof dataBrowserGenerator !== 'undefined' ? dataBrowserGenerator.loaded : 'N/A',
-            hasConfig: typeof dataBrowserGenerator !== 'undefined' ? !!dataBrowserGenerator.config : 'N/A'
-        });
+
         
         // 使用動態生成器創建頁面
         if (typeof dataBrowserGenerator !== 'undefined') {
-            console.log('✓ 嘗試使用動態生成器');
+
             try {
                 const result = await dataBrowserGenerator.generateSubjectDetailPage(data);
-                console.log('✓ 動態生成器執行成功');
+
                 return result;
             } catch (error) {
                 console.error('動態生成器執行失敗:', error);
-                console.warn('回退到預設方法');
+
                 return this.createDefaultSubjectDetailPage(data);
             }
         } else {
             // 如果生成器未載入，使用預設方法
-            console.warn('使用預設的頁面生成方法 - 生成器未定義');
+
             return this.createDefaultSubjectDetailPage(data);
         }
     },
@@ -674,7 +686,7 @@ const DataBrowserManager = {
                         <button class="btn btn-secondary" onclick="DataBrowserManager.backToDataBrowser()">
                             <i class="fas fa-arrow-left"></i> 返回資料瀏覽
                         </button>
-                        ${this.hasEditPermission() ? `
+                        ${this.canShowEditButton(subject) ? `
                                             <button class="btn btn-primary" onclick="DataEditorManager.switchToEditMode()">
                     <i class="fas fa-edit"></i> 編輯模式
                 </button>
@@ -696,7 +708,7 @@ const DataBrowserManager = {
      */
     setupDetailPageEvents() {
         // 這裡可以添加詳細資料頁面的特定事件處理
-        console.log('詳細資料頁面事件已設置');
+
     },
     
     /**
@@ -774,7 +786,7 @@ const DataBrowserManager = {
         if (!subjectCode) return;
         
         try {
-            console.log(`正在載入受試者 ${subjectCode} 的歷程記錄...`);
+
             
             const response = await fetch(`/edc/subject-history/${subjectCode}`, {
                 method: 'GET',

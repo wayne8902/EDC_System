@@ -14,7 +14,7 @@ class DataBrowserGenerator {
      */
     async loadConfig() {
         try {
-            console.log('開始載入配置檔案...');
+
             
             const response = await fetch('assets/js/edc/edc_data_browser_config.json');
             if (!response.ok) {
@@ -25,7 +25,7 @@ class DataBrowserGenerator {
             
             this.config = JSON.parse(configText);
             this.loaded = true;
-            console.log('✓ 配置檔案載入成功');
+
             
         } catch (error) {
             console.error('✗ 載入配置檔案失敗:', error);
@@ -36,7 +36,7 @@ class DataBrowserGenerator {
             });
             
             // 使用預設配置
-            console.log('使用預設配置作為備用');
+
             this.config = this.getDefaultConfig();
             this.loaded = true;
         }
@@ -200,24 +200,47 @@ class DataBrowserGenerator {
         return this.hasPermission('edc.data.edit');
     }
 
+    /**
+     * 檢查受試者狀態是否允許編輯
+     * @param {Object} subject - 受試者資料對象
+     * @returns {boolean} - 是否允許編輯
+     */
+    canEditByStatus(subject) {
+        if (!subject || !subject.status) {
+            return true; // 如果沒有狀態資訊，預設允許編輯
+        }
+        
+        const status = subject.status.toLowerCase();
+        return status !== 'submitted' && status !== 'signed';
+    }
+
+    /**
+     * 檢查是否可以顯示編輯按鈕（結合權限和狀態檢查）
+     * @param {Object} subject - 受試者資料對象
+     * @returns {boolean} - 是否可以顯示編輯按鈕
+     */
+    canShowEditButton(subject) {
+        return this.hasEditPermission() && this.canEditByStatus(subject);
+    }
+
     // 生成受試者詳細資料頁面
     async generateSubjectDetailPage(data) {
         
         // 如果配置未載入，立即嘗試載入
         if (!this.loaded || !this.config) {
-            console.log('配置檔案未載入，開始載入...');
+
             
             // 顯示載入指示器
             this.showLoadingIndicator();
             
             try {
                 await this.loadConfig();
-                console.log('✓ 配置檔案載入完成');
+
                 
                 // 隱藏載入指示器
                 this.hideLoadingIndicator();
             } catch (error) {
-                console.error('配置檔案載入失敗，使用預設配置:', error);
+                console.error('配置檔案載入失敗:', error);
                 this.config = this.getDefaultConfig();
                 this.loaded = true;
                 
@@ -228,7 +251,7 @@ class DataBrowserGenerator {
 
         const config = this.config.subject_detail_page;
         const styles = config.styles || this.getDefaultStyles();
-        const hasEditPermission = this.hasEditPermission();
+        const canShowEditButton = this.canShowEditButton(data.subject);
 
         return `
             <div class="wrap">
@@ -243,7 +266,7 @@ class DataBrowserGenerator {
                             <button class="btn btn-secondary" onclick="DataBrowserManager.backToDataBrowser()">
                                 <i class="fas fa-arrow-left"></i> 返回資料瀏覽
                             </button>
-                            ${hasEditPermission ? `
+                            ${canShowEditButton ? `
                                                 <button class="btn btn-primary" onclick="DataEditorManager.switchToEditMode()" style="margin-left: 10px;">
                     <i class="fas fa-edit"></i> 編輯模式
                 </button>
@@ -635,8 +658,4 @@ class DataBrowserGenerator {
 // 創建全域實例
 const dataBrowserGenerator = new DataBrowserGenerator();
 
-console.log('data_browser_generator.js 載入完成，創建全域實例');
-console.log('dataBrowserGenerator 實例:', dataBrowserGenerator);
-
-// 不預先載入配置，等待實際使用時才載入
-console.log('配置檔案將在需要時才載入（懶載入模式）');
+// EDC 資料瀏覽器生成器已載入

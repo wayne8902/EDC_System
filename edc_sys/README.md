@@ -44,6 +44,13 @@ edc_sys/
 - 自動計算排除條件分數
 - 總體資格判定
 
+### 5. 電子簽核流程
+- 研究人員提交審核功能
+- 必填欄位驗證
+- 狀態管理 (draft → submitted → signed)
+- PI 簽署流程
+- 編輯權限控制
+
 ## API 端點
 
 ### 主要 API
@@ -57,6 +64,10 @@ edc_sys/
 | `/evaluate-eligibility/<id>` | GET | 評估受試者資格 |
 | `/update-subject/<id>` | PUT | 更新受試者資料 |
 | `/dashboard` | GET | 系統儀表板 |
+| `/submit-for-review/<subject_code>` | POST | 提交審核 |
+| `/validate-required-fields/<subject_code>` | GET | 驗證必填欄位 |
+| `/subject-detail-id/<subject_code>` | GET | 獲取受試者詳細資料 |
+| `/search-subjects-advanced` | POST | 進階搜尋受試者 |
 
 ### API 使用範例
 
@@ -106,13 +117,51 @@ fetch('/edc/search-subjects?term=S001&limit=10')
 .then(data => console.log(data));
 ```
 
+#### 提交審核
+```javascript
+fetch('/edc/submit-for-review/P010002', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+    }
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        console.log('提交成功:', data.message);
+    } else {
+        console.error('提交失敗:', data.message);
+    }
+});
+```
+
+#### 驗證必填欄位
+```javascript
+fetch('/edc/validate-required-fields/P010002')
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        console.log('驗證通過');
+    } else {
+        console.log('缺少欄位:', data.missing_fields);
+    }
+});
+```
+
 ## 資料庫結構
 
 ### 主要資料表
 
 1. **subjects** - 受試者基本資料
+   - 包含狀態欄位 (status: 'draft', 'submitted', 'signed')
+   - 創建者和更新者追蹤 (created_by, updated_by)
+   - 時間戳記 (created_at, updated_at)
 2. **inclusion_criteria** - 納入條件評估
+   - 與 subjects 表同步的狀態管理
 3. **exclusion_criteria** - 排除條件評估
+   - 與 subjects 表同步的狀態管理
+4. **edit_log** - 編輯歷程記錄
+   - 記錄所有資料變更和提交審核動作
 
 ### 資料庫配置
 
@@ -156,7 +205,9 @@ app.register_blueprint(edc_blueprints, url_prefix='/edc')
 前端可以透過 JavaScript 調用 EDC 系統的 API 進行資料操作。
 
 ### 2. 權限控制
-所有 API 都需要使用者登入，使用 `@login_required` 裝飾器保護。
+- 所有 API 都需要使用者登入，使用 `@login_required` 裝飾器保護
+- 編輯權限基於用戶角色 (`edc.data.edit`)
+- 狀態控制：submitted 和 signed 狀態的資料無法編輯
 
 ### 3. 錯誤處理
 系統提供統一的錯誤回應格式，便於前端處理。
@@ -200,6 +251,11 @@ app.register_blueprint(edc_blueprints, url_prefix='/edc')
 ## 版本歷史
 
 - **v1.0.0** - 初始版本，基本功能實現
+- **v1.1.0** - 新增電子簽核流程
+  - 提交審核功能 (`submit_for_review`)
+  - 必填欄位驗證 (`validate_required_fields`)
+  - 狀態管理和權限控制
+  - 編輯歷程記錄
 
 ## 授權
 

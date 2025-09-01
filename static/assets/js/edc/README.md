@@ -15,6 +15,7 @@ edc/
 ├── edc_data_entry_generator.js        # 輸入頁面生成器 - 根據配置生成輸入表單
 ├── edc_data_entry_handler.js          # 資料輸入處理器 - 處理表單提交和驗證
 ├── edc_data_entry.js                  # 資料輸入主模組 - 管理新增資料流程
+├── edc_data_editor.js                 # 資料編輯器 - 管理編輯模式和提交審核
 ├── edc_calculations.js                # 計算模組 - 處理 BMI 等計算邏輯
 ├── edc_validation.js                  # 驗證模組 - 資料驗證規則和檢查
 └── edc_dashboard.js                   # 儀表板模組 - 主要頁面初始化和路由
@@ -110,6 +111,29 @@ collectFormData() - 收集表單資料
 返回結果並切換回瀏覽模式
 ```
 
+### 2.1. 電子簽核流程 (Electronic Signature Flow)
+```
+用戶點擊"提交審核"
+    ↓
+edc_data_editor.js.submitChanges()
+    ↓
+validateRequiredFields() - 驗證必填欄位
+    ↓
+用戶確認提交
+    ↓
+processSubmission() - 處理提交
+    ↓
+發送 POST 請求到 /edc/submit-for-review/{subject_code}
+    ↓
+後端更新狀態為 'submitted'
+    ↓
+updateUIAfterSubmission() - 更新 UI 狀態
+    ↓
+notifyPI() - 通知試驗主持人
+    ↓
+重新載入頁面資料，編輯按鈕消失
+```
+
 ### 3. 資料輸入流程 (Data Entry Flow)
 ```
 用戶點擊"新增資料"
@@ -182,6 +206,11 @@ const moduleDependencies = {
 - 處理欄位狀態轉換 (唯讀 ↔ 可編輯)
 - 收集和驗證表單資料
 - 與後端 API 通訊
+- **電子簽核流程管理**
+  - 提交審核功能 (`submitChanges`)
+  - 必填欄位驗證 (`validateRequiredFields`)
+  - 狀態管理和 UI 更新
+  - 權限控制和按鈕顯示邏輯
 
 ## 🔧 配置驅動架構
 
@@ -216,6 +245,10 @@ const moduleDependencies = {
 - **GET** `/edc/subject/{subject_code}` - 獲取特定受試者資料
 - **POST** `/edc/subject` - 新增受試者資料
 - **PUT** `/edc/update-subject/{subject_code}` - 更新受試者資料
+- **POST** `/edc/submit-for-review/{subject_code}` - 提交審核
+- **GET** `/edc/validate-required-fields/{subject_code}` - 驗證必填欄位
+- **GET** `/edc/subject-detail-id/{subject_code}` - 獲取受試者詳細資料
+- **POST** `/edc/search-subjects-advanced` - 進階搜尋受試者
 
 ### 資料格式
 ```javascript
@@ -224,6 +257,22 @@ const moduleDependencies = {
   "subject_data": { /* 基本資料 */ },
   "inclusion_data": { /* 納入條件 */ },
   "exclusion_data": { /* 排除條件 */ }
+}
+
+// 提交審核回應格式
+{
+  "success": true,
+  "message": "已成功提交審核，等待試驗主持人簽署",
+  "subject_code": "P010002",
+  "status": "submitted"
+}
+
+// 驗證必填欄位回應格式
+{
+  "success": false,
+  "message": "請完成以下必填欄位",
+  "missing_fields": ["age", "gender", "height"],
+  "validation_details": { /* 詳細驗證資訊 */ }
 }
 ```
 
@@ -263,6 +312,9 @@ EDCLoader.loadModule('edc_data_browser').then(() => {
 2. **欄位不顯示**: 檢查 JSON 配置檔案格式
 3. **編輯模式無效**: 確認用戶權限設定
 4. **API 錯誤**: 檢查後端端點和資料格式
+5. **編輯按鈕消失**: 檢查受試者狀態 (submitted/signed 狀態無法編輯)
+6. **提交審核失敗**: 確認必填欄位已完成且用戶有編輯權限
+7. **權限控制問題**: 檢查 `canEditByStatus()` 和 `canShowEditButton()` 邏輯
 
 ## 📈 擴展性設計
 
@@ -280,6 +332,11 @@ EDCLoader.loadModule('edc_data_browser').then(() => {
 1. 在 `edc_loader.js` 中定義依賴關係
 2. 實現模組功能
 3. 在需要的地方引入使用
+
+### 權限和狀態控制擴展
+1. 在 `canEditByStatus()` 中新增狀態檢查邏輯
+2. 在 `canShowEditButton()` 中結合新的權限規則
+3. 更新 UI 元素的顯示條件
 
 ---
 

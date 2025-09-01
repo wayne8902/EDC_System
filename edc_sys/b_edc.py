@@ -624,6 +624,104 @@ def update_subject_with_criteria_api(subject_code):
             "content": "update_subject"
         }), 500
 
+@edc_blueprints.route('/submit-for-review/<subject_code>', methods=['POST'])
+@login_required
+def submit_for_review_api(subject_code):
+    """
+    提交受試者資料供審核 API
+    
+    POST /submit-for-review/P010002
+    
+    回應格式:
+    {
+        "success": true,
+        "message": "已成功提交審核，等待試驗主持人簽署",
+        "subject_code": "P010002",
+        "status": "submitted"
+    }
+    """
+    try:
+        # 獲取使用者資訊
+        user_id = current_user.UNIQUE_ID
+        
+        # 先驗證必填欄位
+        validation_result = edc_sys.validate_required_fields(subject_code, verbose=VERBOSE)
+        if not validation_result['success']:
+            return jsonify({
+                "success": False,
+                "message": validation_result['message'],
+                "missing_fields": validation_result.get('missing_fields', []),
+                "content": "submit_for_review"
+            }), 400
+        
+        # 執行提交審核
+        result = edc_sys.submit_for_review(subject_code, user_id, verbose=VERBOSE)
+        
+        if not result['success']:
+            return jsonify({
+                "success": False,
+                "message": result['message'],
+                "error_code": result.get('error_code'),
+                "content": "submit_for_review"
+            }), 400
+        
+        return jsonify({
+            "success": True,
+            "message": result['message'],
+            "subject_code": result['subject_code'],
+            "subject_id": result['subject_id'],
+            "status": result['status'],
+            "submitted_at": result['submitted_at'],
+            "submitted_by": result['submitted_by']
+        })
+        
+    except Exception as e:
+        logging.error(f"提交審核失敗: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"提交審核失敗: {str(e)}",
+            "content": "submit_for_review"
+        }), 500
+
+@edc_blueprints.route('/validate-required-fields/<subject_code>', methods=['GET'])
+@login_required
+def validate_required_fields_api(subject_code):
+    """
+    驗證必填欄位 API
+    
+    GET /validate-required-fields/P010002
+    
+    回應格式:
+    {
+        "success": true,
+        "message": "所有必填欄位已完成"
+    }
+    """
+    try:
+        result = edc_sys.validate_required_fields(subject_code, verbose=VERBOSE)
+        
+        if not result['success']:
+            return jsonify({
+                "success": False,
+                "message": result['message'],
+                "missing_fields": result.get('missing_fields', []),
+                "error_code": result.get('error_code'),
+                "content": "validate_required_fields"
+            }), 200  # 驗證失敗也返回200，因為這是正常的業務邏輯
+        
+        return jsonify({
+            "success": True,
+            "message": result['message']
+        })
+        
+    except Exception as e:
+        logging.error(f"驗證必填欄位失敗: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"驗證失敗: {str(e)}",
+            "content": "validate_required_fields"
+        }), 500
+
 @edc_blueprints.route('/subject-history/<subject_code>', methods=['GET'])
 @login_required
 def get_subject_history(subject_code):

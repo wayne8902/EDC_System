@@ -11,7 +11,7 @@ const DataEntryManager = {
     init() {
         this.setupEventListeners();
         this.loadUserPreferences();
-        console.log('資料輸入模組已初始化');
+
     },
     
     setupEventListeners() {
@@ -48,7 +48,7 @@ const DataEntryManager = {
     async handleFormSubmit(form) {
         if (this.validateForm(form)) {
             const formData = this.collectFormData(form);
-            console.log('formData: ', formData);
+
             await this.submitData(formData);
         }
     },
@@ -594,15 +594,7 @@ function saveDraft() {
     showSuccessMessage('草稿已儲存！');
 }
 
-// 測試表單
-function testForm() {
-    console.log('=== 表單測試 ===');
-    
-    const form = document.querySelector('.researcher-form');
-    if (form && DataEntryManager.validateForm(form)) {
-        showSuccessMessage('表單驗證通過！');
-    }
-}
+
 
 // 電子簽章
 function eSign() {
@@ -641,7 +633,6 @@ function toggleDebugMode() {
 
 // 填入 DEBUG 預設值
 function fillDebugValues() {
-    console.log('🐛 DEBUG 模式已啟用，正在填入預設值...');
     
     // 基本資料預設值
     const today = new Date().toISOString().split('T')[0];
@@ -762,14 +753,14 @@ function fillDebugValues() {
         }
     });
     
-    console.log('🐛 DEBUG 模式預設值填入完成！');
+
 }
 
 // 提交表單
 async function submitForm() {
     if (validateAllFields()) {
         const formData = collectFormData();
-        console.log('提交的資料：', formData);
+
         
         try {
             // 顯示載入狀態

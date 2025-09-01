@@ -268,20 +268,11 @@ function updateExclusionCriteria() {
                 }
             }
         });
-        
-        if (!isComplete) {
-            console.log('Missing or incomplete fields:', missingFields);
-        } else {
-            console.log('All required fields are complete!');
-        }
-        
         // 根據完整性自動勾選
         if (isComplete) {
             missingDataNoRadio.checked = true;
-            console.log('Auto-selecting "否" for missing data');
         } else {
             missingDataRadio.checked = true;
-            console.log('Auto-selecting "是" for missing data');
         }
         
         // 直接調用 toggleExclusionDetails 而不觸發 change 事件
@@ -462,7 +453,7 @@ function validateTreatmentData() {
 
 // 控制病史日期區段的顯示/隱藏
 function toggleHistoryDateSection(historyType, sectionId) {
-    console.log(`切換 ${historyType} 日期區段顯示狀態`);
+
     
     // 檢查病史選擇
     const historyRadios = document.querySelectorAll(`input[name="${historyType}"]:checked`);
@@ -470,12 +461,12 @@ function toggleHistoryDateSection(historyType, sectionId) {
     
     if (historyRadios.length > 0 && dateSection) {
         const selectedValue = historyRadios[0].value;
-        console.log(`${historyType} 選擇值:`, selectedValue);
+
         
         if (selectedValue === '1') { // 有病史
             // 顯示日期區段
             dateSection.style.display = 'block';
-            console.log(`${sectionId} 顯示`);
+
             
             // 可選：啟用日期輸入欄位
             const dateInput = dateSection.querySelector('input[type="date"]');
@@ -486,7 +477,7 @@ function toggleHistoryDateSection(historyType, sectionId) {
         } else if (selectedValue === '0') { // 無病史
             // 隱藏日期區段
             dateSection.style.display = 'none';
-            console.log(`${sectionId} 隱藏`);
+
             
             // 可選：禁用並清空日期輸入欄位
             const dateInput = dateSection.querySelector('input[type="date"]');
@@ -496,8 +487,6 @@ function toggleHistoryDateSection(historyType, sectionId) {
                 dateInput.value = '';
             }
         }
-    } else {
-        console.log(`未找到 ${historyType} 選擇或 ${sectionId} 區段`);
     }
 }
 
@@ -528,8 +517,6 @@ function updatePregnantFemaleSelection() {
                 // console.log('未找到懷孕女性「否」選項');
             }
         } 
-    } else {
-        console.log('未找到性別選擇或懷孕女性欄位');
     }
 }
 

@@ -24,7 +24,7 @@ const DataEditorManager = {
      * 初始化資料編輯器
      */
     init() {
-        console.log('資料編輯器初始化完成');
+
     },
     
     /**
@@ -32,7 +32,7 @@ const DataEditorManager = {
      */
     hasPermission(permission) {
         if (typeof userPermissions === 'undefined') {
-            console.warn('userPermissions 未定義');
+
             return false;
         }
         return userPermissions.includes(permission);
@@ -49,7 +49,7 @@ const DataEditorManager = {
      * 切換到編輯模式
      */
     switchToEditMode() {
-        console.log('切換到編輯模式');
+
         
         this.currentMode = 'edit';
         
@@ -67,7 +67,7 @@ const DataEditorManager = {
      * 切換回瀏覽模式
      */
     switchToViewMode() {
-        console.log('切換回瀏覽模式');
+
         
         this.currentMode = 'view';
         
@@ -111,7 +111,7 @@ const DataEditorManager = {
             select.disabled = false;
         });
 
-        console.log('欄位已轉換為可編輯狀態');
+
     },
     
     /**
@@ -144,7 +144,7 @@ const DataEditorManager = {
             select.disabled = true;
         });
 
-        console.log('欄位已轉換回唯讀狀態');
+
     },
     
     /**
@@ -222,7 +222,7 @@ const DataEditorManager = {
      */
     async saveChanges() {
         try {
-            console.log('開始儲存變更...');
+
             
             // 顯示載入狀態
             this.showLoadingState();
@@ -258,7 +258,7 @@ const DataEditorManager = {
                 edit_log_data: editLogData
             };
             
-            console.log('準備發送更新請求:', updateData);
+
             
             // 發送更新請求
             const response = await fetch(`/edc/update-subject/${subjectCode}`, {
@@ -635,10 +635,278 @@ const DataEditorManager = {
     },
 
     /**
-     * 提交變更
+     * 提交審核 - 完整實現
      */
-    submitChanges() {
-        alert('提交變更功能開發中...');
+    async submitChanges() {
+        try {
+            // 獲取當前受試者代碼
+            const subjectCode = this.getSubjectCode();
+            if (!subjectCode) {
+                alert('無法獲取受試者代碼');
+                return;
+            }
+            
+            // 步驟一：前置檢查 - 驗證必填欄位
+            console.log('正在驗證必填欄位...');
+            const validationResult = await this.validateRequiredFields(subjectCode);
+            
+            if (!validationResult.success) {
+                let message = '請完成以下必填欄位：\n';
+                if (validationResult.missing_fields && validationResult.missing_fields.length > 0) {
+                    message += validationResult.missing_fields.join('\n');
+                } else {
+                    message += validationResult.message;
+                }
+                alert(message);
+                return;
+            }
+            
+            // 步驟二：確認使用者意圖
+            const confirmed = confirm(
+                `確認要提交受試者 ${subjectCode} 的資料供審核？\n\n` +
+                '提交後將無法再編輯，需等待試驗主持人簽署。'
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            // 步驟三：執行提交流程
+            console.log('正在提交審核...');
+            await this.processSubmission(subjectCode);
+            
+        } catch (error) {
+            console.error('提交審核失敗:', error);
+            alert(`提交審核失敗：${error.message}`);
+        }
+    },
+    
+    /**
+     * 驗證必填欄位
+     */
+    async validateRequiredFields(subjectCode) {
+        try {
+            const response = await fetch(`/edc/validate-required-fields/${subjectCode}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            return result;
+            
+        } catch (error) {
+            console.error('驗證必填欄位失敗:', error);
+            return {
+                success: false,
+                message: `驗證失敗：${error.message}`
+            };
+        }
+    },
+    
+    /**
+     * 執行提交流程
+     */
+    async processSubmission(subjectCode) {
+        try {
+            // 顯示載入狀態
+            this.showLoadingState('正在提交審核...');
+            
+            const response = await fetch(`/edc/submit-for-review/${subjectCode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // 步驟四：更新 UI 狀態
+                this.updateUIAfterSubmission(result);
+                
+                // 步驟五：通知 PI（使用 alert 作為臨時方案）
+                this.notifyPI(subjectCode);
+                
+                // 顯示成功訊息
+                alert(`✅ ${result.message}\n\n受試者：${subjectCode}\n提交時間：${result.submitted_at}`);
+                
+                // 重新載入頁面資料以反映新狀態
+                this.reloadPageData();
+                
+            } else {
+                // 處理提交失敗
+                let errorMessage = result.message || '提交失敗';
+                if (result.missing_fields && result.missing_fields.length > 0) {
+                    errorMessage += '\n\n缺少的必填欄位：\n' + result.missing_fields.join('\n');
+                }
+                alert(`❌ ${errorMessage}`);
+            }
+            
+        } catch (error) {
+            console.error('提交流程失敗:', error);
+            alert(`❌ 提交失敗：${error.message}`);
+        } finally {
+            this.hideLoadingState();
+        }
+    },
+    
+    /**
+     * 更新提交後的 UI 狀態
+     */
+    updateUIAfterSubmission(result) {
+        // 隱藏編輯相關按鈕
+        const editBtn = document.getElementById('editBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        
+        if (editBtn) editBtn.style.display = 'none';
+        if (submitBtn) submitBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        
+        // 顯示狀態訊息
+        this.showStatusMessage('已提交審核，等待試驗主持人簽署', 'submitted');
+        
+        // 禁用所有表單輸入
+        this.disableAllInputs();
+        
+        // 更新頁面標題或狀態指示器
+        this.updatePageStatus('submitted');
+    },
+    
+    /**
+     * 顯示狀態訊息
+     */
+    showStatusMessage(message, status) {
+        // 尋找或創建狀態訊息容器
+        let statusContainer = document.getElementById('statusMessage');
+        if (!statusContainer) {
+            statusContainer = document.createElement('div');
+            statusContainer.id = 'statusMessage';
+            statusContainer.className = 'alert alert-info mt-3';
+            
+            // 將狀態訊息插入到適當位置
+            const editControls = document.querySelector('.edit-controls');
+            if (editControls) {
+                editControls.appendChild(statusContainer);
+            } else {
+                document.body.appendChild(statusContainer);
+            }
+        }
+        
+        // 設定狀態樣式
+        statusContainer.className = `alert mt-3 ${this.getStatusClass(status)}`;
+        statusContainer.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="${this.getStatusIcon(status)} me-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+    },
+    
+    /**
+     * 獲取狀態樣式類別
+     */
+    getStatusClass(status) {
+        const statusClasses = {
+            'draft': 'alert-secondary',
+            'submitted': 'alert-warning',
+            'signed': 'alert-success'
+        };
+        return statusClasses[status] || 'alert-info';
+    },
+    
+    /**
+     * 獲取狀態圖示
+     */
+    getStatusIcon(status) {
+        const statusIcons = {
+            'draft': 'fas fa-edit',
+            'submitted': 'fas fa-clock',
+            'signed': 'fas fa-check-circle'
+        };
+        return statusIcons[status] || 'fas fa-info-circle';
+    },
+    
+    /**
+     * 禁用所有輸入欄位
+     */
+    disableAllInputs() {
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.disabled = true;
+            input.style.backgroundColor = '#f8f9fa';
+        });
+    },
+    
+    /**
+     * 更新頁面狀態
+     */
+    updatePageStatus(status) {
+        // 更新頁面標題
+        const pageTitle = document.querySelector('h1, .page-title');
+        if (pageTitle) {
+            const statusText = {
+                'draft': '草稿',
+                'submitted': '已提交審核',
+                'signed': '已簽署'
+            };
+            pageTitle.innerHTML += ` <span class="badge ${this.getStatusClass(status)}">${statusText[status]}</span>`;
+        }
+        
+        // 更新頁面資料狀態
+        if (this.currentRecord) {
+            this.currentRecord.status = status;
+        }
+    },
+    
+    /**
+     * 通知 PI（臨時使用 alert）
+     */
+    notifyPI(subjectCode) {
+        // 這裡使用 alert 作為臨時的通知方案
+        setTimeout(() => {
+            alert(`📢 系統通知：\n\n受試者 ${subjectCode} 已提交審核\n\n請試驗主持人登入系統進行審查並簽署。`);
+        }, 1000);
+        
+        // 記錄到控制台，供後續開發參考
+        console.log(`[PI 通知] 受試者 ${subjectCode} 已提交審核，等待簽署`);
+    },
+    
+    /**
+     * 顯示載入狀態
+     */
+    showLoadingState(message) {
+        // 創建或顯示載入指示器
+        let loadingIndicator = document.getElementById('loadingIndicator');
+        if (!loadingIndicator) {
+            loadingIndicator = document.createElement('div');
+            loadingIndicator.id = 'loadingIndicator';
+            loadingIndicator.className = 'loading-overlay';
+            loadingIndicator.innerHTML = `
+                <div class="loading-content">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2">${message}</div>
+                </div>
+            `;
+            document.body.appendChild(loadingIndicator);
+        }
+        
+        loadingIndicator.style.display = 'flex';
+        loadingIndicator.querySelector('.loading-content div:last-child').textContent = message;
+    },
+    
+    /**
+     * 隱藏載入狀態
+     */
+    hideLoadingState() {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
     }
 };
 

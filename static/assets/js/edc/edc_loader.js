@@ -91,7 +91,7 @@ class EDCModuleLoader {
             this.loadedModules.add(moduleName);
             this.loadingModules.delete(moduleName);
             
-            console.log(`✓ 模組載入成功: ${moduleName}`);
+
             return true
             
         } catch (error) {
@@ -103,10 +103,7 @@ class EDCModuleLoader {
     
     // 載入所有模組
     async loadAllModules() {
-        console.log('▼ 開始載入 EDC 模組...');
-        
         const loadOrder = this.calculateLoadOrder();
-        console.log('模組載入順序:', loadOrder);
         
         for (const moduleName of loadOrder) {
             const success = await this.loadModule(moduleName);
@@ -115,8 +112,7 @@ class EDCModuleLoader {
                 return false;
             }
         }
-        
-        console.log('✓ 所有模組載入完成');
+    
         return true;
     }
     
@@ -237,7 +233,7 @@ function initializeDashboard() {
         initDataEntry();
     }
     
-    console.log('✓ EDC 儀表板初始化完成');
+
 }
 
 // 功能按鈕點擊處理 - 系統管理員
@@ -269,11 +265,10 @@ function openSystemConfig() {
 function openDataBrowser() {
 
     if (typeof showDataBrowser === 'function') {
-        console.log('✓ 調用 showDataBrowser 函數');
+
         showDataBrowser();
     } else {
-        console.error('✗ showDataBrowser 函數未找到');
-        console.error('✗ 可用的全域函數:', Object.keys(window).filter(key => key.includes('Data')));
+        console.error('showDataBrowser 函數未找到');
         showErrorMessage('資料瀏覽功能載入失敗，請重新整理頁面');
     }
 }
@@ -536,7 +531,7 @@ function manageRoleForms() {
 
 // 主要初始化函數
 async function initializeEDC() {
-    console.log('EDC 系統初始化開始...');
+
     
     try {
         // 顯示載入進度
@@ -560,7 +555,7 @@ async function initializeEDC() {
 
 // 頁面載入時執行
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('頁面載入完成，開始初始化 EDC 系統...');
+
     initializeEDC();
 });
 
