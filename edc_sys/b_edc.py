@@ -683,6 +683,109 @@ def submit_for_review_api(subject_code):
             "content": "submit_for_review"
         }), 500
 
+@edc_blueprints.route('/sign/<subject_code>', methods=['POST'])
+@login_required
+def sign_subject_api(subject_code):
+    """
+    簽署受試者資料 API
+    
+    POST /sign/P010002
+    
+    回應格式:
+    {
+        "success": true,
+        "message": "已成功簽署受試者資料",
+        "subject_code": "P010002",
+        "status": "signed",
+        "signed_at": "2025-01-01 12:00:00",
+        "signed_by": "investigator001"
+    }
+    """
+    try:
+        # 獲取使用者資訊
+        user_id = current_user.UNIQUE_ID
+        
+        # 執行簽署
+        result = edc_sys.sign_subject(subject_code, user_id, verbose=VERBOSE)
+        
+        if not result['success']:
+            return jsonify({
+                "success": False,
+                "message": result['message'],
+                "error_code": result.get('error_code'),
+                "content": "sign_subject"
+            }), 400
+        
+        return jsonify({
+            "success": True,
+            "message": result['message'],
+            "subject_code": result['subject_code'],
+            "subject_id": result['subject_id'],
+            "status": result['status'],
+            "signed_at": result['signed_at'],
+            "signed_by": result['signed_by']
+        })
+        
+    except Exception as e:
+        logging.error(f"簽署失敗: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"簽署失敗: {str(e)}",
+            "content": "sign_subject"
+        }), 500
+
+@edc_blueprints.route('/submit-and-sign/<subject_code>', methods=['POST'])
+@login_required
+def submit_and_sign_api(subject_code):
+    """
+    提交審核並簽署受試者資料 API
+    
+    POST /submit-and-sign/P010002
+    
+    回應格式:
+    {
+        "success": true,
+        "message": "已成功提交審核並簽署受試者資料",
+        "subject_code": "P010002",
+        "status": "signed",
+        "signed_at": "2025-01-01 12:00:00",
+        "signed_by": "investigator001"
+    }
+    """
+    try:
+        # 獲取使用者資訊
+        user_id = current_user.UNIQUE_ID
+        
+        # 執行提交並簽署
+        result = edc_sys.submit_and_sign(subject_code, user_id, verbose=VERBOSE)
+        
+        if not result['success']:
+            return jsonify({
+                "success": False,
+                "message": result['message'],
+                "error_code": result.get('error_code'),
+                "missing_fields": result.get('missing_fields', []),
+                "content": "submit_and_sign"
+            }), 400
+        
+        return jsonify({
+            "success": True,
+            "message": result['message'],
+            "subject_code": result['subject_code'],
+            "subject_id": result['subject_id'],
+            "status": result['status'],
+            "signed_at": result['signed_at'],
+            "signed_by": result['signed_by']
+        })
+        
+    except Exception as e:
+        logging.error(f"提交並簽署失敗: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"提交並簽署失敗: {str(e)}",
+            "content": "submit_and_sign"
+        }), 500
+
 @edc_blueprints.route('/validate-required-fields/<subject_code>', methods=['GET'])
 @login_required
 def validate_required_fields_api(subject_code):

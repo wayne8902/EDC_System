@@ -214,15 +214,6 @@ class DataBrowserGenerator {
         return status !== 'submitted' && status !== 'signed';
     }
 
-    /**
-     * 檢查是否可以顯示編輯按鈕（結合權限和狀態檢查）
-     * @param {Object} subject - 受試者資料對象
-     * @returns {boolean} - 是否可以顯示編輯按鈕
-     */
-    canShowEditButton(subject) {
-        return this.hasEditPermission() && this.canEditByStatus(subject);
-    }
-
     // 生成受試者詳細資料頁面
     async generateSubjectDetailPage(data) {
         
@@ -251,7 +242,10 @@ class DataBrowserGenerator {
 
         const config = this.config.subject_detail_page;
         const styles = config.styles || this.getDefaultStyles();
-        const canShowEditButton = this.canShowEditButton(data.subject);
+        const canShowEditButton = DataBrowserManager.canShowEditButton(data.subject);
+        
+        // 檢查是否可以顯示簽署按鈕（狀態為 submitted 且用戶為試驗主持人）
+        const canShowSignButton = data.subject?.status === 'submitted' && DataBrowserManager.isInvestigator();
 
         return `
             <div class="wrap">
@@ -267,9 +261,14 @@ class DataBrowserGenerator {
                                 <i class="fas fa-arrow-left"></i> 返回資料瀏覽
                             </button>
                             ${canShowEditButton ? `
-                                                <button class="btn btn-primary" onclick="DataEditorManager.switchToEditMode()" style="margin-left: 10px;">
-                    <i class="fas fa-edit"></i> 編輯模式
-                </button>
+                                <button class="btn btn-primary" onclick="DataEditorManager.switchToEditMode()" style="margin-left: 10px;">
+                                    <i class="fas fa-edit"></i> 編輯模式
+                                </button>
+                            ` : ''}
+                            ${canShowSignButton ? `
+                                <button class="btn btn-success" onclick="DataEditorManager.sign()" style="margin-left: 10px;">
+                                    <i class="fas fa-signature"></i> 簽署
+                                </button>
                             ` : ''}
                         </div>
                     </div>

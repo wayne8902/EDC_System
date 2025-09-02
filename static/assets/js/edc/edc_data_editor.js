@@ -161,6 +161,24 @@ const DataEditorManager = {
             editControls.className = 'edit-controls';
             editControls.style.cssText = 'display: flex; gap: 10px; margin-top: 20px; justify-content: center;';
             
+            // 根據用戶角色決定顯示的按鈕
+            let submitButtonHtml = '';
+            if (this.isInvestigator()) {
+                // 試驗主持人顯示「提交並簽署」按鈕
+                submitButtonHtml = `
+                    <button class="btn btn-info" onclick="DataEditorManager.submitAndSign()">
+                        <i class="fas fa-paper-plane"></i> 提交並簽署
+                    </button>
+                `;
+            } else {
+                // 研究人員顯示「提交審核」按鈕
+                submitButtonHtml = `
+                    <button class="btn btn-info" onclick="DataEditorManager.submitChanges()">
+                        <i class="fas fa-paper-plane"></i> 提交審核
+                    </button>
+                `;
+            }
+            
             editControls.innerHTML = `
                 <button class="btn btn-success" onclick="DataEditorManager.saveChanges()">
                     <i class="fas fa-save"></i> 儲存變更
@@ -168,9 +186,7 @@ const DataEditorManager = {
                 <button class="btn btn-warning" onclick="DataEditorManager.cancelEdit()">
                     <i class="fas fa-times"></i> 取消編輯
                 </button>
-                <button class="btn btn-info" onclick="DataEditorManager.submitChanges()">
-                    <i class="fas fa-paper-plane"></i> 提交審核
-                </button>
+                ${submitButtonHtml}
             `;
             
             // 插入到頁面中
@@ -190,6 +206,51 @@ const DataEditorManager = {
         const editControls = document.getElementById('editControls');
         if (editControls) {
             editControls.style.display = 'none';
+        }
+    },
+    
+    /**
+     * 顯示簽署控制按鈕（當數據狀態為 submitted 且用戶為試驗主持人時）
+     */
+    showSignControls() {
+        // 只有試驗主持人才能看到簽署按鈕
+        if (!this.isInvestigator()) {
+            return;
+        }
+        
+        // 檢查是否已經有簽署控制按鈕
+        let signControls = document.getElementById('signControls');
+        
+        if (!signControls) {
+            // 創建簽署控制按鈕
+            signControls = document.createElement('div');
+            signControls.id = 'signControls';
+            signControls.className = 'sign-controls';
+            signControls.style.cssText = 'display: flex; gap: 10px; margin-top: 20px; justify-content: center;';
+            
+            signControls.innerHTML = `
+                <button class="btn btn-primary" onclick="DataEditorManager.sign()">
+                    <i class="fas fa-signature"></i> 簽署
+                </button>
+            `;
+            
+            // 插入到頁面中
+            const wrap = document.querySelector('.wrap');
+            if (wrap) {
+                wrap.appendChild(signControls);
+            }
+        }
+        
+        signControls.style.display = 'flex';
+    },
+    
+    /**
+     * 隱藏簽署控制按鈕
+     */
+    hideSignControls() {
+        const signControls = document.getElementById('signControls');
+        if (signControls) {
+            signControls.style.display = 'none';
         }
     },
     
@@ -642,7 +703,7 @@ const DataEditorManager = {
             // 獲取當前受試者代碼
             const subjectCode = this.getSubjectCode();
             if (!subjectCode) {
-                alert('無法獲取受試者代碼');
+                showErrorMessage('無法獲取受試者代碼');
                 return;
             }
             
@@ -678,6 +739,117 @@ const DataEditorManager = {
         } catch (error) {
             console.error('提交審核失敗:', error);
             alert(`提交審核失敗：${error.message}`);
+        }
+    },
+
+    /**
+     * 提交審核並簽署
+     */
+    async submitAndSign() {
+        const subjectCode = this.getCurrentSubjectCode();
+        if (!subjectCode) {
+            showErrorMessage('無法獲取受試者編號');
+            return;
+        }
+
+        if (!confirm('確定要提交審核並簽署此受試者資料嗎？')) {
+            return;
+        }
+
+        LoadingManager.show('正在提交審核並簽署...');
+
+        try {
+            const response = await fetch(`/edc/submit-and-sign/${subjectCode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            LoadingManager.hide();
+            
+            if (result.success) {
+                showSuccessMessage(`已成功提交審核並簽署受試者 ${subjectCode} 的資料`);
+                this.updateUIAfterSigning(result);
+            } else {
+                showErrorMessage(`提交審核並簽署失敗: ${result.message}`);
+            }
+        } catch (error) {
+            LoadingManager.hide();
+            console.error('提交審核並簽署失敗:', error);
+            showErrorMessage('提交審核並簽署失敗，請檢查網路連線');
+        }
+    },
+    
+    /**
+     * 簽署受試者資料
+     */
+    async sign() {
+        const subjectCode = this.getCurrentSubjectCode();
+        if (!subjectCode) {
+            showErrorMessage('無法獲取受試者編號');
+            return;
+        }
+
+        if (!confirm('確定要簽署此受試者資料嗎？')) {
+            return;
+        }
+
+        LoadingManager.show('正在簽署...');
+
+        try {
+            const response = await fetch(`/edc/sign/${subjectCode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            LoadingManager.hide();
+            
+            if (result.success) {
+                showSuccessMessage(`已成功簽署受試者 ${subjectCode} 的資料`);
+                this.updateUIAfterSigning(result);
+            } else {
+                showErrorMessage(`簽署失敗: ${result.message}`);
+            }
+        } catch (error) {
+            LoadingManager.hide();
+            console.error('簽署失敗:', error);
+            showErrorMessage('簽署失敗，請檢查網路連線');
+        }
+    },
+    
+    /**
+     * 簽署後更新UI
+     */
+    updateUIAfterSigning(result) {
+        // 隱藏編輯和簽署控制按鈕
+        this.hideEditControls();
+        this.hideSignControls();
+        
+        // 更新頁面狀態
+        this.updatePageStatus('signed');
+        
+        // 禁用所有輸入欄位
+        this.disableAllInputs();
+        
+        // 顯示簽署資訊
+        const signInfo = document.createElement('div');
+        signInfo.className = 'alert alert-success';
+        signInfo.innerHTML = `
+            <h5><i class="fas fa-check-circle"></i> 資料已簽署</h5>
+            <p><strong>簽署者：</strong>${result.signed_by}</p>
+            <p><strong>簽署時間：</strong>${result.signed_at}</p>
+        `;
+        
+        const wrap = document.querySelector('.wrap');
+        if (wrap) {
+            wrap.insertBefore(signInfo, wrap.firstChild);
         }
     },
     
@@ -766,43 +938,13 @@ const DataEditorManager = {
         if (cancelBtn) cancelBtn.style.display = 'none';
         
         // 顯示狀態訊息
-        this.showStatusMessage('已提交審核，等待試驗主持人簽署', 'submitted');
+        showSuccessMessage('已提交審核，等待試驗主持人簽署');
         
         // 禁用所有表單輸入
         this.disableAllInputs();
         
         // 更新頁面標題或狀態指示器
         this.updatePageStatus('submitted');
-    },
-    
-    /**
-     * 顯示狀態訊息
-     */
-    showStatusMessage(message, status) {
-        // 尋找或創建狀態訊息容器
-        let statusContainer = document.getElementById('statusMessage');
-        if (!statusContainer) {
-            statusContainer = document.createElement('div');
-            statusContainer.id = 'statusMessage';
-            statusContainer.className = 'alert alert-info mt-3';
-            
-            // 將狀態訊息插入到適當位置
-            const editControls = document.querySelector('.edit-controls');
-            if (editControls) {
-                editControls.appendChild(statusContainer);
-            } else {
-                document.body.appendChild(statusContainer);
-            }
-        }
-        
-        // 設定狀態樣式
-        statusContainer.className = `alert mt-3 ${this.getStatusClass(status)}`;
-        statusContainer.innerHTML = `
-            <div class="d-flex align-items-center">
-                <i class="${this.getStatusIcon(status)} me-2"></i>
-                <span>${message}</span>
-            </div>
-        `;
     },
     
     /**
@@ -872,6 +1014,47 @@ const DataEditorManager = {
         
         // 記錄到控制台，供後續開發參考
         console.log(`[PI 通知] 受試者 ${subjectCode} 已提交審核，等待簽署`);
+    },
+    
+    /**
+     * 檢查當前用戶是否為試驗主持人
+     */
+    isInvestigator() {
+        return typeof userRole !== 'undefined' && userRole === 'investigator';
+    },
+    
+    /**
+     * 獲取當前用戶ID
+     */
+    getCurrentUserId() {
+        return getCookie('unique_id') || '未知ID';
+    },
+    
+    /**
+     * 獲取當前受試者編號
+     */
+    getCurrentSubjectCode() {
+        // 從 URL 參數獲取
+        const urlParams = new URLSearchParams(window.location.search);
+        let subjectCode = urlParams.get('subject_code');
+        
+        if (!subjectCode) {
+            // 從數據屬性獲取
+            const subjectElement = document.querySelector('[data-subject-code]');
+            if (subjectElement) {
+                subjectCode = subjectElement.getAttribute('data-subject-code');
+            }
+        }
+        
+        if (!subjectCode) {
+            // 從表單輸入獲取
+            const subjectInput = document.querySelector('input[name="subject_code"], #subject_code');
+            if (subjectInput) {
+                subjectCode = subjectInput.value;
+            }
+        }
+        
+        return subjectCode;
     },
     
     /**

@@ -19,7 +19,7 @@ class edc_db:
     """EDC 系統核心業務邏輯類別 (仿照 permission_function.py 格式)"""
     
     sql = None
-    column_id = {'config': ['KEY', 'VALUE']}
+    column_id = {'config': ['KEY', 'VALUE'], 'EDC': {'column_id_subjects': [], 'column_id_inclusion_criteria': [], 'column_id_exclusion_criteria': []}}
     config = dict()
     
     def __init__(self):
@@ -47,13 +47,14 @@ class edc_db:
     def get_col_id(self):
         """獲取資料庫欄位 ID 配置"""
         try:
-            # 重新連接資料庫
             self.connect()
-            result = self.sql.search('config',['VALUE'], criteria="`ID` = 'column_id_subjects'")
-            self.column_id['EDC'] = result[0][0].split(',')
-            print("Col ID: ", self.column_id['EDC'])
+            col_ids = ['column_id_subjects', 'column_id_inclusion_criteria', 'column_id_exclusion_criteria']
+            for col_id in col_ids:
+                result = self.sql.search('config',['VALUE'], criteria=f"`ID` = '{col_id}'")
+                self.column_id['EDC'][col_id] = result[0][0].split(',')
+                print("Col ID: ", self.column_id['EDC'][col_id])
         except:
-            raise Exception("Error occurs when getting config: 'column_id_subjects'")
+            raise Exception(f"Error occurs when getting config: '{col_ids}'")
     
     def connect_sql(self):
         """建立新的資料庫連接"""
@@ -71,6 +72,31 @@ class edc_db:
     def __del__(self):
         """析構函數"""
         pass
+    
+    # ==================== 輔助工具方法 ====================
+    
+    def get_cumulative_log_id(self, table_name, subject_code, new_log_id, verbose=0):
+        """獲取累積式 log_id
+        
+        Args:
+            table_name: 資料表名稱
+            subject_code: 受試者編號
+            new_log_id: 新的 log_id
+            verbose: 詳細模式 (0/1)
+            
+        Returns:
+            累積式的 log_id 字串
+        """
+        try:
+            current_log_result = self.sql.search(table_name, ['log'], criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+            if current_log_result and current_log_result[0][0]:
+                current_log = current_log_result[0][0]
+                return f"{current_log};{new_log_id}"
+            else:
+                return new_log_id
+        except Exception as e:
+            logger.warning(f"獲取累積式 log_id 失敗: {e}")
+            return new_log_id
     
     # ==================== 上傳/插入受試者功能 ====================
     def insert_subject(self, subject_data, user_id, verbose=0, auto_commit=True):
@@ -98,7 +124,7 @@ class edc_db:
                     'message': '受試者編號已存在',
                     'error_code': 'DUPLICATE_SUBJECT_CODE'
                 }
-            print(1)
+                
             # 2. 驗證資料完整性
             validation_result = self._validate_subject_data(subject_data)
             if not validation_result['valid']:
@@ -112,35 +138,25 @@ class edc_db:
             subject_data['created_by'] = user_id
             
             # 4. 插入資料庫
-            # 準備插入資料
-            columns = ['subject_code', 'date_of_birth', 'age', 'gender', 'height_cm', 'weight_kg',
-                      'bmi', 'scr', 'egfr', 'ph', 'sg', 'rbc', 'bac', 'dm', 'gout', 'imaging_type', 'imaging_date',
-                      'kidney_stone_diagnosis', 'imaging_files', 'imaging_report_summary', 'created_by', 'created_at']
-            values = [
-                subject_data['subject_code'],
-                subject_data['date_of_birth'],
-                subject_data.get('age'),
-                subject_data.get('gender'),
-                subject_data.get('height_cm'),
-                subject_data.get('weight_kg'),
-                subject_data.get('bmi'),
-                subject_data.get('scr'),
-                subject_data.get('egfr'),
-                subject_data.get('ph'),
-                subject_data.get('sg'),
-                subject_data.get('rbc'),
-                subject_data.get('bac', 0),
-                subject_data.get('dm', 0),
-                subject_data.get('gout', 0),
-                subject_data.get('imaging_type', ''),
-                subject_data.get('imaging_date', ''),
-                subject_data.get('kidney_stone_diagnosis'),
-                json.dumps(subject_data.get('imaging_files', [])),
-                subject_data.get('imaging_report_summary', ''),
-                subject_data.get('created_by', 'system'),
-                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            ]
-            print(2)
+            columns = self.column_id['EDC']['column_id_subjects']
+            exclude_fields = ['id', 'log', 'updated_by', 'updated_at', 'signed_at', 'signed_by']
+            columns = [col for col in columns if col not in exclude_fields]
+            values = []
+            for col in columns:
+                if col == 'imaging_files':
+                    values.append(json.dumps(subject_data.get('imaging_files', [])))
+                elif col == 'created_at':
+                    values.append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                elif col == 'created_by':
+                    values.append(str(subject_data.get('created_by', 'system')))
+                elif col == 'status':
+                    values.append(subject_data.get('status', 'draft'))
+                elif col in ['bac', 'dm', 'gout']:
+                    values.append(str(subject_data.get(col, 0)))
+                else:
+                    value = subject_data.get(col)
+                    values.append(str(value) if value is not None else '')
+
             if self.sql.insert('subjects', columns, values, verbose=verbose):
                 # 獲取新插入的 ID
                 result = self.sql.search('subjects', ['id'], criteria=f"`subject_code`='{subject_data['subject_code']}'", verbose=verbose)
@@ -192,37 +208,26 @@ class edc_db:
             inclusion_data['created_by'] = user_id
             
             # 3. 插入資料庫
-            # 準備插入資料
-            columns = ['subject_code', 'age_18_above', 'gender_available', 'age_available', 'bmi_available',
-                      'dm_history_available', 'gout_history_available', 'egfr_available', 'urine_ph_available',
-                      'urine_sg_available', 'urine_rbc_available', 'bacteriuria_available', 'lab_interval_7days',
-                      'imaging_available', 'kidney_structure_visible', 'mid_ureter_visible', 'lower_ureter_visible',
-                      'imaging_lab_interval_7days', 'no_treatment_during_exam', 'medications', 'surgeries', 'created_by', 'created_at']
-            values = [
-                str(inclusion_data['subject_code']),
-                str(inclusion_data.get('age_18_above', 0)),
-                str(inclusion_data.get('gender_available', 0)),
-                str(inclusion_data.get('age_available', 0)),
-                str(inclusion_data.get('bmi_available', 0)),
-                str(inclusion_data.get('dm_history_available', 0)),
-                str(inclusion_data.get('gout_history_available', 0)),
-                str(inclusion_data.get('egfr_available', 0)),
-                str(inclusion_data.get('urine_ph_available', 0)),
-                str(inclusion_data.get('urine_sg_available', 0)),
-                str(inclusion_data.get('urine_rbc_available', 0)),
-                str(inclusion_data.get('bacteriuria_available', 0)),
-                str(inclusion_data.get('lab_interval_7days', 0)),
-                str(inclusion_data.get('imaging_available', 0)),
-                str(inclusion_data.get('kidney_structure_visible', 0)),
-                str(inclusion_data.get('mid_ureter_visible', 0)),
-                str(inclusion_data.get('lower_ureter_visible', 0)),
-                str(inclusion_data.get('imaging_lab_interval_7days', 0)),
-                str(inclusion_data.get('no_treatment_during_exam', 0)),
-                json.dumps(inclusion_data.get('medications', [])),
-                json.dumps(inclusion_data.get('surgeries', [])),
-                str(inclusion_data['created_by']),
-                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            ]
+            columns = self.column_id['EDC']['column_id_inclusion_criteria']
+            exclude_fields = ['id', 'log', 'updated_by', 'updated_at', 'signed_at', 'signed_by']
+            columns = [col for col in columns if col not in exclude_fields]
+            values = []
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            for col in columns:
+                if col == 'medications':
+                    values.append(json.dumps(inclusion_data.get('medications', [])))
+                elif col == 'surgeries':
+                    values.append(json.dumps(inclusion_data.get('surgeries', [])))
+                elif col == 'created_at':
+                    values.append(now_str)
+                elif col == 'status':
+                    values.append(inclusion_data.get('status', 'draft'))
+                else:
+                    if col in ['subject_code', 'created_by']:
+                        values.append(str(inclusion_data[col]))
+                    else:
+                        value = inclusion_data.get(col, 0)
+                        values.append(str(value) if value is not None else '0')
             
             if self.sql.insert('inclusion_criteria', columns, values, verbose=verbose):
                 # 獲取新插入的 ID
@@ -276,26 +281,26 @@ class edc_db:
             exclusion_data['created_by'] = user_id
             
             # 3. 插入資料庫
-            # 準備插入資料
-            columns = ['subject_code', 'pregnant_female', 'kidney_transplant', 'urinary_tract_foreign_body',
-                      'non_stone_urological_disease', 'renal_replacement_therapy', 'medical_record_incomplete',
-                      'major_blood_immune_cancer', 'rare_metabolic_disease', 'investigator_judgment', 
-                      'judgment_reason', 'created_by', 'created_at']
-            values = [
-                str(exclusion_data['subject_code']),
-                str(exclusion_data.get('pregnant_female', 0)),
-                str(exclusion_data.get('kidney_transplant', 0)),
-                str(exclusion_data.get('urinary_tract_foreign_body', 0)),
-                str(exclusion_data.get('non_stone_urological_disease', 0)),
-                str(exclusion_data.get('renal_replacement_therapy', 0)),
-                str(exclusion_data.get('medical_record_incomplete', 0)),
-                str(exclusion_data.get('major_blood_immune_cancer', 0)),
-                str(exclusion_data.get('rare_metabolic_disease', 0)),
-                str(exclusion_data.get('investigator_judgment', 0)),
-                str(exclusion_data.get('judgment_reason', '')),
-                str(exclusion_data['created_by']),
-                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            ]
+            columns = self.column_id['EDC']['column_id_exclusion_criteria']
+            exclude_fields = ['id', 'log', 'updated_by', 'updated_at', 'signed_at', 'signed_by']
+            columns = [col for col in columns if col not in exclude_fields]
+            values = []
+            for col in columns:
+                if col == 'created_at':
+                    values.append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                elif col == 'status':
+                    values.append(exclusion_data.get('status', 'draft'))
+                else:
+                    if col == 'subject_code':
+                        values.append(str(exclusion_data['subject_code']))
+                    elif col == 'created_by':
+                        values.append(str(exclusion_data['created_by']))
+                    elif col == 'judgment_reason':
+                        value = exclusion_data.get(col, '')
+                        values.append(str(value) if value is not None else '')
+                    else:
+                        value = exclusion_data.get(col, 0)
+                        values.append(str(value) if value is not None else '0')
             
             if self.sql.insert('exclusion_criteria', columns, values, verbose=verbose):
                 # 獲取新插入的 ID
@@ -356,30 +361,31 @@ class edc_db:
             subject_data['updated_by'] = user_id
             
             # 5. 更新資料庫
-            # 準備更新資料
-            update_info = f"`date_of_birth`='{subject_data.get('date_of_birth', '')}', " \
-                         f"`age`='{subject_data.get('age', '')}', " \
-                         f"`gender`='{subject_data.get('gender', '')}', " \
-                         f"`height_cm`='{subject_data.get('height_cm', '')}', " \
-                         f"`weight_kg`='{subject_data.get('weight_kg', '')}', " \
-                         f"`bmi`='{subject_data.get('bmi', '')}', " \
-                         f"`scr`='{subject_data.get('scr', '')}', " \
-                         f"`egfr`='{subject_data.get('egfr', '')}', " \
-                         f"`ph`='{subject_data.get('ph', '')}', " \
-                         f"`sg`='{subject_data.get('sg', '')}', " \
-                         f"`rbc`='{subject_data.get('rbc', '')}', " \
-                         f"`bac`='{subject_data.get('bac', 0)}', " \
-                         f"`dm`='{subject_data.get('dm', 0)}', " \
-                         f"`gout`='{subject_data.get('gout', 0)}', " \
-                         f"`imaging_type`='{subject_data.get('imaging_type', '')}', " \
-                         f"`imaging_date`='{subject_data.get('imaging_date', '')}', " \
-                         f"`kidney_stone_diagnosis`='{subject_data.get('kidney_stone_diagnosis', '')}', " \
-                         f"`imaging_files`='{json.dumps(subject_data.get('imaging_files', []))}', " \
-                         f"`imaging_report_summary`='{subject_data.get('imaging_report_summary', '')}', " \
-                         f"`updated_by`='{subject_data.get('updated_by', 'system')}', " \
-                         f"`updated_at`=NOW()"
+            all_columns = self.column_id['EDC']['column_id_subjects']
+            exclude_fields = ['id', 'subject_code', 'created_by', 'created_at', 'log', 'status', 'signed_by', 'signed_at']
+            update_columns = [col for col in all_columns if col not in exclude_fields]
             
-            result = self.sql.update('subjects', update_info, criteria=f"`id`={subject_id}", verbose=verbose)
+            update_parts = []
+            for col in update_columns:
+                if col == 'imaging_files':
+                    value = json.dumps(subject_data.get('imaging_files', []))
+                    update_parts.append(f"`{col}`='{value}'")
+                elif col == 'updated_by':
+                    value = subject_data.get('updated_by', user_id)
+                    update_parts.append(f"`{col}`='{value}'")
+                elif col == 'updated_at':
+                    update_parts.append(f"`{col}`=NOW()")
+                elif col in ['bac', 'dm', 'gout']:
+                    value = subject_data.get(col, 0)
+                    update_parts.append(f"`{col}`='{value}'")
+                else:
+                    value = subject_data.get(col, '')
+                    # 處理 None 值
+                    value = str(value) if value is not None else ''
+                    update_parts.append(f"`{col}`='{value}'")
+            
+            update_info = ', '.join(update_parts)
+            result = self.sql.update('subjects', update_info, criteria=f"`subject_code`='{subject_data['subject_code']}' AND `status`='draft'", verbose=verbose)
             
             # 檢查更新結果
             if isinstance(result, str):
@@ -442,31 +448,32 @@ class edc_db:
             inclusion_data['updated_by'] = user_id
             
             # 4. 更新資料庫
-            # 準備更新資料
-            update_info = f"`age_18_above`='{inclusion_data.get('age_18_above', 0)}', " \
-                         f"`gender_available`='{inclusion_data.get('gender_available', 0)}', " \
-                         f"`age_available`='{inclusion_data.get('age_available', 0)}', " \
-                         f"`bmi_available`='{inclusion_data.get('bmi_available', 0)}', " \
-                         f"`dm_history_available`='{inclusion_data.get('dm_history_available', 0)}', " \
-                         f"`gout_history_available`='{inclusion_data.get('gout_history_available', 0)}', " \
-                         f"`egfr_available`='{inclusion_data.get('egfr_available', 0)}', " \
-                         f"`urine_ph_available`='{inclusion_data.get('urine_ph_available', 0)}', " \
-                         f"`urine_sg_available`='{inclusion_data.get('urine_sg_available', 0)}', " \
-                         f"`urine_rbc_available`='{inclusion_data.get('urine_rbc_available', 0)}', " \
-                         f"`bacteriuria_available`='{inclusion_data.get('bacteriuria_available', 0)}', " \
-                         f"`lab_interval_7days`='{inclusion_data.get('lab_interval_7days', 0)}', " \
-                         f"`imaging_available`='{inclusion_data.get('imaging_available', 0)}', " \
-                         f"`kidney_structure_visible`='{inclusion_data.get('kidney_structure_visible', 0)}', " \
-                         f"`mid_ureter_visible`='{inclusion_data.get('mid_ureter_visible', 0)}', " \
-                         f"`lower_ureter_visible`='{inclusion_data.get('lower_ureter_visible', 0)}', " \
-                         f"`imaging_lab_interval_7days`='{inclusion_data.get('imaging_lab_interval_7days', 0)}', " \
-                         f"`no_treatment_during_exam`='{inclusion_data.get('no_treatment_during_exam', 0)}', " \
-                         f"`medications`='{json.dumps(inclusion_data.get('medications', []))}', " \
-                         f"`surgeries`='{json.dumps(inclusion_data.get('surgeries', []))}', " \
-                         f"`updated_by`='{inclusion_data.get('updated_by', 'system')}', " \
-                         f"`updated_at`=NOW()"
+            all_columns = self.column_id['EDC']['column_id_inclusion_criteria']
+            exclude_fields = ['id', 'subject_code', 'created_by', 'created_at', 'log', 'status', 'signed_by', 'signed_at']
+            update_columns = [col for col in all_columns if col not in exclude_fields]
             
-            result = self.sql.update('inclusion_criteria', update_info, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+            update_parts = []
+            for col in update_columns:
+                if col == 'medications':
+                    value = json.dumps(inclusion_data.get('medications', []))
+                    update_parts.append(f"`{col}`='{value}'")
+                elif col == 'surgeries':
+                    value = json.dumps(inclusion_data.get('surgeries', []))
+                    update_parts.append(f"`{col}`='{value}'")
+                elif col == 'updated_by':
+                    value = inclusion_data.get('updated_by', user_id)
+                    update_parts.append(f"`{col}`='{value}'")
+                elif col == 'updated_at':
+                    update_parts.append(f"`{col}`=NOW()")
+                else:
+                    # 大部分欄位都是數值型，預設為 0
+                    value = inclusion_data.get(col, 0)
+                    value = str(value) if value is not None else '0'
+                    update_parts.append(f"`{col}`='{value}'")
+            
+            update_info = ', '.join(update_parts)
+            
+            result = self.sql.update('inclusion_criteria', update_info, criteria=f"`subject_code`='{subject_code}' AND `status`='draft'", verbose=verbose)
             
             # 檢查更新結果
             if isinstance(result, str):
@@ -529,20 +536,30 @@ class edc_db:
             exclusion_data['updated_by'] = user_id
             
             # 4. 更新資料庫
-            # 準備更新資料
-            update_info = f"`pregnant_female`='{exclusion_data.get('pregnant_female', 0)}', " \
-                         f"`kidney_transplant`='{exclusion_data.get('kidney_transplant', 0)}', " \
-                         f"`urinary_tract_foreign_body`='{exclusion_data.get('urinary_tract_foreign_body', 0)}', " \
-                         f"`non_stone_urological_disease`='{exclusion_data.get('non_stone_urological_disease', 0)}', " \
-                         f"`renal_replacement_therapy`='{exclusion_data.get('renal_replacement_therapy', 0)}', " \
-                         f"`medical_record_incomplete`='{exclusion_data.get('medical_record_incomplete', 0)}', " \
-                         f"`major_blood_immune_cancer`='{exclusion_data.get('major_blood_immune_cancer', 0)}', " \
-                         f"`rare_metabolic_disease`='{exclusion_data.get('rare_metabolic_disease', 0)}', " \
-                         f"`investigator_judgment`='{exclusion_data.get('investigator_judgment', 0)}', " \
-                         f"`updated_by`='{exclusion_data.get('updated_by', 'system')}', " \
-                         f"`updated_at`=NOW()"
+            all_columns = self.column_id['EDC']['column_id_exclusion_criteria']
+            exclude_fields = ['id', 'subject_code', 'created_by', 'created_at', 'log', 'status', 'signed_by', 'signed_at']
+            update_columns = [col for col in all_columns if col not in exclude_fields]
             
-            result = self.sql.update('exclusion_criteria', update_info, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+            update_parts = []
+            for col in update_columns:
+                if col == 'updated_by':
+                    value = exclusion_data.get('updated_by', user_id)
+                    update_parts.append(f"`{col}`='{value}'")
+                elif col == 'updated_at':
+                    update_parts.append(f"`{col}`=NOW()")
+                elif col == 'judgment_reason':
+                    # 文字欄位，預設空字串
+                    value = exclusion_data.get(col, '')
+                    value = str(value) if value is not None else ''
+                    update_parts.append(f"`{col}`='{value}'")
+                else:
+                    # 大部分欄位都是數值型，預設為 0
+                    value = exclusion_data.get(col, 0)
+                    value = str(value) if value is not None else '0'
+                    update_parts.append(f"`{col}`='{value}'")
+            
+            update_info = ', '.join(update_parts)
+            result = self.sql.update('exclusion_criteria', update_info, criteria=f"`subject_code`='{subject_code}' AND `status`='draft'", verbose=verbose)
             
             # 檢查更新結果
             if isinstance(result, str):
@@ -1059,50 +1076,21 @@ class edc_db:
                 
                 # 更新三個主資料表的 log 欄位（累積格式）
                 if log_id:
-                    # 獲取現有的 log 值並累積新的 log_id
-                    def get_updated_log(table_name):
-                        current_log_result = self.sql.search(table_name, ['log'], criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
-                        if current_log_result and current_log_result[0][0]:
-                            current_log = current_log_result[0][0]
-                            return f"{current_log};{log_id}"
-                        else:
-                            return log_id
+                    # 更新三個主資料表的 log 欄位（累積格式）
+                    tables = ['subjects', 'inclusion_criteria', 'exclusion_criteria']
                     
-                    # 更新 subjects 表
-                    subjects_log = get_updated_log('subjects')
-                    subjects_update = f"`log`='{subjects_log}'"
-                    subjects_result = self.sql.update('subjects', subjects_update, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
-                    if isinstance(subjects_result, str):
-                        self.sql.execute("ROLLBACK")
-                        return {
-                            'success': False,
-                            'message': f'更新 subjects log 欄位失敗: {subjects_result}',
-                            'error_code': 'UPDATE_LOG_FAILED'
-                        }
-                    
-                    # 更新 inclusion_criteria 表
-                    inclusion_log = get_updated_log('inclusion_criteria')
-                    inclusion_update = f"`log`='{inclusion_log}'"
-                    inclusion_result = self.sql.update('inclusion_criteria', inclusion_update, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
-                    if isinstance(inclusion_result, str):
-                        self.sql.execute("ROLLBACK")
-                        return {
-                            'success': False,
-                            'message': f'更新 inclusion_criteria log 欄位失敗: {inclusion_result}',
-                            'error_code': 'UPDATE_LOG_FAILED'
-                        }
-                    
-                    # 更新 exclusion_criteria 表
-                    exclusion_log = get_updated_log('exclusion_criteria')
-                    exclusion_update = f"`log`='{exclusion_log}'"
-                    exclusion_result = self.sql.update('exclusion_criteria', exclusion_update, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
-                    if isinstance(exclusion_result, str):
-                        self.sql.execute("ROLLBACK")
-                        return {
-                            'success': False,
-                            'message': f'更新 exclusion_criteria log 欄位失敗: {exclusion_result}',
-                            'error_code': 'UPDATE_LOG_FAILED'
-                        }
+                    for table in tables:
+                        updated_log = self.get_cumulative_log_id(table, subject_code, log_id, verbose)
+                        update_data = f"`log`='{updated_log}'"
+                        update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+                        
+                        if isinstance(update_result, str):
+                            self.sql.execute("ROLLBACK")
+                            return {
+                                'success': False,
+                                'message': f'更新 {table} log 欄位失敗: {update_result}',
+                                'error_code': 'UPDATE_LOG_FAILED'
+                            }
             else:
                 print("No edit_log_data or no changes found")
                 print("edit_log_data type: ", type(edit_log_data))
@@ -1132,97 +1120,6 @@ class edc_db:
                 'message': f'事務性更新失敗: {str(e)}',
                 'error_code': 'TRANSACTION_ERROR'
             }
-
-    def _format_subject_data(self, row):
-        """格式化受試者資料
-        
-        Args:
-            row: 從資料庫查詢出來的原始資料行
-            
-        Returns:
-            格式化後的受試者資料字典
-        """
-        try:
-            # 將資料庫查詢結果轉換為字典格式
-            if isinstance(row, (list, tuple)):
-                # 如果是元組或列表，需要根據欄位順序轉換
-                # 根據 subjects 表的欄位順序
-                columns = [
-                    'id', 'subject_code', 'date_of_birth', 'age', 'gender', 
-                    'height_cm', 'weight_kg', 'bmi', 'scr', 'egfr', 'ph', 'sg', 'rbc', 'bac', 'dm', 'gout', 
-                    'imaging_type', 'imaging_date', 'kidney_stone_diagnosis', 
-                    'imaging_files', 'imaging_report_summary', 'log', 'status', 'created_by', 
-                    'created_at', 'updated_by', 'updated_at'
-                ]
-                
-                subject_data = {}
-                for i, col in enumerate(columns):
-                    if i < len(row):
-                        subject_data[col] = row[i]
-                    else:
-                        subject_data[col] = None
-            else:
-                # 如果已經是字典格式，直接使用
-                subject_data = dict(row) if hasattr(row, '__iter__') else row
-            
-            # 格式化性別顯示
-            if 'gender' in subject_data:
-                subject_data['gender_display'] = '男' if subject_data['gender'] == 1 else '女'
-            
-            # 格式化布林值欄位
-            boolean_fields = ['bac', 'dm', 'gout', 'kidney_stone_diagnosis']
-            for field in boolean_fields:
-                if field in subject_data:
-                    subject_data[f'{field}_display'] = '是' if subject_data[field] == 1 else '否'
-            
-            # 格式化新增的檢驗數值欄位
-            lab_fields = ['scr', 'egfr', 'ph', 'sg', 'rbc']
-            for field in lab_fields:
-                if field in subject_data and subject_data[field] is not None:
-                    if field in ['scr', 'egfr']:
-                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.2f}"
-                    elif field in ['ph', 'sg']:
-                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.1f}"
-                    else:
-                        subject_data[f'{field}_formatted'] = str(subject_data[field])
-            
-            # 格式化影像檢查類型
-            if 'imaging_type' in subject_data:
-                subject_data['imaging_type_display'] = subject_data['imaging_type'] or '未指定'
-            
-            # 格式化日期欄位
-            date_fields = ['date_of_birth', 'imaging_date', 'created_at', 'updated_at']
-            for field in date_fields:
-                if field in subject_data and subject_data[field]:
-                    # 如果日期是字串格式，嘗試格式化
-                    if isinstance(subject_data[field], str):
-                        try:
-                            # 嘗試解析日期並格式化
-                            from datetime import datetime
-                            date_obj = datetime.strptime(subject_data[field], '%Y-%m-%d %H:%M:%S')
-                            subject_data[f'{field}_formatted'] = date_obj.strftime('%Y-%m-%d %H:%M:%S')
-                        except:
-                            subject_data[f'{field}_formatted'] = subject_data[field]
-                    else:
-                        subject_data[f'{field}_formatted'] = str(subject_data[field])
-            
-            # 格式化數值欄位
-            numeric_fields = ['age', 'height_cm', 'weight_kg', 'bmi']
-            for field in numeric_fields:
-                if field in subject_data and subject_data[field] is not None:
-                    if field == 'bmi':
-                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.2f}"
-                    elif field in ['height_cm', 'weight_kg']:
-                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.1f}"
-                    else:
-                        subject_data[f'{field}_formatted'] = str(subject_data[field])
-            
-            return subject_data
-            
-        except Exception as e:
-            logger.error(f"格式化受試者資料失敗: {e}")
-            # 如果格式化失敗，返回原始資料
-            return row if hasattr(row, '__iter__') else {'error': '格式化失敗', 'raw_data': str(row)}
 
     def get_subject_by_id(self, subject_id, verbose=0):
         """根據 ID 獲取受試者資料
@@ -1334,7 +1231,8 @@ class edc_db:
             self.connect()
             
             # 構建查詢條件
-            criteria = f"`created_by` = '{user_id}'"
+            # criteria = f"`created_by` = '{user_id}'"
+            criteria = "1=1"
             if filters:
                 if filters.get('subject_code'):
                     criteria += f" AND `subject_code` LIKE '%{filters['subject_code']}%'"
@@ -1677,6 +1575,92 @@ class edc_db:
         
         return '\n'.join(csv_lines)
 
+    def _format_subject_data(self, row):
+        """格式化受試者資料
+        
+        Args:
+            row: 從資料庫查詢出來的原始資料行
+            
+        Returns:
+            格式化後的受試者資料字典
+        """
+        try:
+            # 將資料庫查詢結果轉換為字典格式
+            if isinstance(row, (list, tuple)):
+                # 如果是元組或列表，需要根據欄位順序轉換
+                # 根據 subjects 表的欄位順序
+                columns = self.column_id['EDC']['column_id_subjects']
+                print(columns)
+                
+                subject_data = {}
+                for i, col in enumerate(columns):
+                    if i < len(row):
+                        subject_data[col] = row[i]
+                    else:
+                        subject_data[col] = None
+            else:
+                # 如果已經是字典格式，直接使用
+                subject_data = dict(row) if hasattr(row, '__iter__') else row
+            
+            # 格式化性別顯示
+            if 'gender' in subject_data:
+                subject_data['gender_display'] = '男' if subject_data['gender'] == 1 else '女'
+            
+            # 格式化布林值欄位
+            boolean_fields = ['bac', 'dm', 'gout', 'kidney_stone_diagnosis']
+            for field in boolean_fields:
+                if field in subject_data:
+                    subject_data[f'{field}_display'] = '是' if subject_data[field] == 1 else '否'
+            
+            # 格式化新增的檢驗數值欄位
+            lab_fields = ['scr', 'egfr', 'ph', 'sg', 'rbc']
+            for field in lab_fields:
+                if field in subject_data and subject_data[field] is not None:
+                    if field in ['scr', 'egfr']:
+                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.2f}"
+                    elif field in ['ph', 'sg']:
+                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.1f}"
+                    else:
+                        subject_data[f'{field}_formatted'] = str(subject_data[field])
+            
+            # 格式化影像檢查類型
+            if 'imaging_type' in subject_data:
+                subject_data['imaging_type_display'] = subject_data['imaging_type'] or '未指定'
+            
+            # 格式化日期欄位
+            date_fields = ['date_of_birth', 'imaging_date', 'created_at', 'updated_at']
+            for field in date_fields:
+                if field in subject_data and subject_data[field]:
+                    # 如果日期是字串格式，嘗試格式化
+                    if isinstance(subject_data[field], str):
+                        try:
+                            # 嘗試解析日期並格式化
+                            from datetime import datetime
+                            date_obj = datetime.strptime(subject_data[field], '%Y-%m-%d %H:%M:%S')
+                            subject_data[f'{field}_formatted'] = date_obj.strftime('%Y-%m-%d %H:%M:%S')
+                        except:
+                            subject_data[f'{field}_formatted'] = subject_data[field]
+                    else:
+                        subject_data[f'{field}_formatted'] = str(subject_data[field])
+            
+            # 格式化數值欄位
+            numeric_fields = ['age', 'height_cm', 'weight_kg', 'bmi']
+            for field in numeric_fields:
+                if field in subject_data and subject_data[field] is not None:
+                    if field == 'bmi':
+                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.2f}"
+                    elif field in ['height_cm', 'weight_kg']:
+                        subject_data[f'{field}_formatted'] = f"{subject_data[field]:.1f}"
+                    else:
+                        subject_data[f'{field}_formatted'] = str(subject_data[field])
+            
+            return subject_data
+            
+        except Exception as e:
+            logger.error(f"格式化受試者資料失敗: {e}")
+            # 如果格式化失敗，返回原始資料
+            return row if hasattr(row, '__iter__') else {'error': '格式化失敗', 'raw_data': str(row)}
+
     def _format_inclusion_criteria_data(self, row):
         """格式化納入條件資料
         
@@ -1688,15 +1672,7 @@ class edc_db:
         """
         try:
             # 根據資料庫欄位順序映射
-            field_names = [
-                'id', 'subject_code', 'age_18_above', 'gender_available', 'age_available',
-                'bmi_available', 'dm_history_available', 'gout_history_available',
-                'egfr_available', 'urine_ph_available', 'urine_sg_available',
-                'urine_rbc_available', 'bacteriuria_available', 'lab_interval_7days',
-                'imaging_available', 'kidney_structure_visible', 'mid_ureter_visible',
-                'lower_ureter_visible', 'imaging_lab_interval_7days', 'no_treatment_during_exam',
-                'medications', 'surgeries', 'created_by', 'created_at', 'updated_by', 'updated_at'
-            ]
+            field_names = self.column_id['EDC']['column_id_inclusion_criteria']
             
             formatted_data = {}
             for i, field_name in enumerate(field_names):
@@ -1730,16 +1706,7 @@ class edc_db:
         """
         try:
             # 根據資料庫欄位順序映射
-            field_names = [
-                'id', 'subject_code', 'pregnant_female', 'kidney_transplant',
-                'urinary_tract_foreign_body', 'urinary_tract_foreign_body_type',
-                'non_stone_urological_disease', 'non_stone_urological_disease_type',
-                'renal_replacement_therapy', 'renal_replacement_therapy_type',
-                'medical_record_incomplete', 'major_blood_immune_cancer',
-                'major_blood_immune_cancer_type', 'rare_metabolic_disease',
-                'rare_metabolic_disease_type', 'investigator_judgment', 'judgment_reason',
-                'created_by', 'created_at', 'updated_by', 'updated_at'
-            ]
+            field_names = self.column_id['EDC']['column_id_exclusion_criteria']
             
             formatted_data = {}
             for i, field_name in enumerate(field_names):
@@ -1844,12 +1811,15 @@ class edc_db:
             # 獲取當前時間戳
             from datetime import datetime
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 記錄操作日誌
+            log_id = self._generate_log_id()
             
-            # 更新三個表的狀態為 'submitted'
+            # 更新三個表的狀態為 'submitted'（使用累積式 log_id）
             tables = ['subjects', 'inclusion_criteria', 'exclusion_criteria']
             
             for table in tables:
-                update_data = f"`status`='submitted', `updated_by`='{user_id}', `updated_at`='{timestamp}'"
+                updated_log = self.get_cumulative_log_id(table, subject_code, log_id, verbose)
+                update_data = f"`log`='{updated_log}', `status`='submitted', `updated_by`='{user_id}', `updated_at`='{timestamp}'"
                 update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
                 
                 if isinstance(update_result, str):
@@ -1860,15 +1830,46 @@ class edc_db:
                         'error_code': 'UPDATE_STATUS_FAILED'
                     }
             
-            # 記錄操作日誌
-            log_id = self._generate_log_id()
-            log_fields = ['log_id', 'subject_code', 'table_name', 'field_name', 'old_value', 'new_value', 'action', 'user_id']
-            log_values = [log_id, subject_code, 'system', 'status', 'draft', 'submitted', 'SUBMIT', user_id]
+            # 記錄操作日誌（使用手動 SQL 構建方式）
+            log_change = {
+                'log_id': log_id,
+                'subject_code': subject_code,
+                'table_name': 'system',
+                'field_name': 'status',
+                'old_value': 'draft',
+                'new_value': 'submitted',
+                'action': 'SUBMIT',
+                'user_id': user_id
+            }
             
-            log_insert_result = self.sql.insert('edit_log', log_fields, log_values, verbose=verbose)
-            if isinstance(log_insert_result, str):
-                # 日誌插入失敗不影響主要操作，但要記錄錯誤
-                logger.warning(f"插入提交日誌失敗: {log_insert_result}")
+            columns = ['log_id', 'subject_code', 'table_name', 'field_name', 'old_value', 'new_value', 'action', 'user_id', 'created_at']
+            values = [
+                log_change['log_id'],
+                log_change['subject_code'],
+                log_change['table_name'],
+                log_change['field_name'],
+                log_change['old_value'],
+                log_change['new_value'],
+                log_change['action'],
+                log_change['user_id'],
+                'NOW()'
+            ]
+            
+            # 手動構建 INSERT 語句以避免 NOW() 被當作字串
+            columns_str = ','.join(columns)
+            values_str = "'" + "','".join(values[:-1]) + "',NOW()"
+            query = f"INSERT INTO edit_log({columns_str}) VALUES({values_str})"
+            
+            if verbose:
+                print("Query String(Insert edit_log): " + query)
+            
+            try:
+                cursor = self.sql.db.cursor()
+                cursor.execute(query)
+                # 注意：不要在這裡 commit，因為外層還有事務
+            except Exception as err:
+                print(f"插入提交日誌失敗: {err}")
+                logger.warning(f"插入提交日誌失敗: {err}")
             
             # 提交事務
             self.sql.execute("COMMIT")
@@ -1895,6 +1896,393 @@ class edc_db:
                 'success': False,
                 'message': f'提交審核失敗: {str(e)}',
                 'error_code': 'SUBMIT_ERROR'
+            }
+        finally:
+            self.disconnect()
+    
+    def sign_subject(self, subject_code, user_id, verbose=0):
+        """簽署受試者資料
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 簽署者ID（必須是試驗主持人）
+            verbose: 詳細模式 (0/1)
+            
+        Returns:
+            簽署結果字典
+        """
+        try:
+            # 重新連接資料庫
+            self.connect()
+            
+            # 開始事務
+            self.sql.execute("START TRANSACTION")
+            
+            # 檢查受試者是否存在
+            subject_result = self.sql.search('subjects', ['id', 'status'], criteria=f"`subject_code`='{subject_code}'")
+            if not subject_result:
+                self.sql.execute("ROLLBACK")
+                return {
+                    'success': False,
+                    'message': '受試者不存在',
+                    'error_code': 'SUBJECT_NOT_FOUND'
+                }
+            
+            subject_id, current_status = subject_result[0]
+            
+            # 檢查當前狀態是否允許簽署（必須是 submitted 狀態）
+            if current_status != 'submitted':
+                self.sql.execute("ROLLBACK")
+                return {
+                    'success': False,
+                    'message': f'受試者狀態為 {current_status}，無法進行簽署',
+                    'error_code': 'INVALID_STATUS'
+                }
+            
+            # 獲取當前時間戳
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 記錄操作日誌
+            log_id = self._generate_log_id()
+            
+            # 在更新前先獲取當前數據，以便記錄編輯歷史
+            tables_data = {}
+            tables = ['subjects', 'inclusion_criteria', 'exclusion_criteria']
+            
+            for table in tables:
+                # 只獲取需要記錄的字段
+                fields_to_check = ['status', 'signed_by', 'signed_at']
+                current_data = self.sql.search(table, fields_to_check, criteria=f"`subject_code`='{subject_code}'")
+                if current_data:
+                    # 將數據轉換為字典格式
+                    tables_data[table] = dict(zip(fields_to_check, current_data[0]))
+            
+            # 更新三個表的狀態為 'signed' 並設定簽署資訊（使用累積式 log_id）
+            for table in tables:
+                updated_log = self.get_cumulative_log_id(table, subject_code, log_id, verbose)
+                update_data = f"`log`='{updated_log}', `status`='signed', `signed_by`='{user_id}', `signed_at`='{timestamp}', `updated_by`='{user_id}', `updated_at`='{timestamp}'"
+                update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+                
+                if isinstance(update_result, str):
+                    self.sql.execute("ROLLBACK")
+                    return {
+                        'success': False,
+                        'message': f'更新 {table} 簽署狀態失敗: {update_result}',
+                        'error_code': 'UPDATE_SIGN_STATUS_FAILED'
+                    }
+            
+            # 記錄編輯歷史日誌 - 為每個表記錄狀態變更（使用手動 SQL 構建方式）
+            log_changes = []
+            
+            for table in tables:
+                if table in tables_data:
+                    old_status = tables_data[table].get('status', 'submitted')
+                    # 記錄狀態變更
+                    log_changes.append({
+                        'log_id': log_id,
+                        'subject_code': subject_code,
+                        'table_name': table,
+                        'field_name': 'status',
+                        'old_value': old_status,
+                        'new_value': 'signed',
+                        'action': 'SIGN',
+                        'user_id': user_id
+                    })
+                    
+                    # 記錄 signed_by 變更
+                    old_signed_by = tables_data[table].get('signed_by', '')
+                    if old_signed_by != user_id:
+                        log_changes.append({
+                            'log_id': log_id,
+                            'subject_code': subject_code,
+                            'table_name': table,
+                            'field_name': 'signed_by',
+                            'old_value': old_signed_by or '',
+                            'new_value': user_id,
+                            'action': 'SIGN',
+                            'user_id': user_id
+                        })
+                    
+                    # 記錄 signed_at 變更
+                    old_signed_at = tables_data[table].get('signed_at', '')
+                    if old_signed_at != timestamp:
+                        log_changes.append({
+                            'log_id': log_id,
+                            'subject_code': subject_code,
+                            'table_name': table,
+                            'field_name': 'signed_at',
+                            'old_value': old_signed_at or '',
+                            'new_value': timestamp,
+                            'action': 'SIGN',
+                            'user_id': user_id
+                        })
+            
+            # 記錄系統操作日誌
+            log_changes.append({
+                'log_id': log_id,
+                'subject_code': subject_code,
+                'table_name': 'system',
+                'field_name': 'action',
+                'old_value': 'submitted',
+                'new_value': 'sign',
+                'action': 'SIGN',
+                'user_id': user_id
+            })
+            
+            # 批量插入 edit_log 記錄（使用手動 SQL 構建方式）
+            for change in log_changes:
+                columns = ['log_id', 'subject_code', 'table_name', 'field_name', 'old_value', 'new_value', 'action', 'user_id', 'created_at']
+                values = [
+                    change['log_id'],
+                    change['subject_code'],
+                    change['table_name'],
+                    change['field_name'],
+                    change['old_value'],
+                    change['new_value'],
+                    change['action'],
+                    change['user_id'],
+                    'NOW()'
+                ]
+                
+                # 手動構建 INSERT 語句以避免 NOW() 被當作字串
+                columns_str = ','.join(columns)
+                values_str = "'" + "','".join(values[:-1]) + "',NOW()"
+                query = f"INSERT INTO edit_log({columns_str}) VALUES({values_str})"
+                
+                if verbose:
+                    print("Query String(Insert edit_log): " + query)
+                
+                try:
+                    cursor = self.sql.db.cursor()
+                    cursor.execute(query)
+                    # 注意：不要在這裡 commit，因為外層還有事務
+                except Exception as err:
+                    print(f"插入簽署日誌失敗: {err}")
+                    logger.warning(f"插入簽署日誌失敗: {err}")
+            
+            # 提交事務
+            self.sql.execute("COMMIT")
+            
+            return {
+                'success': True,
+                'message': '已成功簽署受試者資料',
+                'subject_code': subject_code,
+                'subject_id': subject_id,
+                'status': 'signed',
+                'signed_at': timestamp,
+                'signed_by': user_id
+            }
+            
+        except Exception as e:
+            # 發生異常，回滾事務
+            try:
+                self.sql.execute("ROLLBACK")
+            except:
+                pass  # 忽略回滾失敗的錯誤
+            
+            logger.error(f"簽署失敗: {e}")
+            return {
+                'success': False,
+                'message': f'簽署失敗: {str(e)}',
+                'error_code': 'SIGN_ERROR'
+            }
+        finally:
+            self.disconnect()
+    
+    def submit_and_sign(self, subject_code, user_id, verbose=0):
+        """提交審核並立即簽署（適用於試驗主持人）
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 提交並簽署者ID（必須是試驗主持人）
+            verbose: 詳細模式 (0/1)
+            
+        Returns:
+            操作結果字典
+        """
+        try:
+            # 先驗證必填欄位
+            validation_result = self.validate_required_fields(subject_code, verbose=verbose)
+            if not validation_result['success']:
+                return {
+                    'success': False,
+                    'message': validation_result['message'],
+                    'missing_fields': validation_result.get('missing_fields', []),
+                    'error_code': 'VALIDATION_FAILED'
+                }
+            
+            # 重新連接資料庫
+            self.connect()
+            
+            # 開始事務
+            self.sql.execute("START TRANSACTION")
+            
+            # 檢查受試者是否存在且狀態為 draft
+            subject_result = self.sql.search('subjects', ['id', 'status'], criteria=f"`subject_code`='{subject_code}'")
+            if not subject_result:
+                self.sql.execute("ROLLBACK")
+                return {
+                    'success': False,
+                    'message': '受試者不存在',
+                    'error_code': 'SUBJECT_NOT_FOUND'
+                }
+            
+            subject_id, current_status = subject_result[0]
+            
+            if current_status != 'draft':
+                self.sql.execute("ROLLBACK")
+                return {
+                    'success': False,
+                    'message': f'受試者狀態為 {current_status}，無法進行提交並簽署',
+                    'error_code': 'INVALID_STATUS'
+                }
+            
+            # 獲取當前時間戳
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 記錄操作日誌
+            log_id = self._generate_log_id()
+            
+            # 在更新前先獲取當前數據，以便記錄編輯歷史
+            tables_data = {}
+            tables = ['subjects', 'inclusion_criteria', 'exclusion_criteria']
+            
+            for table in tables:
+                # 只獲取需要記錄的字段
+                fields_to_check = ['status', 'signed_by', 'signed_at']
+                current_data = self.sql.search(table, fields_to_check, criteria=f"`subject_code`='{subject_code}'")
+                if current_data:
+                    # 將數據轉換為字典格式
+                    tables_data[table] = dict(zip(fields_to_check, current_data[0]))
+            
+            # 直接更新三個表的狀態為 'signed' 並設定簽署資訊（使用累積式 log_id）
+            for table in tables:
+                updated_log = self.get_cumulative_log_id(table, subject_code, log_id, verbose)
+                update_data = f"`log`='{updated_log}', `status`='signed', `signed_by`='{user_id}', `signed_at`='{timestamp}', `updated_by`='{user_id}', `updated_at`='{timestamp}'"
+                update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+                
+                if isinstance(update_result, str):
+                    self.sql.execute("ROLLBACK")
+                    return {
+                        'success': False,
+                        'message': f'更新 {table} 狀態失敗: {update_result}',
+                        'error_code': 'UPDATE_STATUS_FAILED'
+                    }
+            
+            # 記錄編輯歷史日誌 - 為每個表記錄狀態變更（使用手動 SQL 構建方式）
+            log_changes = []
+            
+            for table in tables:
+                if table in tables_data:
+                    old_status = tables_data[table].get('status', 'draft')
+                    # 記錄狀態變更
+                    log_changes.append({
+                        'log_id': log_id,
+                        'subject_code': subject_code,
+                        'table_name': table,
+                        'field_name': 'status',
+                        'old_value': old_status,
+                        'new_value': 'signed',
+                        'action': 'SUBMIT_AND_SIGN',
+                        'user_id': user_id
+                    })
+                    
+                    # 記錄 signed_by 變更
+                    old_signed_by = tables_data[table].get('signed_by', '')
+                    if old_signed_by != user_id:
+                        log_changes.append({
+                            'log_id': log_id,
+                            'subject_code': subject_code,
+                            'table_name': table,
+                            'field_name': 'signed_by',
+                            'old_value': old_signed_by or '',
+                            'new_value': user_id,
+                            'action': 'SUBMIT_AND_SIGN',
+                            'user_id': user_id
+                        })
+                    
+                    # 記錄 signed_at 變更
+                    old_signed_at = tables_data[table].get('signed_at', '')
+                    if old_signed_at != timestamp:
+                        log_changes.append({
+                            'log_id': log_id,
+                            'subject_code': subject_code,
+                            'table_name': table,
+                            'field_name': 'signed_at',
+                            'old_value': old_signed_at or '',
+                            'new_value': timestamp,
+                            'action': 'SUBMIT_AND_SIGN',
+                            'user_id': user_id
+                        })
+            
+            # 記錄系統操作日誌
+            log_changes.append({
+                'log_id': log_id,
+                'subject_code': subject_code,
+                'table_name': 'system',
+                'field_name': 'action',
+                'old_value': 'draft',
+                'new_value': 'submit_and_sign',
+                'action': 'SUBMIT_AND_SIGN',
+                'user_id': user_id
+            })
+            
+            # 批量插入 edit_log 記錄（使用手動 SQL 構建方式）
+            for change in log_changes:
+                columns = ['log_id', 'subject_code', 'table_name', 'field_name', 'old_value', 'new_value', 'action', 'user_id', 'created_at']
+                values = [
+                    change['log_id'],
+                    change['subject_code'],
+                    change['table_name'],
+                    change['field_name'],
+                    change['old_value'],
+                    change['new_value'],
+                    change['action'],
+                    change['user_id'],
+                    'NOW()'
+                ]
+                
+                # 手動構建 INSERT 語句以避免 NOW() 被當作字串
+                columns_str = ','.join(columns)
+                values_str = "'" + "','".join(values[:-1]) + "',NOW()"
+                query = f"INSERT INTO edit_log({columns_str}) VALUES({values_str})"
+                
+                if verbose:
+                    print("Query String(Insert edit_log): " + query)
+                
+                try:
+                    cursor = self.sql.db.cursor()
+                    cursor.execute(query)
+                    # 注意：不要在這裡 commit，因為外層還有事務
+                except Exception as err:
+                    print(f"插入提交並簽署日誌失敗: {err}")
+                    logger.warning(f"插入提交並簽署日誌失敗: {err}")
+            
+            # 提交事務
+            self.sql.execute("COMMIT")
+            
+            return {
+                'success': True,
+                'message': '已成功提交審核並簽署受試者資料',
+                'subject_code': subject_code,
+                'subject_id': subject_id,
+                'status': 'signed',
+                'signed_at': timestamp,
+                'signed_by': user_id
+            }
+            
+        except Exception as e:
+            # 發生異常，回滾事務
+            try:
+                self.sql.execute("ROLLBACK")
+            except:
+                pass  # 忽略回滾失敗的錯誤
+            
+            logger.error(f"提交並簽署失敗: {e}")
+            return {
+                'success': False,
+                'message': f'提交並簽署失敗: {str(e)}',
+                'error_code': 'SUBMIT_AND_SIGN_ERROR'
             }
         finally:
             self.disconnect()
