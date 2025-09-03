@@ -1291,7 +1291,6 @@ class edc_db:
             subjects = []
             for row in result:
                 subject_data = self._format_subject_data(row)
-                # 獲取納入條件和排除條件
                 subject_data['inclusion_criteria'] = self._get_inclusion_criteria(subject_data['subject_code'])
                 subject_data['exclusion_criteria'] = self._get_exclusion_criteria(subject_data['subject_code'])
                 subjects.append(subject_data)
@@ -1590,7 +1589,6 @@ class edc_db:
                 # 如果是元組或列表，需要根據欄位順序轉換
                 # 根據 subjects 表的欄位順序
                 columns = self.column_id['EDC']['column_id_subjects']
-                print(columns)
                 
                 subject_data = {}
                 for i, col in enumerate(columns):
@@ -1900,8 +1898,8 @@ class edc_db:
         finally:
             self.disconnect()
     
-    def sign_subject(self, subject_code, user_id, verbose=0):
-        """簽署受試者資料
+    def _execute_sign_subject(self, subject_code, user_id, verbose=0):
+        """執行簽署受試者資料的核心邏輯（私有方法）
         
         Args:
             subject_code: 受試者編號
@@ -2055,10 +2053,18 @@ class edc_db:
                 try:
                     cursor = self.sql.db.cursor()
                     cursor.execute(query)
-                    # 注意：不要在這裡 commit，因為外層還有事務
+                    if verbose:
+                        print(f"成功插入 edit_log: {change['table_name']}.{change['field_name']}")
                 except Exception as err:
                     print(f"插入簽署日誌失敗: {err}")
-                    logger.warning(f"插入簽署日誌失敗: {err}")
+                    logger.error(f"插入簽署日誌失敗: {err}")
+                    # 如果日誌插入失敗，回滾整個事務
+                    self.sql.execute("ROLLBACK")
+                    return {
+                        'success': False,
+                        'message': f'插入簽署日誌失敗: {str(err)}',
+                        'error_code': 'INSERT_LOG_FAILED'
+                    }
             
             # 提交事務
             self.sql.execute("COMMIT")
@@ -2089,8 +2095,8 @@ class edc_db:
         finally:
             self.disconnect()
     
-    def submit_and_sign(self, subject_code, user_id, verbose=0):
-        """提交審核並立即簽署（適用於試驗主持人）
+    def _execute_submit_and_sign(self, subject_code, user_id, verbose=0):
+        """執行提交審核並簽署的核心邏輯（私有方法）
         
         Args:
             subject_code: 受試者編號
@@ -2183,7 +2189,7 @@ class edc_db:
                         'field_name': 'status',
                         'old_value': old_status,
                         'new_value': 'signed',
-                        'action': 'SUBMIT_AND_SIGN',
+                        'action': 'SIGN',
                         'user_id': user_id
                     })
                     
@@ -2197,7 +2203,7 @@ class edc_db:
                             'field_name': 'signed_by',
                             'old_value': old_signed_by or '',
                             'new_value': user_id,
-                            'action': 'SUBMIT_AND_SIGN',
+                            'action': 'SIGN',
                             'user_id': user_id
                         })
                     
@@ -2211,7 +2217,7 @@ class edc_db:
                             'field_name': 'signed_at',
                             'old_value': old_signed_at or '',
                             'new_value': timestamp,
-                            'action': 'SUBMIT_AND_SIGN',
+                            'action': 'SIGN',
                             'user_id': user_id
                         })
             
@@ -2222,8 +2228,8 @@ class edc_db:
                 'table_name': 'system',
                 'field_name': 'action',
                 'old_value': 'draft',
-                'new_value': 'submit_and_sign',
-                'action': 'SUBMIT_AND_SIGN',
+                'new_value': 'signed',
+                'action': 'SIGN',
                 'user_id': user_id
             })
             
@@ -2253,10 +2259,18 @@ class edc_db:
                 try:
                     cursor = self.sql.db.cursor()
                     cursor.execute(query)
-                    # 注意：不要在這裡 commit，因為外層還有事務
+                    if verbose:
+                        print(f"成功插入 edit_log: {change['table_name']}.{change['field_name']}")
                 except Exception as err:
                     print(f"插入提交並簽署日誌失敗: {err}")
-                    logger.warning(f"插入提交並簽署日誌失敗: {err}")
+                    logger.error(f"插入提交並簽署日誌失敗: {err}")
+                    # 如果日誌插入失敗，回滾整個事務
+                    self.sql.execute("ROLLBACK")
+                    return {
+                        'success': False,
+                        'message': f'插入提交並簽署日誌失敗: {str(err)}',
+                        'error_code': 'INSERT_LOG_FAILED'
+                    }
             
             # 提交事務
             self.sql.execute("COMMIT")
@@ -2296,6 +2310,219 @@ class edc_db:
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
         hash_obj = hashlib.md5(timestamp.encode())
         return hash_obj.hexdigest()[:7].upper()
+    
+    def generate_signature_hash(self, subject_code, user_id, timestamp, record_data):
+        """生成簽章雜湊值
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 使用者ID
+            timestamp: 時間戳
+            record_data: 記錄資料
+            
+        Returns:
+            SHA-256 雜湊值
+        """
+        import hashlib
+        import json
+        
+        try:
+            # 組合簽章字串（與前端邏輯一致）
+            signature_string = f"{subject_code}|{user_id}|{timestamp}|{json.dumps(record_data, sort_keys=True)}"
+            
+            # 生成 SHA-256 hash
+            hash_obj = hashlib.sha256(signature_string.encode('utf-8'))
+            signature_hash = hash_obj.hexdigest()
+            
+            logger.info(f"後端生成簽章雜湊 - 受試者: {subject_code}, 雜湊: {signature_hash[:16]}...")
+            return signature_hash
+            
+        except Exception as e:
+            logger.error(f"生成簽章雜湊失敗: {e}")
+            raise e
+    
+    def verify_signature_hash(self, subject_code, user_id, timestamp, record_data, expected_hash):
+        """驗證簽章雜湊值
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 使用者ID  
+            timestamp: 時間戳
+            record_data: 記錄資料
+            expected_hash: 預期的雜湊值（來自前端）
+            
+        Returns:
+            dict: 驗證結果
+        """
+        try:
+            # 重新計算雜湊值
+            calculated_hash = self.generate_signature_hash(subject_code, user_id, timestamp, record_data)
+            
+            # 比對雜湊值
+            is_valid = calculated_hash == expected_hash
+            
+            logger.info(f"雜湊驗證結果 - 受試者: {subject_code}, 一致性: {is_valid}")
+            if not is_valid:
+                logger.warning(f"雜湊不一致 - 預期: {expected_hash[:16]}..., 計算: {calculated_hash[:16]}...")
+            
+            return {
+                'valid': is_valid,
+                'calculated_hash': calculated_hash,
+                'expected_hash': expected_hash,
+                'message': '雜湊驗證通過' if is_valid else '雜湊驗證失敗，資料可能已被竄改'
+            }
+            
+        except Exception as e:
+            logger.error(f"雜湊驗證失敗: {e}")
+            return {
+                'valid': False,
+                'calculated_hash': None,
+                'expected_hash': expected_hash,
+                'message': f'雜湊驗證錯誤: {str(e)}'
+            }
+    
+    def sign_subject_with_hash(self, subject_code, user_id, frontend_hash, frontend_timestamp, record_data, verbose=0):
+        """簽署受試者資料（包含雜湊驗證）
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 簽署者ID
+            frontend_hash: 前端計算的雜湊值
+            frontend_timestamp: 前端時間戳
+            record_data: 記錄資料
+            verbose: 詳細模式
+            
+        Returns:
+            簽署結果字典
+        """
+        try:
+            # 1. 驗證前端雜湊
+            if frontend_hash:
+                verification_result = self.verify_signature_hash(
+                    subject_code, user_id, frontend_timestamp, record_data, frontend_hash
+                )
+                
+                if not verification_result['valid']:
+                    return {
+                        'success': False,
+                        'message': f'簽章驗證失敗: {verification_result["message"]}',
+                        'error_code': 'HASH_VERIFICATION_FAILED'
+                    }
+                
+                # 使用驗證通過的雜湊值
+                signature_hash = verification_result['calculated_hash']
+            else:
+                # 如果沒有前端雜湊，後端自行生成
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                current_data = self.get_subject_detail_by_code(subject_code)
+                signature_hash = self.generate_signature_hash(subject_code, user_id, timestamp, current_data)
+            
+            # 2. 執行簽署流程（直接整合邏輯，不再依賴舊函數）
+            result = self._execute_sign_subject(subject_code, user_id, verbose)
+            
+            if result['success']:
+                # 3. 更新 signature_hash 到三個資料表
+                self.update_signature_hashes(subject_code, signature_hash, verbose)
+                
+                # 4. 在回應中包含雜湊資訊
+                result['signature_hash'] = signature_hash
+                result['hash_verified'] = bool(frontend_hash)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"帶雜湊驗證的簽署失敗: {e}")
+            return {
+                'success': False,
+                'message': f'簽署失敗: {str(e)}',
+                'error_code': 'SIGN_WITH_HASH_ERROR'
+            }
+    
+    def submit_and_sign_with_hash(self, subject_code, user_id, frontend_hash, frontend_timestamp, record_data, verbose=0):
+        """提交審核並簽署受試者資料（包含雜湊驗證）
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 簽署者ID
+            frontend_hash: 前端計算的雜湊值
+            frontend_timestamp: 前端時間戳
+            record_data: 記錄資料
+            verbose: 詳細模式
+            
+        Returns:
+            操作結果字典
+        """
+        try:
+            # 1. 驗證前端雜湊
+            if frontend_hash:
+                verification_result = self.verify_signature_hash(
+                    subject_code, user_id, frontend_timestamp, record_data, frontend_hash
+                )
+                
+                if not verification_result['valid']:
+                    return {
+                        'success': False,
+                        'message': f'簽章驗證失敗: {verification_result["message"]}',
+                        'error_code': 'HASH_VERIFICATION_FAILED'
+                    }
+                
+                # 使用驗證通過的雜湊值
+                signature_hash = verification_result['calculated_hash']
+            else:
+                # 如果沒有前端雜湊，後端自行生成
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                current_data = self.get_subject_detail_by_code(subject_code)
+                signature_hash = self.generate_signature_hash(subject_code, user_id, timestamp, current_data)
+            
+            # 2. 執行提交並簽署流程（直接整合邏輯，不再依賴舊函數）
+            result = self._execute_submit_and_sign(subject_code, user_id, verbose)
+            
+            if result['success']:
+                # 3. 更新 signature_hash 到三個資料表
+                self.update_signature_hashes(subject_code, signature_hash, verbose)
+                
+                # 4. 在回應中包含雜湊資訊
+                result['signature_hash'] = signature_hash
+                result['hash_verified'] = bool(frontend_hash)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"帶雜湊驗證的提交並簽署失敗: {e}")
+            return {
+                'success': False,
+                'message': f'提交並簽署失敗: {str(e)}',
+                'error_code': 'SUBMIT_AND_SIGN_WITH_HASH_ERROR'
+            }
+    
+    def update_signature_hashes(self, subject_code, signature_hash, verbose=0):
+        """更新三個資料表的 signature_hash 欄位
+        
+        Args:
+            subject_code: 受試者編號
+            signature_hash: 簽章雜湊值
+            verbose: 詳細模式
+        """
+        try:
+            self.connect()
+            
+            tables = ['subjects', 'inclusion_criteria', 'exclusion_criteria']
+            
+            for table in tables:
+                update_data = f"`signature_hash`='{signature_hash}'"
+                update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+                
+                if isinstance(update_result, str):
+                    logger.error(f"更新 {table} 的 signature_hash 失敗: {update_result}")
+                else:
+                    logger.info(f"成功更新 {table} 的 signature_hash")
+            
+        except Exception as e:
+            logger.error(f"更新 signature_hash 失敗: {e}")
+        finally:
+            self.disconnect()
 
     def validate_required_fields(self, subject_code, verbose=0):
         """驗證必填欄位是否完整

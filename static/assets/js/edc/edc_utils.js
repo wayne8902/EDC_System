@@ -341,6 +341,204 @@ function setupQuickActions() {
     quickActions.innerHTML = html || '<p class="text-muted">無快速操作</p>';
 }
 
+// 頁面刷新相關函數
+async function reloadPageData() {
+    try {
+        const subjectCode = getCurrentSubjectCode();
+        if (!subjectCode) {
+            console.warn('無法獲取受試者編號，無法刷新資料');
+            return;
+        }
+
+        console.log('正在刷新頁面資料...', subjectCode);
+        
+        // 顯示載入狀態（如果 LoadingManager 可用）
+        if (typeof LoadingManager !== 'undefined') {
+            LoadingManager.show('正在更新資料...');
+        }
+
+        // 重新獲取最新的受試者資料
+        const response = await fetch(`/edc/subject-detail-code/${subjectCode}`);
+        const result = await response.json();
+
+        if (result.success) {
+            // 重新生成並更新頁面內容
+            await refreshPageContent(result.data);
+            
+            console.log('頁面資料刷新完成');
+            if (typeof LoadingManager !== 'undefined') {
+                LoadingManager.hide();
+            }
+        } else {
+            console.error('獲取最新資料失敗:', result.message);
+            if (typeof LoadingManager !== 'undefined') {
+                LoadingManager.hide();
+            }
+            if (typeof showErrorMessage === 'function') {
+                showErrorMessage('刷新資料失敗: ' + result.message);
+            }
+        }
+    } catch (error) {
+        console.error('刷新頁面資料失敗:', error);
+        if (typeof LoadingManager !== 'undefined') {
+            LoadingManager.hide();
+        }
+        if (typeof showErrorMessage === 'function') {
+            showErrorMessage('刷新資料失敗，請檢查網路連線');
+        }
+    }
+}
+
+// 刷新頁面內容函數
+async function refreshPageContent(data) {
+    try {
+        // 檢查是否有 DataBrowserGenerator 可用
+        if (typeof DataBrowserGenerator !== 'undefined') {
+            const generator = new DataBrowserGenerator();
+            const newPageContent = await generator.generateSubjectDetailPage(data);
+            
+            // 更新主要內容區域
+            const mainContent = document.getElementById('mainContent');
+            if (mainContent) {
+                mainContent.innerHTML = newPageContent;
+                
+                // 重新初始化事件監聽器
+                setupPageEvents();
+                
+                console.log('使用 DataBrowserGenerator 刷新頁面內容');
+            }
+        } else {
+            // 備用方案：手動更新關鍵資訊
+            updateKeyElements(data);
+            console.log('使用備用方案刷新頁面內容');
+        }
+    } catch (error) {
+        console.error('刷新頁面內容失敗:', error);
+        // 如果生成器失敗，使用備用方案
+        updateKeyElements(data);
+    }
+}
+
+// 更新關鍵頁面元素函數
+function updateKeyElements(data) {
+    try {
+        // 更新受試者編號
+        const subjectCodeElements = document.querySelectorAll('[data-field="subject_code"]');
+        subjectCodeElements.forEach(el => {
+            if (el) el.textContent = data.subject_code || '';
+        });
+
+        // 更新狀態
+        const statusElements = document.querySelectorAll('[data-field="status"]');
+        statusElements.forEach(el => {
+            if (el) el.textContent = data.status || '';
+        });
+
+        // 更新簽署資訊
+        const signedByElements = document.querySelectorAll('[data-field="signed_by"]');
+        signedByElements.forEach(el => {
+            if (el) el.textContent = data.signed_by || '';
+        });
+
+        const signedAtElements = document.querySelectorAll('[data-field="signed_at"]');
+        signedAtElements.forEach(el => {
+            if (el) el.textContent = data.signed_at || '';
+        });
+
+        // 更新按鈕狀態
+        updateButtonStates(data);
+        
+        console.log('關鍵元素更新完成');
+    } catch (error) {
+        console.error('更新關鍵元素失敗:', error);
+    }
+}
+
+// 更新按鈕狀態函數
+function updateButtonStates(data) {
+    const status = data.status;
+    const isSigned = status === 'signed';
+    
+    // 更新提交審核按鈕
+    const submitBtn = document.getElementById('submitAndSignBtn');
+    if (submitBtn) {
+        if (isSigned) {
+            submitBtn.style.display = 'none';
+        } else {
+            submitBtn.style.display = 'inline-block';
+        }
+    }
+    
+    // 更新簽署按鈕
+    const signBtn = document.getElementById('signBtn');
+    if (signBtn) {
+        if (isSigned) {
+            signBtn.style.display = 'none';
+        } else {
+            signBtn.style.display = 'inline-block';
+        }
+    }
+}
+
+// 設置頁面事件函數
+function setupPageEvents() {
+    // 如果 DataEditorManager 存在，重新初始化它的事件
+    if (typeof DataEditorManager !== 'undefined' && 
+        typeof DataEditorManager.setupPageEvents === 'function') {
+        DataEditorManager.setupPageEvents();
+    }
+}
+
+// 獲取當前受試者編號函數
+function getCurrentSubjectCode() {
+    // 嘗試多種方式獲取受試者編號
+    
+    // 方法1: 從 URL 參數
+    const urlParams = new URLSearchParams(window.location.search);
+    let subjectCode = urlParams.get('subject_code');
+    if (subjectCode) {
+        console.log('從 URL 參數獲取 subject_code:', subjectCode);
+        return subjectCode;
+    }
+    
+    // 方法2: 從頁面元素
+    const subjectCodeElement = document.querySelector('[data-field="subject_code"]');
+    if (subjectCodeElement) {
+        subjectCode = subjectCodeElement.textContent.trim();
+        if (subjectCode) {
+            console.log('從頁面元素獲取 subject_code:', subjectCode);
+            return subjectCode;
+        }
+    }
+    
+    // 方法3: 從全域變數（如果 DataEditorManager 有設定）
+    if (typeof DataEditorManager !== 'undefined' && 
+        typeof DataEditorManager.getCurrentSubjectCode === 'function') {
+        const managerSubjectCode = DataEditorManager.getCurrentSubjectCode();
+        if (managerSubjectCode) {
+            console.log('從 DataEditorManager 獲取 subject_code:', managerSubjectCode);
+            return managerSubjectCode;
+        }
+    }
+    
+    // 方法4: 從 window.currentSubjectCode
+    if (window.currentSubjectCode) {
+        console.log('從 window.currentSubjectCode 獲取:', window.currentSubjectCode);
+        return window.currentSubjectCode;
+    }
+    
+    // 調試信息：顯示當前頁面狀態
+    console.warn('getCurrentSubjectCode 調試信息:', {
+        'URL': window.location.href,
+        'URL 參數': Object.fromEntries(urlParams.entries()),
+        '頁面元素 [data-field="subject_code"]': subjectCodeElement ? subjectCodeElement.textContent : '不存在',
+        'DataEditorManager': typeof DataEditorManager,
+        'window.currentSubjectCode': window.currentSubjectCode
+    });
+    
+    return null;
+}
+
 // 匯出模組
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -369,6 +567,51 @@ if (typeof module !== 'undefined' && module.exports) {
         loadUserPermissions,
         determineUserRole,
         showDefaultRole,
-        setupQuickActions
+        setupQuickActions,
+        reloadPageData,
+        refreshPageContent,
+        updateKeyElements,
+        updateButtonStates,
+        setupPageEvents,
+        getCurrentSubjectCode
     };
+}
+
+// 瀏覽器環境全域匯出
+if (typeof window !== 'undefined') {
+    // 匯出所有工具函數到全域
+    window.getCookie = getCookie;
+    window.setCookie = setCookie;
+    window.deleteCookie = deleteCookie;
+    window.formatDate = formatDate;
+    window.formatDateTime = formatDateTime;
+    window.getDaysDifference = getDaysDifference;
+    window.isFutureDate = isFutureDate;
+    window.generateUniqueId = generateUniqueId;
+    window.deepClone = deepClone;
+    window.debounce = debounce;
+    window.throttle = throttle;
+    window.isValidEmail = isValidEmail;
+    window.isValidTaiwanPhone = isValidTaiwanPhone;
+    window.formatNumber = formatNumber;
+    window.showSuccessMessage = showSuccessMessage;
+    window.showErrorMessage = showErrorMessage;
+    window.showWarningMessage = showWarningMessage;
+    window.showMessage = showMessage;
+    window.confirmDialog = confirmDialog;
+    window.LoadingManager = LoadingManager;
+    window.loadUserInfo = loadUserInfo;
+    window.updateLoginTime = updateLoginTime;
+    window.loadUserPermissions = loadUserPermissions;
+    window.determineUserRole = determineUserRole;
+    window.showDefaultRole = showDefaultRole;
+    window.setupQuickActions = setupQuickActions;
+    
+    // 匯出頁面刷新相關函數到全域
+    window.reloadPageData = reloadPageData;
+    window.refreshPageContent = refreshPageContent;
+    window.updateKeyElements = updateKeyElements;
+    window.updateButtonStates = updateButtonStates;
+    window.setupPageEvents = setupPageEvents;
+    window.getCurrentSubjectCode = getCurrentSubjectCode;
 }

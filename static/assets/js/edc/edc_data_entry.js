@@ -760,7 +760,6 @@ function fillDebugValues() {
 async function submitForm() {
     if (validateAllFields()) {
         const formData = collectFormData();
-
         
         try {
             // 顯示載入狀態
@@ -779,7 +778,14 @@ async function submitForm() {
             
             if (result.success) {
                 alert('eCRF 已成功提交！');
-                // 可以重導向到成功頁面或清空表單
+                
+                // 跳轉到資料瀏覽頁面
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                } else {
+                    // 備用方案：直接跳轉到主頁面
+                    window.location.href = '/';
+                }
             } else {
                 alert(`提交失敗：${result.message}`);
             }

@@ -388,6 +388,7 @@ const DataBrowserManager = {
             tableBody.appendChild(noDataRow);
             return;
         }
+        console.log(this.currentData);
         this.currentData.forEach(subject => {
             const row = document.createElement('tr');
             row.innerHTML = `

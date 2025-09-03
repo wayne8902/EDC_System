@@ -684,12 +684,14 @@ def submit_for_review_api(subject_code):
         }), 500
 
 @edc_blueprints.route('/sign/<subject_code>', methods=['POST'])
+@edc_blueprints.route('/submit-and-sign/<subject_code>', methods=['POST'])
 @login_required
 def sign_subject_api(subject_code):
     """
-    簽署受試者資料 API
+    簽署受試者資料 API (統一處理簽署和提交並簽署)
     
-    POST /sign/P010002
+    POST /sign/P010002 - 簽署已提交的資料
+    POST /submit-and-sign/P010002 - 提交審核並簽署
     
     回應格式:
     {
@@ -705,59 +707,30 @@ def sign_subject_api(subject_code):
         # 獲取使用者資訊
         user_id = current_user.UNIQUE_ID
         
-        # 執行簽署
-        result = edc_sys.sign_subject(subject_code, user_id, verbose=VERBOSE)
+        # 獲取前端傳送的雜湊資料
+        data = request.get_json() or {}
+        frontend_hash = data.get('frontend_hash')
+        frontend_timestamp = data.get('timestamp')
+        frontend_user_id = data.get('user_id')
+        record_data = data.get('record_data', {})
         
-        if not result['success']:
-            return jsonify({
-                "success": False,
-                "message": result['message'],
-                "error_code": result.get('error_code'),
-                "content": "sign_subject"
-            }), 400
+        # 根據路由決定呼叫哪個函數
+        is_submit_and_sign = request.endpoint.endswith('submit_and_sign_api') or 'submit-and-sign' in request.path
         
-        return jsonify({
-            "success": True,
-            "message": result['message'],
-            "subject_code": result['subject_code'],
-            "subject_id": result['subject_id'],
-            "status": result['status'],
-            "signed_at": result['signed_at'],
-            "signed_by": result['signed_by']
-        })
-        
-    except Exception as e:
-        logging.error(f"簽署失敗: {e}")
-        return jsonify({
-            "success": False,
-            "message": f"簽署失敗: {str(e)}",
-            "content": "sign_subject"
-        }), 500
-
-@edc_blueprints.route('/submit-and-sign/<subject_code>', methods=['POST'])
-@login_required
-def submit_and_sign_api(subject_code):
-    """
-    提交審核並簽署受試者資料 API
-    
-    POST /submit-and-sign/P010002
-    
-    回應格式:
-    {
-        "success": true,
-        "message": "已成功提交審核並簽署受試者資料",
-        "subject_code": "P010002",
-        "status": "signed",
-        "signed_at": "2025-01-01 12:00:00",
-        "signed_by": "investigator001"
-    }
-    """
-    try:
-        # 獲取使用者資訊
-        user_id = current_user.UNIQUE_ID
-        
-        # 執行提交並簽署
-        result = edc_sys.submit_and_sign(subject_code, user_id, verbose=VERBOSE)
+        if is_submit_and_sign:
+            # 執行提交並簽署（包含雜湊驗證）
+            result = edc_sys.submit_and_sign_with_hash(
+                subject_code, user_id, frontend_hash, 
+                frontend_timestamp, record_data, verbose=VERBOSE
+            )
+            operation = "提交並簽署"
+        else:
+            # 執行簽署（包含雜湊驗證）
+            result = edc_sys.sign_subject_with_hash(
+                subject_code, user_id, frontend_hash, 
+                frontend_timestamp, record_data, verbose=VERBOSE
+            )
+            operation = "簽署"
         
         if not result['success']:
             return jsonify({
@@ -765,7 +738,7 @@ def submit_and_sign_api(subject_code):
                 "message": result['message'],
                 "error_code": result.get('error_code'),
                 "missing_fields": result.get('missing_fields', []),
-                "content": "submit_and_sign"
+                "content": "sign_operation"
             }), 400
         
         return jsonify({
@@ -779,11 +752,11 @@ def submit_and_sign_api(subject_code):
         })
         
     except Exception as e:
-        logging.error(f"提交並簽署失敗: {e}")
+        logging.error(f"{operation}失敗: {e}")
         return jsonify({
             "success": False,
-            "message": f"提交並簽署失敗: {str(e)}",
-            "content": "submit_and_sign"
+            "message": f"{operation}失敗: {str(e)}",
+            "content": "sign_operation"
         }), 500
 
 @edc_blueprints.route('/validate-required-fields/<subject_code>', methods=['GET'])

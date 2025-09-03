@@ -2,6 +2,38 @@
 // 包含資料編輯、變更追蹤和更新提交功能
 
 /**
+ * 生成 SHA-256 雜湊值
+ * @param {string} subjectCode - 受試者編號
+ * @param {string} userId - 使用者ID
+ * @param {string} timestamp - 時間戳
+ * @param {object} recordData - 記錄資料
+ * @returns {Promise<string>} SHA-256 雜湊值
+ */
+async function generateSignatureHash(subjectCode, userId, timestamp, recordData) {
+    try {
+        // 組合簽章字串
+        const signatureString = `${subjectCode}|${userId}|${timestamp}|${JSON.stringify(recordData)}`;
+        
+        console.log('簽章字串:', signatureString);
+        
+        // 使用 Web Crypto API 生成 SHA-256
+        const encoder = new TextEncoder();
+        const data = encoder.encode(signatureString);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        
+        // 轉換為 hex 字串
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        console.log('生成的 SHA-256 雜湊:', hashHex);
+        return hashHex;
+    } catch (error) {
+        console.error('生成 SHA-256 雜湊失敗:', error);
+        throw error;
+    }
+}
+
+/**
  * 資料編輯管理器
  */
 const DataEditorManager = {
@@ -340,7 +372,7 @@ const DataEditorManager = {
                 this.switchToViewMode();
                 
                 // 重新載入頁面資料（可選）
-                // this.reloadPageData();
+                this.reloadPageData();
                 
             } else {
                 console.error('更新失敗:', result);
@@ -680,12 +712,22 @@ const DataEditorManager = {
     /**
      * 重新載入頁面資料
      */
-    reloadPageData() {
-        // 這裡可以重新載入頁面資料，或者觸發頁面刷新
-        // 暫時使用簡單的頁面刷新
-        setTimeout(() => {
-            window.location.reload();
-        }, 1000);
+    async reloadPageData() {
+        // 呼叫全域的 reloadPageData 函數
+        if (typeof window.reloadPageData === 'function') {
+            await window.reloadPageData();
+        } else {
+            console.warn('全域 reloadPageData 函數不可用');
+        }
+    },
+
+    /**
+     * 設置頁面事件（在刷新後重新綁定）
+     */
+    setupPageEvents() {
+        // 這裡可以重新綁定需要的事件監聽器
+        // 例如：按鈕點擊事件、表單驗證等
+        console.log('重新設置頁面事件');
     },
 
     /**
@@ -759,11 +801,27 @@ const DataEditorManager = {
         LoadingManager.show('正在提交審核並簽署...');
 
         try {
+            // 1. 先生成前端 SHA-256 雜湊
+            const currentData = this.currentRecord || {};
+            const userId = this.getCurrentUserId(); // 實際應該從登入狀態獲取
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            
+            console.log('=== 提交並簽署 - 生成前端雜湊 ===');
+            const frontendHash = await generateSignatureHash(subjectCode, userId, timestamp, currentData);
+            console.log('前端生成的雜湊:', frontendHash);
+
+            // 2. 呼叫後端 API，傳送前端雜湊
             const response = await fetch(`/edc/submit-and-sign/${subjectCode}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({
+                    frontend_hash: frontendHash,
+                    timestamp: timestamp,
+                    user_id: userId,
+                    record_data: currentData
+                })
             });
 
             const result = await response.json();
@@ -771,7 +829,25 @@ const DataEditorManager = {
             LoadingManager.hide();
             
             if (result.success) {
-                showSuccessMessage(`已成功提交審核並簽署受試者 ${subjectCode} 的資料`);
+                // 顯示包含雜湊資訊的成功訊息
+                const hashInfo = result.signature_hash ? 
+                    `\n後端雜湊: ${result.signature_hash.substring(0, 16)}...\n雜湊驗證: ${result.hash_verified ? '通過' : '未驗證'}` : '';
+                
+                const message = 
+                `已成功提交審核並簽署受試者 ${subjectCode} 的資料\n\n` + 
+                `簽署時間: ${result.signed_at}\n` + 
+                `前端雜湊: ${frontendHash.substring(0, 16)}...${hashInfo}`;
+
+                showSuccessMessage(message);
+                
+                // 記錄完整簽章資訊
+                console.log('=== 提交並簽署完成 ===');
+                console.log('受試者編號:', subjectCode);
+                console.log('前端完整雜湊:', frontendHash);
+                console.log('後端完整雜湊:', result.signature_hash);
+                console.log('雜湊驗證結果:', result.hash_verified);
+                console.log('後端回應:', result);
+                
                 this.updateUIAfterSigning(result);
             } else {
                 showErrorMessage(`提交審核並簽署失敗: ${result.message}`);
@@ -800,11 +876,27 @@ const DataEditorManager = {
         LoadingManager.show('正在簽署...');
 
         try {
+            // 1. 先生成前端 SHA-256 雜湊（用於預覽和記錄）
+            const currentData = this.currentRecord || {};
+            const userId = this.getCurrentUserId();
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            
+            console.log('=== 簽署 - 生成前端雜湊 ===');
+            const frontendHash = await generateSignatureHash(subjectCode, userId, timestamp, currentData);
+            console.log('前端生成的雜湊:', frontendHash);
+
+            // 2. 呼叫後端 API，傳送前端雜湊
             const response = await fetch(`/edc/sign/${subjectCode}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({
+                    frontend_hash: frontendHash,
+                    timestamp: timestamp,
+                    user_id: userId,
+                    record_data: currentData
+                })
             });
 
             const result = await response.json();
@@ -812,7 +904,24 @@ const DataEditorManager = {
             LoadingManager.hide();
             
             if (result.success) {
-                showSuccessMessage(`已成功簽署受試者 ${subjectCode} 的資料`);
+                // 顯示包含雜湊資訊的成功訊息
+                const hashInfo = result.signature_hash ? 
+                    `\n後端雜湊: ${result.signature_hash.substring(0, 16)}...\n雜湊驗證: ${result.hash_verified ? '通過' : '未驗證'}` : '';
+                
+                const message = `已成功簽署受試者 ${subjectCode} 的資料\n\n` +
+                               `簽署時間: ${result.signed_at}\n` +
+                               `前端雜湊: ${frontendHash.substring(0, 16)}...${hashInfo}`;
+                               
+                showSuccessMessage(message);
+                
+                // 記錄完整簽章資訊
+                console.log('=== 簽署完成 ===');
+                console.log('受試者編號:', subjectCode);
+                console.log('前端完整雜湊:', frontendHash);
+                console.log('後端完整雜湊:', result.signature_hash);
+                console.log('雜湊驗證結果:', result.hash_verified);
+                console.log('後端回應:', result);
+                
                 this.updateUIAfterSigning(result);
             } else {
                 showErrorMessage(`簽署失敗: ${result.message}`);
@@ -1021,13 +1130,6 @@ const DataEditorManager = {
      */
     isInvestigator() {
         return typeof userRole !== 'undefined' && userRole === 'investigator';
-    },
-    
-    /**
-     * 獲取當前用戶ID
-     */
-    getCurrentUserId() {
-        return getCookie('unique_id') || '未知ID';
     },
     
     /**
