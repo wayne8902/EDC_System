@@ -11,7 +11,8 @@ const MODULE_DEPENDENCIES = {
     'edc_data_entry_generator': [],
     'edc_data_entry': ['edc_core', 'edc_utils', 'edc_calculations', 'edc_validation', 'edc_data_entry_handler', 'edc_data_entry_generator'],
     
-    'edc_data_browser': ['edc_core', 'edc_utils', 'edc_data_browser_generator', 'edc_data_editor'],
+    'edc_data_query': ['edc_core', 'edc_utils'],
+    'edc_data_browser': ['edc_core', 'edc_utils', 'edc_data_browser_generator', 'edc_data_editor', 'edc_data_query'],
     'edc_data_editor': ['edc_core', 'edc_utils']
 };
 
@@ -329,7 +330,7 @@ function openDataFreeze() {
 }
 
 function openQueryCreation() { 
-    showSuccessMessage('進入查詢發起功能'); 
+    showSuccessMessage('進入Query 發起功能'); 
 }
 
 function openQueryManagement() { 

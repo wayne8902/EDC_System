@@ -219,15 +219,11 @@ class DataBrowserGenerator {
         
         // 如果配置未載入，立即嘗試載入
         if (!this.loaded || !this.config) {
-
-            
             // 顯示載入指示器
             this.showLoadingIndicator();
             
             try {
                 await this.loadConfig();
-
-                
                 // 隱藏載入指示器
                 this.hideLoadingIndicator();
             } catch (error) {
@@ -246,6 +242,9 @@ class DataBrowserGenerator {
         
         // 檢查是否可以顯示簽署按鈕（狀態為 submitted 且用戶為試驗主持人）
         const canShowSignButton = data.subject?.status === 'submitted' && DataBrowserManager.isInvestigator();
+        
+        // 檢查是否可以顯示 Query 發起按鈕（用戶為試驗監測者且有權限）
+        const canShowQueryButton = DataBrowserManager.canCreateQuery();
 
         return `
             <div class="wrap">
@@ -268,6 +267,11 @@ class DataBrowserGenerator {
                             ${canShowSignButton ? `
                                 <button class="btn btn-success" onclick="DataEditorManager.sign()" style="margin-left: 10px;">
                                     <i class="fas fa-signature"></i> 簽署
+                                </button>
+                            ` : ''}
+                            ${canShowQueryButton ? `
+                                <button class="btn btn-warning" onclick="DataBrowserManager.createQuery('${data.subject?.subject_code || ''}')" style="margin-left: 10px;">
+                                    <i class="fas fa-question-circle"></i> 發起 Query
                                 </button>
                             ` : ''}
                         </div>
@@ -480,19 +484,19 @@ class DataBrowserGenerator {
                     ${field.label}
                 </label>
                 <textarea readonly 
-                          disabled
-                          id="${field.id}"
-                          name="${field.id}"
-                          rows="${rows}" 
-                          placeholder="${placeholder}"
-                          style="width: 100%; 
-                                 padding: ${styles.input_padding}; 
-                                 border: ${styles.input_border}; 
-                                 border-radius: ${styles.input_border_radius}; 
-                                 background-color: ${styles.input_background}; 
-                                 resize: vertical;
-                                 opacity: 0.6; 
-                                 cursor: not-allowed;">${value || ''}</textarea>
+                        disabled
+                        id="${field.id}"
+                        name="${field.id}"
+                        rows="${rows}" 
+                        placeholder="${placeholder}"
+                        style="width: 100%; 
+                            padding: ${styles.input_padding}; 
+                            border: ${styles.input_border}; 
+                            border-radius: ${styles.input_border_radius}; 
+                            background-color: ${styles.input_background}; 
+                            resize: vertical;
+                            opacity: 0.6; 
+                            cursor: not-allowed;">${value || ''}</textarea>
                 ${hintHTML}
             </div>
         `;
@@ -511,19 +515,19 @@ class DataBrowserGenerator {
                     ${field.label}
                 </label>
                 <input type="text" 
-                       id="${field.id}"
-                       name="${field.id}"
-                       value="${displayValue}" 
-                       placeholder="${placeholder}"
-                       readonly 
-                       disabled
-                       style="width: 100%; 
-                              padding: ${styles.input_padding}; 
-                              border: ${styles.input_border}; 
-                              border-radius: ${styles.input_border_radius}; 
-                              background-color: ${styles.input_background};
-                              opacity: 0.6; 
-                              cursor: not-allowed;">
+                    id="${field.id}"
+                    name="${field.id}"
+                    value="${displayValue}" 
+                    placeholder="${placeholder}"
+                    readonly 
+                    disabled
+                    style="width: 100%; 
+                            padding: ${styles.input_padding}; 
+                            border: ${styles.input_border}; 
+                            border-radius: ${styles.input_border_radius}; 
+                            background-color: ${styles.input_background};
+                            opacity: 0.6; 
+                            cursor: not-allowed;">
                 ${hintHTML}
             </div>
         `;

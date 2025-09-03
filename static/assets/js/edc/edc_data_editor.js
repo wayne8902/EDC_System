@@ -909,9 +909,9 @@ const DataEditorManager = {
                     `\n後端雜湊: ${result.signature_hash.substring(0, 16)}...\n雜湊驗證: ${result.hash_verified ? '通過' : '未驗證'}` : '';
                 
                 const message = `已成功簽署受試者 ${subjectCode} 的資料\n\n` +
-                               `簽署時間: ${result.signed_at}\n` +
-                               `前端雜湊: ${frontendHash.substring(0, 16)}...${hashInfo}`;
-                               
+                                `簽署時間: ${result.signed_at}\n` +
+                                `前端雜湊: ${frontendHash.substring(0, 16)}...${hashInfo}`;
+                                
                 showSuccessMessage(message);
                 
                 // 記錄完整簽章資訊

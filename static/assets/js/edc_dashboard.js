@@ -105,8 +105,8 @@ const ROLE_CONFIG = {
             },
             {
                 id: 'query_response',
-                title: '回應查詢',
-                description: '回應試驗監測者提出的查詢',
+                title: 'Query 回應',
+                description: '回應試驗監測者提出的 Query 查詢',
                 icon: 'fas fa-reply',
                 action: 'openQueryResponse'
             },
@@ -189,15 +189,15 @@ const ROLE_CONFIG = {
             },
             {
                 id: 'query_creation',
-                title: '發起查詢',
-                description: '向研究人員發起資料查詢',
+                title: 'Query 發起',
+                description: '向研究人員發起 Query 資料查詢',
                 icon: 'fas fa-question-circle',
                 action: 'openQueryCreation'
             },
             {
                 id: 'query_management',
-                title: '查詢管理',
-                description: '管理所有查詢的狀態和回應',
+                title: 'Query 管理',
+                description: '管理所有 Query 的狀態和回應',
                 icon: 'fas fa-tasks',
                 action: 'openQueryManagement'
             },
@@ -240,7 +240,7 @@ const QUICK_ACTIONS_CONFIG = {
         action: 'openDataEntry'
     },
     'edc.query.create': {
-        title: '發起查詢',
+        title: 'Query 發起',
         icon: 'fas fa-question-circle',
         color: 'btn-warning',
         action: 'openQueryCreation'
@@ -515,12 +515,12 @@ function generateRoleDashboard() {
                             <td>
                                 <span class="badge bg-secondary">試驗監測者</span>
                             </td>
-                            <td>負責資料審查、查詢管理、現場訪視和合規檢查</td>
+                            <td>負責資料審查、Query 管理、現場訪視和合規檢查</td>
                             <td>
                                 <ul class="list-unstyled mb-0">
                                     <li><i class="fas fa-search text-primary"></i> 資料審查</li>
                                     <li><i class="fas fa-snowflake text-success"></i> 資料凍結</li>
-                                    <li><i class="fas fa-question-circle text-info"></i> 查詢管理</li>
+                                    <li><i class="fas fa-question-circle text-info"></i> Query 管理</li>
                                     <li><i class="fas fa-map-marker-alt text-warning"></i> 現場訪視</li>
                                 </ul>
                             </td>
@@ -570,7 +570,7 @@ function openDataEntry() {
     console.log('研究人員資料輸入表單由 edc_data_entry.js 處理');
 }
 function openDataEditor() { alert('進入資料編輯功能'); }
-function openQueryResponse() { alert('進入查詢回應功能'); }
+function openQueryResponse() { alert('進入 Query 回應功能'); }
 function openDataValidation() { alert('進入資料驗證功能'); }
 
 // 功能按鈕點擊處理 - 試驗主持人
@@ -582,8 +582,8 @@ function openAdverseEvents() { alert('進入不良事件功能'); }
 // 功能按鈕點擊處理 - 試驗監測者
 function openDataAudit() { alert('進入資料審查功能'); }
 function openDataFreeze() { alert('進入資料凍結功能'); }
-function openQueryCreation() { alert('進入查詢發起功能'); }
-function openQueryManagement() { alert('進入查詢管理功能'); }
+function openQueryCreation() { alert('進入 Query 發起功能'); }
+function openQueryManagement() { alert('進入 Query 管理功能'); }
 function openSiteVisits() { alert('進入現場訪視功能'); }
 function openComplianceCheck() { alert('進入合規檢查功能'); }
 

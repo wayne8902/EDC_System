@@ -90,6 +90,22 @@ const DataBrowserManager = {
     },
 
     /**
+     * 檢查是否為試驗監測者
+     * @returns {boolean} - 是否為試驗監測者
+     */
+    isMonitor() {
+        return typeof userRole !== 'undefined' && userRole === 'monitor';
+    },
+
+    /**
+     * 檢查是否可以發起 Query
+     * @returns {boolean} - 是否可以發起 Query
+     */
+    canCreateQuery() {
+        return this.isMonitor() && this.hasPermission('edc.query.create');
+    },
+
+    /**
      * 獲取當前使用者 ID
      * @returns {string} - 當前使用者 ID
      */
@@ -644,6 +660,32 @@ const DataBrowserManager = {
     },
 
     /**
+     * 發起 Query
+     * @param {string} subjectCode - 受試者編號
+     */
+    createQuery(subjectCode) {
+        // 檢查發起 Query 的權限
+        if (!this.canCreateQuery()) {
+            alert('您沒有發起 Query 的權限');
+            return;
+        }
+
+        // 檢查受試者編號
+        if (!subjectCode) {
+            alert('無效的受試者編號');
+            return;
+        }
+
+        // 使用 QueryManager 顯示 Query 發起彈出視窗
+        if (typeof QueryManager !== 'undefined' && typeof QueryManager.showQueryModal === 'function') {
+            QueryManager.showQueryModal(subjectCode);
+        } else {
+            // 備用方案：顯示提示訊息
+            alert(`準備為受試者 ${subjectCode} 發起 Query\n\nQueryManager 尚未載入，請確認 edc_data_query.js 已正確載入`);
+        }
+    },
+
+    /**
      * 顯示受試者詳細資料區塊
      */
     async showSubjectDetailBlock(data) {
@@ -719,6 +761,11 @@ const DataBrowserManager = {
                         ${this.canShowEditButton(subject) ? `
                         <button class="btn btn-primary" onclick="DataEditorManager.switchToEditMode()">
                             <i class="fas fa-edit"></i> 編輯模式
+                        </button>
+                        ` : ''}
+                        ${this.canCreateQuery() ? `
+                        <button class="btn btn-warning" onclick="DataBrowserManager.createQuery('${subject?.subject_code || ''}')">
+                            <i class="fas fa-question-circle"></i> 發起 Query
                         </button>
                         ` : ''}
                     </div>

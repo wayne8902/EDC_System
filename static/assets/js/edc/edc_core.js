@@ -108,8 +108,8 @@ const ROLE_CONFIG = {
             },
             {
                 id: 'query_response',
-                title: '回應查詢',
-                description: '回應試驗監測者提出的查詢',
+                title: 'Query 回應',
+                description: '回應試驗監測者提出的 Query 查詢',
                 icon: 'fas fa-reply',
                 action: 'openQueryResponse'
             },
@@ -192,15 +192,15 @@ const ROLE_CONFIG = {
             },
             {
                 id: 'query_creation',
-                title: '發起查詢',
-                description: '向研究人員發起資料查詢',
+                title: 'Query 發起',
+                description: '向研究人員發起 Query 資料查詢',
                 icon: 'fas fa-question-circle',
                 action: 'openQueryCreation'
             },
             {
                 id: 'query_management',
-                title: '查詢管理',
-                description: '管理所有查詢的狀態和回應',
+                title: 'Query 管理',
+                description: '管理所有 Query 的狀態和回應',
                 icon: 'fas fa-tasks',
                 action: 'openQueryManagement'
             },
@@ -243,7 +243,7 @@ const QUICK_ACTIONS_CONFIG = {
         action: 'openDataEntry'
     },
     'edc.query.create': {
-        title: '發起查詢',
+        title: 'Query 發起',
         icon: 'fas fa-question-circle',
         color: 'btn-warning',
         action: 'openQueryCreation'
