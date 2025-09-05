@@ -539,6 +539,209 @@ def get_subject_detail_by_code_api(subject_code):
             'message': f'獲取受試者詳細資料失敗: {str(e)}'
         }), 500
 
+@edc_blueprints.route('/field-config', methods=['GET'])
+@login_required
+def get_field_config():
+    """獲取欄位配置資訊，用於前端動態生成布林欄位列表"""
+    try:
+        edc_sys.get_col_id()
+        
+        boolean_field_mapping = {
+            'subjects': ['bac', 'dm', 'gout', 'kidney_stone_diagnosis'],
+            'inclusion_criteria': [
+                'age_18_above', 'gender_available', 'age_available', 'bmi_available',
+                'dm_history_available', 'gout_history_available', 'egfr_available',
+                'urine_ph_available', 'urine_sg_available', 'urine_rbc_available',
+                'bacteriuria_available', 'lab_interval_7days', 'imaging_available',
+                'kidney_structure_visible', 'mid_ureter_visible', 'lower_ureter_visible',
+                'imaging_lab_interval_7days', 'no_treatment_during_exam'
+            ],
+            'exclusion_criteria': [
+                'pregnant_female', 'kidney_transplant', 'urinary_tract_foreign_body',
+                'non_stone_urological_disease', 'renal_replacement_therapy',
+                'medical_record_incomplete', 'major_blood_immune_cancer',
+                'rare_metabolic_disease', 'investigator_judgment'
+            ]
+        }
+        
+        # 從後端配置中篩選出實際存在的布林欄位
+        result = {}
+        for table_name, boolean_fields in boolean_field_mapping.items():
+            config_key = f'column_id_{table_name}'
+            if config_key in edc_sys.column_id['EDC']:
+                all_columns = edc_sys.column_id['EDC'][config_key]
+                # 只保留在配置中且為布林欄位的欄位
+                result[table_name] = [field for field in boolean_fields if field in all_columns]
+            else:
+                result[table_name] = []
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        logging.error(f"獲取欄位配置失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'獲取欄位配置失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/query/create', methods=['POST'])
+@login_required
+def create_query():
+    """創建 Query (統一處理單個和批量)"""
+    try:
+        data = request.get_json()
+        
+        # 驗證必填欄位
+        if not data.get('subject_code'):
+            return jsonify({
+                'success': False,
+                'message': '缺少必填欄位: subject_code'
+            }), 400
+        
+        if not data.get('queries') or not isinstance(data['queries'], list):
+            return jsonify({
+                'success': False,
+                'message': '缺少必填欄位: queries (必須為陣列)'
+            }), 400
+        
+        if not data['queries']:
+            return jsonify({
+                'success': False,
+                'message': 'queries 陣列不能為空'
+            }), 400
+        
+        # 驗證每個 Query 的必填欄位
+        for i, query in enumerate(data['queries']):
+            required_fields = ['table_name', 'field_name', 'query_type', 'question']
+            for field in required_fields:
+                if not query.get(field):
+                    return jsonify({
+                        'success': False,
+                        'message': f'Query #{i+1} 缺少必填欄位: {field}'
+                    }), 400
+        
+        # 調用創建函數
+        result = edc_sys.create_query(
+            subject_code=data['subject_code'],
+            queries=data['queries'],
+            created_by=current_user.UNIQUE_ID,
+            verbose=1
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f'成功創建 {result["created_count"]} 個 Query',
+                'data': result['data']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"創建 Query 失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'創建 Query 失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/query/test', methods=['POST'])
+@login_required
+def test_query_format():
+    """測試 Query 資料格式"""
+    try:
+        data = request.get_json()
+        
+        return jsonify({
+            'success': True,
+            'message': '資料格式驗證成功',
+            'received_data': data,
+            'queries_count': len(data.get('queries', [])),
+            'subject_code': data.get('subject_code')
+        })
+        
+    except Exception as e:
+        logging.error(f"測試 Query 格式失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'測試失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/query/list/<subject_code>', methods=['GET'])
+@login_required
+def list_queries(subject_code):
+    """獲取受試者的 Query 列表"""
+    try:
+        result = edc_sys.get_queries_by_subject(subject_code)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'data': result['data']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"獲取 Query 列表失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'獲取 Query 列表失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/query/<batch_id>/respond', methods=['POST'])
+@login_required
+def respond_to_query(batch_id):
+    """回應 Query"""
+    try:
+        data = request.get_json()
+        
+        # 驗證必填欄位
+        required_fields = ['response_text', 'response_type']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'缺少必填欄位: {field}'
+                }), 400
+        
+        # 調用後端函數回應 Query
+        result = edc_sys.respond_to_query(
+            batch_id=batch_id,
+            response_text=data['response_text'],
+            response_type=data['response_type'],
+            original_value=data.get('original_value'),
+            corrected_value=data.get('corrected_value'),
+            responded_by=current_user.unique_id
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': 'Query 回應成功',
+                'data': result['data']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"回應 Query 失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'回應 Query 失敗: {str(e)}'
+        }), 500
+
 @edc_blueprints.route('/update-subject/<subject_code>', methods=['PUT'])
 @login_required
 def update_subject_with_criteria_api(subject_code):
@@ -804,17 +1007,10 @@ def get_subject_history(subject_code):
     """獲取受試者的歷程記錄"""
     try:
         result = edc_sys.get_subject_history(subject_code, verbose=VERBOSE)
-        
-        if result:
-            return jsonify({
-                'success': True,
-                'data': result
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '受試者不存在或無歷程記錄'
-            }), 404
+        return jsonify({
+            'success': True,
+            'data': result
+        })
         
     except Exception as e:
         logging.error(f"獲取受試者歷程記錄失敗: {e}")

@@ -13,6 +13,10 @@ const QueryManager = {
     batchQueries: [], // 儲存批量 Query 資料
     queryCounter: 0, // Query 項目計數器
     
+    // 動態載入的欄位配置
+    booleanFields: [], // 從後端動態獲取的布林欄位列表
+    fieldConfigLoaded: false, // 欄位配置是否已載入
+    
     // 可查詢的資料表配置
     tableConfig: {
         'subjects': {
@@ -197,15 +201,82 @@ const QueryManager = {
     /**
      * 初始化 Query 表單
      */
-    initializeQueryForm() {
+    async initializeQueryForm() {
         // 清空批量 Query 資料
         this.batchQueries = [];
         this.queryCounter = 0;
+        
+        // 載入欄位配置
+        await this.loadFieldConfig();
         
         // 更新 UI
         this.updateBatchQueriesUI();
         
         console.log('批量 Query 表單初始化完成');
+    },
+
+    /**
+     * 載入欄位配置
+     */
+    async loadFieldConfig() {
+        if (this.fieldConfigLoaded) {
+            return; // 已經載入過，不需要重複載入
+        }
+
+        try {
+            const response = await fetch('/edc/field-config', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                // 直接使用後端返回的配置結構
+                this.booleanFields = result.data;
+                
+                this.fieldConfigLoaded = true;
+                console.log('欄位配置載入成功:', this.booleanFields);
+            } else {
+                console.error('載入欄位配置失敗:', result.message);
+                // 使用預設配置作為備用
+                this.loadDefaultBooleanFields();
+            }
+            
+        } catch (error) {
+            console.error('載入欄位配置時發生錯誤:', error);
+            // 使用預設配置作為備用
+            this.loadDefaultBooleanFields();
+        }
+    },
+
+    /**
+     * 載入預設的布林欄位配置（備用方案）
+     */
+    loadDefaultBooleanFields() {
+        this.booleanFields = {
+            'subjects': [
+                'bac', 'dm', 'gout', 'kidney_stone_diagnosis'
+            ],
+            'inclusion_criteria': [
+                'age_18_above', 'gender_available', 'age_available', 'bmi_available',
+                'dm_history_available', 'gout_history_available', 'egfr_available',
+                'urine_ph_available', 'urine_sg_available', 'urine_rbc_available',
+                'bacteriuria_available', 'lab_interval_7days', 'imaging_available',
+                'kidney_structure_visible', 'mid_ureter_visible', 'lower_ureter_visible',
+                'imaging_lab_interval_7days', 'no_treatment_during_exam'
+            ],
+            'exclusion_criteria': [
+                'pregnant_female', 'kidney_transplant', 'urinary_tract_foreign_body',
+                'non_stone_urological_disease', 'renal_replacement_therapy',
+                'medical_record_incomplete', 'major_blood_immune_cancer',
+                'rare_metabolic_disease', 'investigator_judgment'
+            ]
+        };
+        this.fieldConfigLoaded = true;
+        console.log('使用預設欄位配置:', this.booleanFields);
     },
 
     /**
@@ -237,421 +308,98 @@ const QueryManager = {
         }
     },
 
-    /**
-     * 載入欄位資料值和現有 Query
-     */
-    async loadFieldAndQueries() {
-        await this.loadCurrentValue();
-        await this.loadExistingQueries();
-    },
+
+
+
 
     /**
-     * 載入當前欄位的資料值
+     * 收集所有 Query 資料
      */
-    async loadCurrentValue() {
-        const tableSelect = document.getElementById('tableSelect');
-        const fieldSelect = document.getElementById('fieldSelect');
-        const currentValueInput = document.getElementById('currentValue');
+    collectAllQueries() {
+        const queries = [];
         
-        if (!tableSelect || !fieldSelect || !currentValueInput) return;
-
-        const tableName = tableSelect.value;
-        const fieldName = fieldSelect.value;
-        
-        if (!tableName || !fieldName || !this.currentSubjectCode) {
-            currentValueInput.value = '';
-            return;
-        }
-
-        try {
-            // 顯示載入狀態
-            currentValueInput.value = '載入中...';
-            
-            // 呼叫 API 獲取當前值
-            const response = await fetch(`/edc/query/current-value`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    subject_code: this.currentSubjectCode,
-                    table_name: tableName,
-                    field_name: fieldName
-                })
+        // 如果有批量 Query，收集批量資料
+        if (this.batchQueries && this.batchQueries.length > 0) {
+            this.batchQueries.forEach(query => {
+                queries.push({
+                    table_name: query.table,
+                    field_name: query.field,
+                    query_type: query.queryType,
+                    question: query.question,
+                    current_value: this.convertBooleanValueForDB(query.currentValue, query.field, query.table),
+                    expected_value: this.convertBooleanValueForDB(query.expectedValue || '', query.field, query.table)
+                });
             });
+        } else {
+            // 單個 Query 格式
+            const form = document.getElementById('queryForm');
+            if (!form) return queries;
 
-            const result = await response.json();
+            const tableName = document.getElementById('tableSelect').value;
+            const fieldName = document.getElementById('fieldSelect').value;
             
-            if (result.success) {
-                currentValueInput.value = result.current_value || '(無資料)';
-            } else {
-                currentValueInput.value = '無法載入';
-                console.error('載入當前值失敗:', result.message);
-            }
-        } catch (error) {
-            currentValueInput.value = '載入失敗';
-            console.error('載入當前值時發生錯誤:', error);
-        }
-    },
-
-    /**
-     * 刷新當前值
-     */
-    async refreshCurrentValue() {
-        await this.loadCurrentValue();
-    },
-
-    /**
-     * 載入該欄位的現有 Query
-     */
-    async loadExistingQueries() {
-        const tableSelect = document.getElementById('tableSelect');
-        const fieldSelect = document.getElementById('fieldSelect');
-        const existingQueriesSection = document.getElementById('existingQueriesSection');
-        const existingQueriesList = document.getElementById('existingQueriesList');
-        
-        if (!tableSelect || !fieldSelect || !existingQueriesSection || !existingQueriesList) return;
-
-        const tableName = tableSelect.value;
-        const fieldName = fieldSelect.value;
-        
-        if (!tableName || !fieldName || !this.currentSubjectCode) {
-            existingQueriesSection.style.display = 'none';
-            return;
-        }
-
-        try {
-            // 先使用模擬資料進行前端展示
-            const mockFieldQueries = this.getMockFieldQueries(fieldName);
-            
-            if (mockFieldQueries.length > 0) {
-                // 顯示現有 Query
-                existingQueriesList.innerHTML = this.generateFieldQueriesHtml(mockFieldQueries, fieldName);
-                existingQueriesSection.style.display = 'block';
-            } else {
-                // 沒有現有 Query，隱藏區域
-                existingQueriesSection.style.display = 'none';
-            }
-
-            // TODO: 後續替換為真實 API 調用
-            /*
-            const response = await fetch(`/edc/query/existing`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    subject_code: this.currentSubjectCode,
-                    table_name: tableName,
-                    field_name: fieldName
-                })
+            queries.push({
+                table_name: tableName,
+                field_name: fieldName,
+                query_type: document.getElementById('queryType').value,
+                question: document.getElementById('queryQuestion').value,
+                current_value: this.convertBooleanValueForDB(document.getElementById('currentValue').value, fieldName, tableName),
+                expected_value: this.convertBooleanValueForDB(document.getElementById('expectedValue').value || '', fieldName, tableName)
             });
-
-            const result = await response.json();
-            
-            if (result.success && result.fieldQueries && result.fieldQueries.length > 0) {
-                existingQueriesList.innerHTML = this.generateFieldQueriesHtml(result.fieldQueries, fieldName);
-                existingQueriesSection.style.display = 'block';
-            } else {
-                existingQueriesSection.style.display = 'none';
-            }
-            */
-        } catch (error) {
-            console.error('載入現有 Query 時發生錯誤:', error);
-            existingQueriesSection.style.display = 'none';
-        }
-    },
-
-    /**
-     * 獲取模擬的欄位 Query 資料
-     * @param {string} fieldName - 欄位名稱
-     * @returns {Array} - 模擬的 Query 陣列
-     */
-    getMockFieldQueries(fieldName) {
-        // 模擬不同欄位的 Query 資料
-        const mockData = {
-            'age': [
-                {
-                    query_id: 'Q001',
-                    field_name: 'age',
-                    issue: '年齡與出生日期不符',
-                    status: 'open',
-                    created_at: '2025-01-15',
-                    response_text: null
-                },
-                {
-                    query_id: 'Q002', 
-                    field_name: 'age',
-                    issue: '請確認計算方式',
-                    status: 'responded',
-                    created_at: '2025-01-10',
-                    response_text: '已重新計算，年齡正確'
-                }
-            ],
-            'height_cm': [
-                {
-                    query_id: 'Q003',
-                    field_name: 'height_cm',
-                    issue: '身高數值異常，請確認',
-                    status: 'open',
-                    created_at: '2025-01-14',
-                    response_text: null
-                }
-            ],
-            'bmi': [
-                {
-                    query_id: 'Q004',
-                    field_name: 'bmi',
-                    issue: 'BMI 計算結果與身高體重不符',
-                    status: 'closed',
-                    created_at: '2025-01-12',
-                    response_text: '已修正計算公式'
-                },
-                {
-                    query_id: 'Q005',
-                    field_name: 'bmi',
-                    issue: '請提供精確到小數點後一位',
-                    status: 'responded',
-                    created_at: '2025-01-13',
-                    response_text: '已更新為 24.3'
-                }
-            ]
-        };
-
-        return mockData[fieldName] || [];
-    },
-
-    /**
-     * 生成欄位 Query 的 HTML (支援同一欄位多個 Query)
-     * @param {Array} fieldQueries - 欄位 Query 列表
-     * @param {string} fieldName - 欄位名稱
-     * @returns {string} - HTML 字串
-     */
-    generateFieldQueriesHtml(fieldQueries, fieldName) {
-        if (!fieldQueries || fieldQueries.length === 0) {
-            return `<p class="text-muted mb-0"><i class="fas fa-info-circle"></i> 此欄位尚無 Query</p>`;
-        }
-
-        const fieldDisplayName = this.getFieldDisplayName('subjects', fieldName);
-        let html = `
-            <div class="field-queries">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="mb-0">
-                        <i class="fas fa-list"></i> 
-                        <strong>${fieldDisplayName}</strong> 的 Query 記錄 
-                        <span class="badge bg-secondary">${fieldQueries.length}</span>
-                    </h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="QueryManager.addQuickQuery('${fieldName}')">
-                        <i class="fas fa-plus"></i> 快速追加
-                    </button>
-                </div>
-        `;
-        
-        // 按狀態分組顯示
-        const groupedQueries = this.groupQueriesByStatus(fieldQueries);
-        
-        // 顯示開放中的 Query
-        if (groupedQueries.open && groupedQueries.open.length > 0) {
-            html += this.generateQueryGroup('開放中', groupedQueries.open, 'warning');
         }
         
-        // 顯示已回應的 Query
-        if (groupedQueries.responded && groupedQueries.responded.length > 0) {
-            html += this.generateQueryGroup('已回應', groupedQueries.responded, 'info');
-        }
-        
-        // 顯示已關閉的 Query (摺疊顯示)
-        if (groupedQueries.closed && groupedQueries.closed.length > 0) {
-            html += `
-                <div class="query-group mb-2">
-                    <div class="d-flex align-items-center mb-2">
-                        <button class="btn btn-sm btn-outline-success me-2" type="button" data-bs-toggle="collapse" data-bs-target="#closedQueries" aria-expanded="false">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                        <span class="text-success">
-                            <i class="fas fa-check-circle"></i> 已關閉 
-                            <span class="badge bg-success">${groupedQueries.closed.length}</span>
-                        </span>
-                    </div>
-                    <div class="collapse" id="closedQueries">
-                        ${this.generateQueryItems(groupedQueries.closed)}
-                    </div>
-                </div>
-            `;
-        }
-        
-        html += '</div>';
-        return html;
+        return queries;
     },
 
     /**
-     * 按狀態分組 Query
-     * @param {Array} queries - Query 列表
-     * @returns {Object} - 分組後的 Query
+     * 驗證所有 Query
      */
-    groupQueriesByStatus(queries) {
-        const grouped = {
-            open: [],
-            responded: [],
-            closed: [],
-            cancelled: []
-        };
+    validateAllQueries(queries) {
+        if (!queries || queries.length === 0) return false;
         
-        queries.forEach(query => {
-            if (grouped[query.status]) {
-                grouped[query.status].push(query);
-            }
-        });
-        
-        return grouped;
+        // 檢查每個 Query 的必填欄位
+        return queries.every(query => 
+            query.table_name && 
+            query.field_name && 
+            query.query_type && 
+            query.question
+        );
     },
-
-    /**
-     * 生成 Query 群組 HTML
-     * @param {string} title - 群組標題
-     * @param {Array} queries - Query 列表
-     * @param {string} colorClass - 顏色類別
-     * @returns {string} - HTML 字串
-     */
-    generateQueryGroup(title, queries, colorClass) {
-        return `
-            <div class="query-group mb-3">
-                <div class="d-flex align-items-center mb-2">
-                    <span class="text-${colorClass}">
-                        <i class="fas fa-${colorClass === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i> 
-                        ${title} 
-                        <span class="badge bg-${colorClass}">${queries.length}</span>
-                    </span>
-                </div>
-                ${this.generateQueryItems(queries)}
-            </div>
-        `;
-    },
-
-    /**
-     * 生成 Query 項目 HTML
-     * @param {Array} queries - Query 列表
-     * @returns {string} - HTML 字串
-     */
-    generateQueryItems(queries) {
-        let html = '';
-        
-        queries.forEach((query, index) => {
-            const statusClass = this.getStatusClass(query.status);
-            const statusText = this.getStatusText(query.status);
-            
-            html += `
-                <div class="query-item border rounded p-3 mb-2 ${query.status === 'open' ? 'border-warning bg-light' : ''}">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="flex-grow-1">
-                            <span class="badge ${statusClass} me-2">${statusText}</span>
-                            <strong>${query.query_id}</strong>
-                            <small class="text-muted ms-2">
-                                <i class="fas fa-calendar"></i> ${query.created_at || ''}
-                            </small>
-                        </div>
-                        <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-secondary" onclick="QueryManager.viewQueryDetail('${query.query_id}')" title="查看詳情">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            ${query.status === 'open' ? `
-                                <button type="button" class="btn btn-outline-warning" onclick="QueryManager.editQuery('${query.query_id}')" title="編輯">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                    <div class="query-content">
-                        <p class="mb-2">
-                            <i class="fas fa-question-circle text-primary"></i> 
-                            <strong>問題：</strong>${query.issue}
-                        </p>
-                        ${query.response_text ? `
-                            <p class="mb-0 text-success">
-                                <i class="fas fa-reply"></i> 
-                                <strong>回應：</strong>${query.response_text}
-                            </p>
-                        ` : `
-                            <p class="mb-0 text-muted">
-                                <i class="fas fa-clock"></i> 等待回應中...
-                            </p>
-                        `}
-                    </div>
-                </div>
-            `;
-        });
-        
-        return html;
-    },
-
-    /**
-     * 獲取狀態樣式類別
-     * @param {string} status - 狀態
-     * @returns {string} - CSS 類別
-     */
-    getStatusClass(status) {
-        const statusClasses = {
-            'open': 'bg-warning',
-            'responded': 'bg-info',
-            'closed': 'bg-success',
-            'cancelled': 'bg-secondary'
-        };
-        return statusClasses[status] || 'bg-secondary';
-    },
-
-    /**
-     * 獲取狀態文字
-     * @param {string} status - 狀態
-     * @returns {string} - 狀態文字
-     */
-    getStatusText(status) {
-        const statusTexts = {
-            'open': '開放中',
-            'responded': '已回應',
-            'closed': '已關閉',
-            'cancelled': '已取消'
-        };
-        return statusTexts[status] || status;
-    },
-
-
 
     /**
      * 提交 Query
      */
     async submitQuery() {
-        // 如果有批量 Query，則使用批量提交
-        if (this.batchQueries.length > 0) {
-            return await this.submitBatchQueries();
-        }
+        // 1. 收集所有 Query 資料
+        const queries = this.collectAllQueries();
         
-        // 原有的單個 Query 提交邏輯
-        const form = document.getElementById('queryForm');
-        if (!form) return;
-
-        // 驗證表單
-        if (!form.checkValidity()) {
-            form.classList.add('was-validated');
+        if (queries.length === 0) {
+            showErrorMessage('沒有可提交的 Query');
             return;
         }
-
-        // 收集表單資料（精簡版）
-        const formData = {
+        
+        // 2. 驗證所有 Query
+        if (!this.validateAllQueries(queries)) {
+            showErrorMessage('請完整填寫所有 Query 的必填欄位');
+            return;
+        }
+        
+        // 3. 統一格式
+        const submitData = {
             subject_code: this.currentSubjectCode,
-            table_name: document.getElementById('tableSelect').value,
-            field_name: document.getElementById('fieldSelect').value,
-            query_type: document.getElementById('queryType').value,
-            question: document.getElementById('queryQuestion').value,
-            current_value: document.getElementById('currentValue').value,
-            expected_value: document.getElementById('expectedValue').value || null
+            queries: queries
         };
 
         try {
             // 顯示載入狀態
-            const submitBtn = document.querySelector('#queryModal .btn-warning');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 發起中...';
-            submitBtn.disabled = true;
+            const submitBtn = document.getElementById('submitQueryBtn') || document.querySelector('#queryModal .btn-warning');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 發起中...';
+                submitBtn.disabled = true;
+            }
+
+            console.log('提交 Query 資料:', submitData);
 
             // 發送請求
             const response = await fetch('/edc/query/create', {
@@ -659,34 +407,118 @@ const QueryManager = {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(submitData)
             });
 
             const result = await response.json();
 
             if (result.success) {
                 // 成功提示
-                const fieldDisplayName = this.getFieldDisplayName(formData.table_name, formData.field_name);
-                alert(`✅ Query 已成功發起！\n\nQuery ID: ${result.query_id}\n受試者: ${formData.subject_code}\n問題欄位: ${fieldDisplayName}\n類型: ${formData.query_type}`);
+                const queryCount = submitData.queries.length;
+                const queryList = submitData.queries.map(q => 
+                    `• ${this.getFieldDisplayName(q.table_name, q.field_name)}: ${q.question.substring(0, 30)}...`
+                ).join('\n');
+                
+                showSuccessMessage(`成功發起 ${queryCount} 個 Query！\n\n${queryList}`);
                 
                 // 關閉 modal
                 const modal = bootstrap.Modal.getInstance(document.getElementById('queryModal'));
-                modal.hide();
-                
-                console.log('Query 發起成功:', result);
+                if (modal) modal.hide();
             } else {
-                alert(`❌ Query 發起失敗：${result.message}`);
+                throw new Error(result.message || '提交失敗');
             }
+
         } catch (error) {
             console.error('提交 Query 時發生錯誤:', error);
-            alert('❌ Query 發起失敗，請稍後再試');
-        } finally {
-            // 恢復按鈕狀態
-            const submitBtn = document.querySelector('#queryModal .btn-warning');
-            if (submitBtn) {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
-            }
+            showErrorMessage('提交失敗：' + error.message);
+        } 
+        // finally {
+        //     // 恢復按鈕狀態
+        //     const submitBtn = document.getElementById('submitQueryBtn') || document.querySelector('#queryModal .btn-warning');
+        //     if (submitBtn) {
+        //         submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 發起 Query';
+        //         submitBtn.disabled = false;
+        //     }
+        // }
+    },
+
+    /**
+     * 轉換布林值為資料庫格式
+     * @param {string} value - 前端顯示的值 ("是"/"否")
+     * @param {string} fieldName - 欄位名稱
+     * @param {string} tableName - 資料表名稱
+     * @returns {string} 資料庫格式的值 ("1"/"0")
+     */
+    convertBooleanValueForDB(value, fieldName, tableName) {
+        if (!value) return value;
+        
+        // 檢查是否為二擇一欄位
+        const isBinaryField = this.isBinaryField(fieldName, tableName);
+        if (!isBinaryField) return value;
+        
+        // 性別欄位轉換
+        if (fieldName === 'gender') {
+            if (value === '男性') return '1';
+            if (value === '女性') return '0';
+            if (value === '1' || value === '0') return value;
+            return value;
+        }
+        
+        // 布林欄位轉換 "是/否" 為 "1/0"
+        if (value === '是') return '1';
+        if (value === '否') return '0';
+        
+        // 如果已經是 "1/0"，直接返回
+        if (value === '1' || value === '0') return value;
+        
+        // 其他情況保持原值
+        return value;
+    },
+
+    /**
+     * 檢查是否為布林欄位
+     * @param {string} fieldName - 欄位名稱
+     * @param {string} tableName - 資料表名稱
+     * @returns {boolean} 是否為布林欄位
+     */
+    isBooleanField(fieldName, tableName) {
+        if (!this.booleanFields || !this.booleanFields[tableName]) return false;
+        return this.booleanFields[tableName].includes(fieldName);
+    },
+
+    /**
+     * 檢查是否為二擇一欄位（包含性別）
+     * @param {string} fieldName - 欄位名稱
+     * @param {string} tableName - 資料表名稱
+     * @returns {boolean} 是否為二擇一欄位
+     */
+    isBinaryField(fieldName, tableName) {
+        // 性別欄位
+        if (fieldName === 'gender') return true;
+        
+        // 布林欄位
+        return this.isBooleanField(fieldName, tableName);
+    },
+
+    /**
+     * 生成二擇一欄位的下拉選單選項
+     * @param {string} fieldName - 欄位名稱
+     * @param {string} currentValue - 當前值
+     * @returns {string} 下拉選單選項 HTML
+     */
+    generateBinaryFieldOptions(fieldName, currentValue) {
+        if (fieldName === 'gender') {
+            return `
+                <option value="">請選擇性別</option>
+                <option value="男性" ${currentValue === '男性' ? 'selected' : ''}>男性</option>
+                <option value="女性" ${currentValue === '女性' ? 'selected' : ''}>女性</option>
+            `;
+        } else {
+            return `
+                <option value="">請選擇</option>
+                <option value="是" ${currentValue === '是' ? 'selected' : ''}>是</option>
+                <option value="否" ${currentValue === '否' ? 'selected' : ''}>否</option>
+            `;
         }
     },
 
@@ -776,12 +608,6 @@ const QueryManager = {
         alert(`編輯 Query ${queryId}\n\n功能開發中...`);
     },
 
-    /**
-     * 重新整理現有 Query 列表
-     */
-    async refreshExistingQueries() {
-        await this.loadExistingQueries();
-    },
 
     // ==================== 批量 Query 功能 ====================
 
@@ -837,7 +663,8 @@ const QueryManager = {
 
         // 更新提交按鈕狀態
         if (submitQueryBtn) {
-            submitQueryBtn.disabled = this.batchQueries.length === 0 || !this.validateAllQueries();
+            const queries = this.collectAllQueries();
+            submitQueryBtn.disabled = queries.length === 0 || !this.validateAllQueries(queries);
         }
 
         // 生成 Query 項目 HTML
@@ -871,7 +698,7 @@ const QueryManager = {
                         Query #${query.id}
                     </h6>
                     <button type="button" class="btn btn-sm btn-outline-danger" onclick="QueryManager.removeFieldQuery(${query.id})">
-                        <i class="fas fa-trash"></i>
+                        移除欄位<i class="fas fa-trash"></i>
                     </button>
                 </div>
 
@@ -922,9 +749,14 @@ const QueryManager = {
                     <!-- 期望值 -->
                     <div class="col-md-6 mb-3">
                         <label class="form-label">期望值 (可選)</label>
-                        <input type="text" class="form-control" value="${query.expectedValue}" 
-                            onchange="QueryManager.onExpectedValueChange(${query.id}, this.value)"
-                            placeholder="修正類型請填寫期望值">
+                        ${this.isBinaryField(query.field, query.table) ? 
+                            `<select class="form-control" onchange="QueryManager.onExpectedValueChange(${query.id}, this.value)">
+                                ${this.generateBinaryFieldOptions(query.field, query.expectedValue)}
+                            </select>` :
+                            `<input type="text" class="form-control" value="${query.expectedValue}" 
+                                onchange="QueryManager.onExpectedValueChange(${query.id}, this.value)"
+                                placeholder="修正類型請填寫期望值">`
+                        }
                     </div>
                 </div>
 
@@ -940,16 +772,7 @@ const QueryManager = {
             </div>
         `;
     },
-
-    /**
-     * 驗證所有 Query
-     */
-    validateAllQueries() {
-        return this.batchQueries.every(query => 
-            query.table && query.field && query.queryType && query.question.trim()
-        );
-    },
-
+    
     /**
      * 資料表變更事件處理
      */
@@ -973,6 +796,9 @@ const QueryManager = {
             query.field = fieldValue;
             const field = this.tableConfig[query.table].fields.find(f => f.id === fieldValue);
             query.fieldName = field ? field.name : '';
+            
+            // 清空期望值
+            query.expectedValue = '';
             
             // 載入當前值
             if (fieldValue) {
@@ -1025,22 +851,91 @@ const QueryManager = {
         if (!query || !query.table || !query.field) return;
 
         try {
-            // TODO: 實作真實 API 調用
-            // 暫時使用模擬資料
-            const mockValues = {
-                'age': '25',
-                'height_cm': '175.0',
-                'weight_kg': '70.0',
-                'bmi': '22.9',
-                'gender': '男性'
-            };
+            // 顯示載入中狀態
+            query.currentValue = '載入中...';
+            this.updateBatchQueriesUI();
+
+            // 調用後端 API 獲取受試者完整資料
+            const response = await fetch(`/edc/subject-detail-code/${this.currentSubjectCode}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
             
-            query.currentValue = mockValues[query.field] || '無資料';
+            if (result.success && result.data) {
+                // 根據 table 選擇對應的資料源
+                let sourceData = null;
+                switch (query.table) {
+                    case 'subjects':
+                        sourceData = result.data.subject;
+                        break;
+                    case 'inclusion_criteria':
+                        sourceData = result.data.inclusion_criteria;
+                        break;
+                    case 'exclusion_criteria':
+                        sourceData = result.data.exclusion_criteria;
+                        break;
+                    default:
+                        console.warn(`未知的資料表: ${query.table}`);
+                        sourceData = null;
+                }
+
+                if (sourceData && sourceData.hasOwnProperty(query.field)) {
+                    let fieldValue = sourceData[query.field];
+                    
+                    // 格式化特殊欄位值
+                    fieldValue = this.formatFieldValue(query.field, fieldValue, query.table);
+                    
+                    query.currentValue = fieldValue !== null && fieldValue !== undefined ? String(fieldValue) : '無資料';
+                } else {
+                    query.currentValue = '無資料';
+                }
+            } else {
+                console.error('獲取受試者資料失敗:', result.message || '未知錯誤');
+                query.currentValue = '載入失敗';
+            }
             
         } catch (error) {
             console.error('載入欄位值時發生錯誤:', error);
             query.currentValue = '載入失敗';
         }
+    },
+
+    /**
+     * 格式化欄位值顯示
+     * @param {string} fieldName - 欄位名稱
+     * @param {any} fieldValue - 原始欄位值
+     * @param {string} tableName - 資料表名稱
+     * @returns {string} - 格式化後的顯示值
+     */
+    formatFieldValue(fieldName, fieldValue, tableName) {
+        // 處理 null 或 undefined
+        if (fieldValue === null || fieldValue === undefined) {
+            return '無資料';
+        }
+
+        // 檢查是否為二擇一欄位
+        if (this.isBinaryField(fieldName, tableName)) {
+            // 性別欄位特殊處理
+            if (fieldName === 'gender') {
+                return fieldValue === 1 ? '男性' : fieldValue === 0 ? '女性' : String(fieldValue);
+            }
+            
+            // 布林欄位處理
+            return fieldValue === 1 ? '是' : fieldValue === 0 ? '否' : String(fieldValue);
+        }
+
+        // 數值欄位保留小數點
+        if (typeof fieldValue === 'number') {
+            // 如果是整數，不顯示小數點
+            return fieldValue % 1 === 0 ? String(fieldValue) : fieldValue.toFixed(1);
+        }
+
+        // 其他欄位直接轉字串
+        return String(fieldValue);
     },
 
     /**
@@ -1063,56 +958,6 @@ const QueryManager = {
         }
     },
 
-    /**
-     * 提交批量 Query
-     */
-    async submitBatchQueries() {
-        if (!this.validateAllQueries()) {
-            alert('請完整填寫所有 Query 的必填欄位');
-            return;
-        }
-
-        const submitBtn = document.getElementById('submitQueryBtn');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 提交中...';
-        }
-
-        try {
-            // 準備提交資料
-            const batchData = {
-                subject_code: this.currentSubjectCode,
-                queries: this.batchQueries.map(query => ({
-                    table_name: query.table,
-                    field_name: query.field,
-                    query_type: query.queryType,
-                    expected_value: query.expectedValue,
-                    question: query.question,
-                    current_value: query.currentValue
-                }))
-            };
-
-            console.log('批量 Query 資料:', batchData);
-
-            // 暫時使用模擬成功
-            setTimeout(() => {
-                alert(`成功發起 ${this.batchQueries.length} 個 Query！\n\n${this.batchQueries.map(q => `• ${q.fieldName}: ${q.question.substring(0, 30)}...`).join('\n')}`);
-                
-                // 關閉 modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('queryModal'));
-                if (modal) modal.hide();
-            }, 1000);
-
-        } catch (error) {
-            console.error('提交批量 Query 時發生錯誤:', error);
-            alert('提交失敗：' + error.message);
-        } finally {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 發起 Query';
-            }
-        }
-    }
 };
 
 // 全域匯出

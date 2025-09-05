@@ -1,5 +1,4 @@
 // EDC 系統計算功能檔案
-// 包含各種醫學計算和驗證功能
 
 // 自動計算年齡
 function calculateAge() {

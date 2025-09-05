@@ -703,6 +703,18 @@
           "title": "歷程記錄功能開發中...",
           "description": "將顯示受試者的所有訪視記錄和資料變更歷史"
         }
+      },
+      {
+        "id": "query_record",
+        "title": "Query 紀錄",
+        "icon": "fas fa-history",
+        "type": "placeholder",
+        "content": {
+          "icon": "fas fa-question-circle",
+          "icon_size": "4rem",
+          "title": "Query 管理功能開發中...",
+          "description": "將顯示受試者的資料疑問、澄清請求、回應記錄及解決狀態"
+        }
       }
     ],
     "styles": {

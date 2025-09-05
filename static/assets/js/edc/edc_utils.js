@@ -119,26 +119,54 @@ function showMessage(message, type = 'info') {
     const messageDiv = document.createElement('div');
     messageDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
     messageDiv.innerHTML = `
-        ${message}
+        <span class="message-text">${message}</span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    // 設定懸浮樣式
+    // 使用 flex 布局避免重疊
     messageDiv.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
         z-index: 9999;
-        max-width: 300px;
-        min-width: 200px;
-        font-size: 14px;
-        padding: 8px 12px;
-        border-radius: 6px;
+        max-width: 400px;
+        min-width: 300px;
+        font-size: 16px;
+        padding: 12px 18px;
+        border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         animation: slideInRight 0.3s ease-out;
+        display: flex !important;              /* 使用 flex 布局 */
+        justify-content: space-between !important;  /* 左右間距拉開 */
+        align-items: center !important;       /* 上下置中 */
+        width: auto !important;               /* 讓寬度自適應內容 */
+        white-space: nowrap;                  /* 防止文字換行 */
     `;
     
-    // 添加動畫樣式
+    // 調整文字部分
+    const messageText = messageDiv.querySelector('.message-text');
+    if (messageText) {
+        messageText.style.cssText = `
+            flex: 1;                          /* 佔用剩餘空間 */
+            margin-right: 12px;               /* 與按鈕保持間距 */
+            white-space: normal;              /* 允許文字正常換行 */
+        `;
+    }
+    
+    // 調小關閉按鈕
+    const btnClose = messageDiv.querySelector('.btn-close');
+    if (btnClose) {
+        btnClose.style.cssText = `
+            width: 0.75rem !important;
+            height: 0.75rem !important;
+            font-size: 0.6rem !important;
+            opacity: 0.7 !important;
+            flex-shrink: 0;                   /* 按鈕不縮小 */
+            margin: 0 !important;             /* 清除預設 margin */
+        `;
+    }
+    
+    // 其他代碼保持不變...
     const style = document.createElement('style');
     style.textContent = `
         @keyframes slideInRight {
@@ -154,10 +182,8 @@ function showMessage(message, type = 'info') {
     `;
     document.head.appendChild(style);
     
-    // 直接添加到 body，不影響頁面佈局
     document.body.appendChild(messageDiv);
     
-    // 自動隱藏
     setTimeout(() => {
         if (messageDiv.parentNode) {
             messageDiv.style.animation = 'slideOutRight 0.3s ease-in';
@@ -169,7 +195,6 @@ function showMessage(message, type = 'info') {
         }
     }, 3000);
     
-    // 添加滑出動畫
     const slideOutStyle = document.createElement('style');
     slideOutStyle.textContent = `
         @keyframes slideOutRight {
@@ -185,6 +210,7 @@ function showMessage(message, type = 'info') {
     `;
     document.head.appendChild(slideOutStyle);
 }
+
 
 // 確認對話框
 function confirmDialog(message, callback) {

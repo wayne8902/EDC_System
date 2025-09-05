@@ -34,137 +34,11 @@ class DataBrowserGenerator {
                 message: error.message,
                 stack: error.stack
             });
-            
-            // 使用預設配置
-
-            this.config = this.getDefaultConfig();
-            this.loaded = true;
+            showErrorMessage('載入配置檔案失敗');
         }
     }
 
-    /**
-     * 獲取預設配置（當配置檔案載入失敗時使用）
-     */
-    getDefaultConfig() {
-        return {
-            subject_detail_page: {
-                title: "受試者詳細資料",
-                icon: "fas fa-user",
-                sections: [
-                    {
-                        id: "basic_info",
-                        title: "基本資料",
-                        icon: "fas fa-info-circle",
-                        fields: [
-                            {
-                                id: "subject_code",
-                                label: "受試者編號",
-                                type: "text",
-                                source: "subject.subject_code",
-                                width: "col-10"
-                            },
-                            {
-                                id: "age",
-                                label: "年齡",
-                                type: "text",
-                                source: "subject.age",
-                                width: "col-10"
-                            },
-                            {
-                                id: "gender",
-                                label: "性別",
-                                type: "select",
-                                source: "subject.gender",
-                                width: "col-10",
-                                options: {
-                                    "1": "男",
-                                    "0": "女"
-                                }
-                            },
-                            {
-                                id: "height_cm",
-                                label: "身高 (cm)",
-                                type: "text",
-                                source: "subject.height_cm",
-                                width: "col-10"
-                            },
-                            {
-                                id: "weight_kg",
-                                label: "體重 (kg)",
-                                type: "text",
-                                source: "subject.weight_kg",
-                                width: "col-10"
-                            },
-                            {
-                                id: "bmi",
-                                label: "BMI",
-                                type: "text",
-                                source: "subject.bmi",
-                                width: "col-10"
-                            }
-                        ]
-                    },
-                    {
-                        id: "inclusion_criteria",
-                        title: "納入條件評估",
-                        icon: "fas fa-check-circle",
-                        fields: [
-                            {
-                                id: "age_18_above",
-                                label: "年齡18歲以上",
-                                type: "select",
-                                source: "inclusion_criteria.age_18_above",
-                                width: "col-10",
-                                options: {
-                                    "1": "是",
-                                    "0": "否"
-                                }
-                            },
-                            {
-                                id: "gender_available",
-                                label: "性別資料完整",
-                                type: "select",
-                                source: "inclusion_criteria.gender_available",
-                                width: "col-10",
-                                options: {
-                                    "1": "是",
-                                    "0": "否"
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        id: "exclusion_criteria",
-                        title: "排除條件評估",
-                        icon: "fas fa-times-circle",
-                        fields: [
-                            {
-                                id: "pregnant_female",
-                                label: "懷孕女性",
-                                type: "select",
-                                source: "exclusion_criteria.pregnant_female",
-                                width: "col-10",
-                                options: {
-                                    "1": "是",
-                                    "0": "否"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                styles: {
-                    section_margin: "2rem",
-                    field_gap: "1.5rem",
-                    input_padding: "0.75rem",
-                    input_border: "1px solid #ddd",
-                    input_border_radius: "4px",
-                    input_background: "#f8f9fa",
-                    label_font_weight: "600",
-                    label_margin_bottom: "0.5rem"
-                }
-            }
-        };
-    }
+    
 
     /**
      * 獲取預設樣式設定
@@ -228,9 +102,7 @@ class DataBrowserGenerator {
                 this.hideLoadingIndicator();
             } catch (error) {
                 console.error('配置檔案載入失敗:', error);
-                this.config = this.getDefaultConfig();
-                this.loaded = true;
-                
+                showErrorMessage('配置檔案載入失敗');
                 // 隱藏載入指示器
                 this.hideLoadingIndicator();
             }
@@ -287,7 +159,7 @@ class DataBrowserGenerator {
             </div>
         `;
     }
-
+    
     /**
      * 生成所有區塊
      */
@@ -364,6 +236,21 @@ class DataBrowserGenerator {
                         <div class="text-center" style="padding: 3rem;">
                             <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #007bff; margin-bottom: 1rem;"></i>
                             <p class="text-muted" style="font-size: 1.1rem; margin-bottom: 0.5rem;">載入歷程記錄中...</p>
+                        </div>
+                    </div>
+                </section>
+            `;
+        }
+        
+        // 如果是 Query 紀錄區塊，生成特殊的 Query 紀錄顯示
+        if (section.id === 'query_record') {
+            return `
+                <section class="card fade-in">
+                    <h3><i class="${section.icon}"></i> ${section.title}</h3>
+                    <div id="queryRecordContent">
+                        <div class="text-center" style="padding: 3rem;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #ffc107; margin-bottom: 1rem;"></i>
+                            <p class="text-muted" style="font-size: 1.1rem; margin-bottom: 0.5rem;">載入 Query 紀錄中...</p>
                         </div>
                     </div>
                 </section>

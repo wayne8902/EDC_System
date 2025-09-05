@@ -106,11 +106,116 @@ const DataBrowserManager = {
     },
 
     /**
+     * 檢查是否可以查看 Query
+     * @returns {boolean} - 是否可以查看 Query
+     */
+    canViewQuery() {
+        return this.hasPermission('edc.query.view');
+    },
+
+    /**
      * 獲取當前使用者 ID
      * @returns {string} - 當前使用者 ID
      */
     getCurrentUserId() {
         return getCookie('unique_id') || '未知ID';
+    },
+
+    /**
+     * 載入受試者的 Query 資料
+     * @param {string} subjectCode - 受試者編號
+     * @returns {Promise<Array>} - Query 列表
+     */
+    async loadQueries(subjectCode) {
+        try {
+            const response = await fetch(`/edc/query/list/${subjectCode}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                return result.data || [];
+            } else {
+                console.error('載入 Query 失敗:', result.message);
+                throw new Error(result.message || '載入 Query 失敗');
+            }
+        } catch (error) {
+            console.error('載入 Query 時發生錯誤:', error);
+            throw error;
+        }
+    },
+
+
+    /**
+     * 獲取 Query 狀態樣式類別
+     * @param {string} status - Query 狀態
+     * @returns {string} - CSS 類別
+     */
+    getQueryStatusClass(status) {
+        switch (status) {
+            case 'pending':
+                return 'badge-warning';
+            case 'responded':
+                return 'badge-success';
+            case 'closed':
+                return 'badge-secondary';
+            default:
+                return 'badge-light';
+        }
+    },
+
+    /**
+     * 獲取 Query 狀態文字
+     * @param {string} status - Query 狀態
+     * @returns {string} - 狀態文字
+     */
+    getQueryStatusText(status) {
+        switch (status) {
+            case 'pending':
+                return '待回應';
+            case 'responded':
+                return '已回應';
+            case 'closed':
+                return '已關閉';
+            default:
+                return '未知';
+        }
+    },
+
+    /**
+     * 獲取 Query 類型文字
+     * @param {string} type - Query 類型
+     * @returns {string} - 類型文字
+     */
+    getQueryTypeText(type) {
+        switch (type) {
+            case 'clarification':
+                return '澄清';
+            case 'verification':
+                return '驗證';
+            case 'correction':
+                return '修正';
+            default:
+                return type || '未知';
+        }
+    },
+
+    /**
+     * 獲取表格名稱文字
+     * @param {string} tableName - 表格名稱
+     * @returns {string} - 表格中文名稱
+     */
+    getTableNameText(tableName) {
+        const tableNameMap = {
+            'subjects': '基本資料',
+            'inclusion_criteria': '納入條件',
+            'exclusion_criteria': '排除條件'
+        };
+        return tableNameMap[tableName] || tableName;
     },
 
     /**
@@ -381,11 +486,11 @@ const DataBrowserManager = {
                 this.displayData();
                 this.displayPagination();
             } else {
-                this.showError(result.message || '搜尋失敗');
+                showErrorMessage('錯誤: ' + (result.message || '搜尋失敗'));
             }
         } catch (error) {
             console.error('搜尋失敗:', error);
-            this.showError('搜尋失敗: ' + error.message);
+            showErrorMessage('錯誤: 搜尋失敗: ' + error.message);
         }
     },
 
@@ -589,14 +694,14 @@ const DataBrowserManager = {
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
 
-                this.showSuccess('資料匯出成功！');
+                showSuccessMessage('資料匯出成功！');
             } else {
                 const result = await response.json();
-                this.showError(result.message || '匯出失敗');
+                showErrorMessage('錯誤: ' + (result.message || '匯出失敗'));
             }
         } catch (error) {
             console.error('匯出失敗:', error);
-            this.showError('匯出失敗: ' + error.message);
+            showErrorMessage('錯誤: 匯出失敗: ' + error.message);
         }
     },
 
@@ -631,16 +736,16 @@ const DataBrowserManager = {
 
 
                 // 顯示成功訊息
-                this.showSuccess(`成功獲取受試者 ${subjectCode} 的詳細資料`);
+                showSuccessMessage(`成功獲取受試者 ${subjectCode} 的詳細資料`);
                 this.showSubjectDetailBlock(result.data); // 顯示詳細資料區塊
             } else {
                 // 顯示錯誤訊息
-                this.showError(result.message || '獲取詳細資料失敗');
+                showErrorMessage('錯誤: ' + (result.message || '獲取詳細資料失敗'));
             }
 
         } catch (error) {
             console.error('獲取詳細資料時發生錯誤:', error);
-            this.showError('獲取詳細資料失敗: ' + error.message);
+            showErrorMessage('錯誤: 獲取詳細資料失敗: ' + error.message);
         }
     },
 
@@ -699,20 +804,13 @@ const DataBrowserManager = {
             // 替換主內容區域
             mainContent.innerHTML = detailPage;
 
-            // 設置返回按鈕事件
-            this.setupDetailPageEvents();
-
             // 載入歷程記錄
             this.loadSubjectHistory(data.subject?.subject_code);
+            
+            // 載入 Query 紀錄
+            this.loadQuerySection(data.subject?.subject_code, data.subject);
         } catch (error) {
             console.error('創建詳細資料頁面失敗:', error);
-            // 使用預設方法作為備用
-            const detailPage = this.createDefaultSubjectDetailPage(data);
-            mainContent.innerHTML = detailPage;
-            this.setupDetailPageEvents();
-
-            // 載入歷程記錄
-            this.loadSubjectHistory(data.subject?.subject_code);
         }
     },
 
@@ -720,23 +818,17 @@ const DataBrowserManager = {
      * 創建受試者詳細資料頁面
      */
     async createSubjectDetailPage(data) {
-
-
         // 使用動態生成器創建頁面
         if (typeof dataBrowserGenerator !== 'undefined') {
-
             try {
                 const result = await dataBrowserGenerator.generateSubjectDetailPage(data);
-
                 return result;
             } catch (error) {
                 console.error('動態生成器執行失敗:', error);
-
                 return this.createDefaultSubjectDetailPage(data);
             }
         } else {
             // 如果生成器未載入，使用預設方法
-
             return this.createDefaultSubjectDetailPage(data);
         }
     },
@@ -800,12 +892,6 @@ const DataBrowserManager = {
         }
     },
 
-
-
-
-
-
-
     /**
      * 切換回瀏覽模式
      */
@@ -817,15 +903,7 @@ const DataBrowserManager = {
             console.error('DataEditorManager 未載入');
         }
     },
-
-
-
-
-
-
-
-
-
+    
     /**
      * 返回資料瀏覽器
      */
@@ -834,27 +912,118 @@ const DataBrowserManager = {
         showDataBrowser();
     },
 
+
     /**
-     * 顯示成功訊息
+     * 載入 Query 紀錄區塊
+     * @param {string} subjectCode - 受試者編號
+     * @param {Object} subject - 受試者資料
      */
-    showSuccess(message) {
-        if (typeof showSuccessMessage === 'function') {
-            showSuccessMessage(message);
-        } else {
-            alert(message);
+    async loadQuerySection(subjectCode, subject) {
+        if (!this.canViewQuery()) {
+            return;
+        }
+
+        try {
+            const queries = await this.loadQueries(subjectCode);
+            this.displayQuerySection(queries, false);
+        } catch (error) {
+            console.error('載入 Query 區塊時發生錯誤:', error);
+            // 顯示錯誤訊息給用戶
+            showErrorMessage('載入 Query 失敗: ' + error.message);
+            this.displayQuerySection([], true);
         }
     },
 
+
     /**
-     * 顯示錯誤訊息
+     * 顯示 Query 紀錄區塊
+     * @param {Array} queries - Query 列表
+     * @param {boolean} hasError - 是否有載入錯誤
      */
-    showError(message) {
-        if (typeof showErrorMessage === 'function') {
-            showErrorMessage(message);
-        } else {
-            alert('錯誤: ' + message);
+    displayQuerySection(queries, hasError = false) {
+        const queryContainer = document.getElementById('queryRecordContent');
+        if (!queryContainer) return;
+
+        if (hasError) {
+            queryContainer.innerHTML = `
+                <div class="text-center" style="padding: 3rem;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 4rem; color: #dc3545; margin-bottom: 1rem;"></i>
+                    <p class="text-danger" style="font-size: 1.1rem; margin-bottom: 0.5rem;">載入 Query 失敗</p>
+                    <p class="text-muted">無法載入 Query 記錄，請稍後再試</p>
+                </div>
+            `;
+            return;
         }
+
+        if (!queries || queries.length === 0) {
+            queryContainer.innerHTML = `
+                <div class="text-center" style="padding: 3rem;">
+                    <i class="fas fa-question-circle" style="font-size: 4rem; color: #ccc; margin-bottom: 1rem;"></i>
+                    <p class="text-muted" style="font-size: 1.1rem; margin-bottom: 0.5rem;">尚無 Query 紀錄</p>
+                    <p class="text-muted">此受試者尚未有任何 Query 記錄</p>
+                </div>
+            `;
+            return;
+        }
+
+        // 生成 Query 記錄 HTML
+        let queryHTML = '<div class="query-timeline">';
+
+        queries.forEach((query, index) => {
+            const statusClass = this.getQueryStatusClass(query.status);
+            const batchData = query.batch_data || {};
+            const queryList = batchData.queries || [];
+            
+            queryHTML += `
+                <div class="query-item" style="border-left: 3px solid #ffc107; padding-left: 1rem; margin-bottom: 2rem;">
+                    <div class="query-header" style="margin-bottom: 1rem;">
+                        <h5 style="color: #ffc107; margin-bottom: 0.5rem;">
+                            <i class="fas fa-question-circle"></i> Query 批次 ${query.batch_id}
+                        </h5>
+                        <small class="text-muted">
+                            <i class="fas fa-user"></i> ${query.created_by || 'N/A'} | 
+                            <i class="fas fa-clock"></i> ${query.created_at || 'N/A'} |
+                            <span class="badge ${statusClass}" style="padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 0.5rem;">
+                                ${this.getQueryStatusText(query.status)}
+                            </span>
+                        </small>
+                    </div>
+                    <div class="query-changes">
+            `;
+
+            queryList.forEach((q, qIndex) => {
+                queryHTML += `
+                    <div class="change-item" style="background: #f8f9fa; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 4px;">
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">
+                            ${this.getTableNameText(q.table_name)} - ${q.field_name}
+                        </div>
+                        <div style="font-size: 0.9rem; color: #6c757d; margin-bottom: 0.25rem;">
+                            <strong>類型:</strong> ${this.getQueryTypeText(q.query_type)}
+                        </div>
+                        <div style="font-size: 0.9rem; color: #6c757d; margin-bottom: 0.25rem;">
+                            <strong>問題:</strong> ${q.question || 'N/A'}
+                        </div>
+                        <div style="font-size: 0.9rem; color: #6c757d;">
+                            <span style="color: #dc3545;">當前值: ${q.current_value || 'N/A'}</span>
+                            ${q.expected_value ? `
+                                <i class="fas fa-arrow-right" style="margin: 0 0.5rem; color: #6c757d;"></i>
+                                <span style="color: #28a745;">期望值: ${q.expected_value}</span>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            queryHTML += `
+                    </div>
+                </div>
+            `;
+        });
+
+        queryHTML += '</div>';
+        queryContainer.innerHTML = queryHTML;
     },
+
 
     /**
      * 載入受試者歷程記錄
@@ -863,8 +1032,6 @@ const DataBrowserManager = {
         if (!subjectCode) return;
 
         try {
-
-
             const response = await fetch(`/edc/subject-history/${subjectCode}`, {
                 method: 'GET',
                 headers: {
