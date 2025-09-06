@@ -16,6 +16,15 @@
     --input-focus-border: 2px solid var(--primary);
     --input-focus-shadow: 0 0 0 3px rgba(21, 94, 239, 0.1);
     --transition: all 0.2s ease;
+    
+    /* 醫療風格色彩 */
+    --medical-primary: #1e3a8a;
+    --medical-secondary: #1e40af;
+    --medical-accent: #3b82f6;
+    --medical-light: #dbeafe;
+    --medical-dark: #1e293b;
+    --medical-text: #334155;
+    --medical-muted: #64748b;
 }
 
 body {
@@ -24,12 +33,18 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     line-height: 1.6;
     color: #374151;
+    padding-top: 80px; /* 為固定 navbar 留出空間 */
 }
 
-/* 限制所有主要容器的最大寬度為 80% */
+/* 限制主要內容區域的最大寬度為 80% */
 .container-fluid {
     max-width: 80% !important;
     margin: 0 auto !important;
+}
+
+/* navbar 內部間距 */
+.medical-navbar {
+    padding: 0.75rem 20px;
 }
 
 /* 主要內容區域樣式 */
@@ -727,13 +742,10 @@ body {
     background: var(--danger);
     border: 1px solid var(--danger);
     color: white;
-    padding: 10px 20px;
     border-radius: 6px;
     cursor: pointer;
     transition: var(--transition);
-    font-size: 14px;
     font-weight: 500;
-    min-height: 44px;
     /* Bootstrap兼容性 */
     text-decoration: none;
     display: inline-block;
@@ -1045,5 +1057,199 @@ body {
     .tab-btn {
         padding: 0.5rem 1rem;
         font-size: 0.9rem;
+    }
+}
+
+/* ===== 現代醫療風格 Navbar ===== */
+.medical-navbar {
+    background: var(--medical-primary);
+    box-shadow: 0 4px 20px rgba(30, 58, 138, 0.15);
+    border: none;
+    width: 100vw;
+    position: fixed;
+    top: 0;
+    z-index: 1030;
+}
+
+.medical-navbar .navbar-brand {
+    color: white;
+    text-decoration: none;
+}
+
+.brand-icon {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.brand-icon i {
+    font-size: 24px;
+    color: white;
+}
+
+.brand-text h4 {
+    color: white;
+    font-weight: 600;
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.brand-text small {
+    color: var(--medical-light);
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+/* 用戶資料區域 */
+.user-profile {
+    color: white !important;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.user-avatar i {
+    font-size: 20px;
+    color: white;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.user-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: white;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.user-role {
+    font-size: 0.8rem;
+    color: var(--medical-light);
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* 下拉選單樣式 */
+.medical-dropdown {
+    background: white;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(30, 58, 138, 0.15);
+    padding: 8px 0;
+    margin-top: 8px;
+    min-width: 280px;
+    backdrop-filter: blur(20px);
+}
+
+.medical-dropdown .dropdown-header {
+    padding: 12px 20px 8px;
+    background: var(--medical-light);
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.medical-dropdown .dropdown-item {
+    padding: 12px 20px;
+    color: var(--medical-text);
+    border: none;
+    font-size: 0.9rem;
+}
+
+.medical-dropdown .dropdown-item i {
+    margin-right: 10px;
+    width: 16px;
+    color: var(--medical-accent);
+}
+
+.user-info-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--medical-muted);
+}
+
+.user-info-item i {
+    margin-right: 8px;
+    color: var(--medical-accent);
+    width: 14px;
+}
+
+.logout-item {
+    color: var(--danger) !important;
+    font-weight: 500;
+}
+
+.logout-item i {
+    color: var(--danger) !important;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .medical-navbar .container-fluid {
+        padding: 0 15px;
+    }
+    
+    .brand-text h4 {
+        font-size: 1.1rem;
+    }
+    
+    .brand-text small {
+        font-size: 0.8rem;
+    }
+    
+    .user-profile {
+        padding: 6px 12px;
+        gap: 8px;
+    }
+    
+    .user-avatar {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .user-avatar i {
+        font-size: 18px;
+    }
+    
+    .user-name {
+        font-size: 0.9rem;
+    }
+    
+    .user-role {
+        font-size: 0.75rem;
+    }
+    
+    .medical-dropdown {
+        min-width: 250px;
     }
 }

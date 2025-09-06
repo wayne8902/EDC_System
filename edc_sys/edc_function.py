@@ -132,15 +132,73 @@ class edc_db:
             query_id = self.sql.insert('queries', columns, values, verbose=verbose)
             
             if query_id:
+                # 生成統一的 log_id
+                unified_log_id = self._generate_log_id()
+                if verbose:
+                    print(f"Query log_id: {unified_log_id}")
+                
+                # 準備狀態更新資料
+                additional_updates = {
+                    'subjects': {'status': 'query', 'updated_by': created_by or 'system'},
+                    'inclusion_criteria': {'status': 'query'},
+                    'exclusion_criteria': {'status': 'query'}
+                }
+                
+                # 準備變更記錄
+                log_changes = [
+                    {
+                        'table_name': 'system',
+                        'field_name': 'action',
+                        'old_value': 'draft',
+                        'new_value': 'query',
+                        'action': 'QUERY'
+                    }
+                ]
+                
+                # 1. 先更新資料表狀態
+                db_result = self.update_databases(
+                    subject_code=subject_code,
+                    user_id=created_by or 'system',
+                    action_type='QUERY',
+                    additional_updates=additional_updates,
+                    log_id=unified_log_id,
+                    verbose=verbose
+                )
+                
+                if not db_result['success']:
+                    return {
+                        'success': False,
+                        'message': f'Query 創建成功，但狀態更新失敗: {db_result["message"]}',
+                        'error_code': 'STATUS_UPDATE_FAILED',
+                        'query_id': query_id,
+                        'batch_id': batch_id
+                    }
+                
+                # 2. 再記錄日誌
+                log_result = self.update_logs(
+                    subject_code=subject_code,
+                    user_id=created_by or 'system',
+                    action_type='QUERY',
+                    log_changes=log_changes,
+                    log_id=unified_log_id,
+                    verbose=verbose
+                )
+                
+                if not log_result['success']:
+                    if verbose:
+                        print(f"Query 創建成功，狀態更新成功，但日誌記錄失敗: {log_result['message']}")
+                
                 return {
                     'success': True,
-                    'message': f'成功創建 {len(queries)} 個 Query',
+                    'message': f'成功創建 {len(queries)} 個 Query 並更新狀態為 query',
                     'created_count': len(queries),
+                    'log_id': unified_log_id,
                     'data': {
                         'query_id': query_id,
                         'batch_id': batch_id,
                         'subject_code': subject_code,
-                        'queries': queries
+                        'queries': queries,
+                        'status_updated': True
                     }
                 }
             else:
@@ -206,8 +264,8 @@ class edc_db:
                 'message': f'獲取失敗: {str(e)}',
                 'error_code': 'DATABASE_ERROR'
             }
-        finally:
-            self.disconnect()
+        # finally:
+        #     self.disconnect()
     
     def respond_to_query(self, batch_id, response_text, response_type, 
                         original_value=None, corrected_value=None, 
@@ -544,7 +602,7 @@ class edc_db:
                 'error_code': 'DATABASE_ERROR'
             }
     
-    def update_subject(self, subject_id, subject_data, user_id, verbose=0, skip_logging=False):
+    def update_subject(self, subject_id, subject_data, user_id, log_id=None, verbose=0):
         """更新受試者資料
         
         Args:
@@ -624,50 +682,29 @@ class edc_db:
             
             # 7. 更新資料表
             if additional_updates:
-                for table, updates in additional_updates.items():
-                    update_parts = []
-                    for field, value in updates.items():
-                        if field == 'updated_at':
-                            from datetime import datetime
-                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            update_parts.append(f"`{field}`='{timestamp}'")
-                        else:
-                            update_parts.append(f"`{field}`='{value}'")
-                    
-                    update_data = ', '.join(update_parts)
-                    update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_data['subject_code']}'", verbose=verbose)
-                    
-                    if isinstance(update_result, str):
-                        return {
-                            'success': False,
-                            'message': f'更新 {table} 失敗: {update_result}',
-                            'error_code': 'UPDATE_FAILED'
-                        }
-            
-            # 8. 記錄日誌（如果沒有跳過）
-            if not skip_logging:
-                log_result = self.update_logs(
+                db_result = self.update_databases(
                     subject_code=subject_data['subject_code'],
                     user_id=user_id,
                     action_type='UPDATE',
-                    log_changes=log_changes if log_changes else None,
-                    additional_updates=None,  # 已經更新過了
+                    additional_updates=additional_updates,
+                    log_id=log_id,
                     verbose=verbose
                 )
                 
-                if not log_result['success']:
-                    return log_result
+                if not db_result['success']:
+                    return db_result
                 
                 return {
                     'success': True,
                     'message': '受試者資料更新成功',
                     'subject_id': subject_id,
-                    'log_id': log_result.get('log_id')
+                    'log_id': db_result.get('log_id'),
+                    'updated_tables': db_result.get('updated_tables', [])
                 }
             else:
                 return {
                     'success': True,
-                    'message': '受試者資料更新成功',
+                    'message': '受試者資料更新成功（無變更）',
                     'subject_id': subject_id
                 }
                 
@@ -679,7 +716,7 @@ class edc_db:
                 'error_code': 'DATABASE_ERROR'
             }
     
-    def update_inclusion_criteria(self, subject_code, inclusion_data, user_id, verbose=0, skip_logging=False):
+    def update_inclusion_criteria(self, subject_code, inclusion_data, user_id, log_id=None, verbose=0):
         """更新納入條件評估資料
         
         Args:
@@ -763,50 +800,29 @@ class edc_db:
             
             # 6. 更新資料表
             if additional_updates:
-                for table, updates in additional_updates.items():
-                    update_parts = []
-                    for field, value in updates.items():
-                        if field == 'updated_at':
-                            from datetime import datetime
-                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            update_parts.append(f"`{field}`='{timestamp}'")
-                        else:
-                            update_parts.append(f"`{field}`='{value}'")
-                    
-                    update_data = ', '.join(update_parts)
-                    update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
-                    
-                    if isinstance(update_result, str):
-                        return {
-                            'success': False,
-                            'message': f'更新 {table} 失敗: {update_result}',
-                            'error_code': 'UPDATE_FAILED'
-                        }
-            
-            # 7. 記錄日誌（如果沒有跳過）
-            if not skip_logging:
-                log_result = self.update_logs(
+                db_result = self.update_databases(
                     subject_code=subject_code,
                     user_id=user_id,
                     action_type='UPDATE',
-                    log_changes=log_changes,
-                    additional_updates=None,  # 已經更新過了
+                    additional_updates=additional_updates,
+                    log_id=log_id,
                     verbose=verbose
                 )
                 
-                if not log_result['success']:
-                    return log_result
+                if not db_result['success']:
+                    return db_result
                 
                 return {
                     'success': True,
                     'message': '納入條件評估資料更新成功',
                     'subject_code': subject_code,
-                    'log_id': log_result.get('log_id')
+                    'log_id': db_result.get('log_id'),
+                    'updated_tables': db_result.get('updated_tables', [])
                 }
             else:
                 return {
                     'success': True,
-                    'message': '納入條件評估資料更新成功',
+                    'message': '納入條件評估資料更新成功（無變更）',
                     'subject_code': subject_code
                 }
                 
@@ -818,7 +834,7 @@ class edc_db:
                 'error_code': 'DATABASE_ERROR'
             }
     
-    def update_exclusion_criteria(self, subject_code, exclusion_data, user_id, verbose=0, skip_logging=False):
+    def update_exclusion_criteria(self, subject_code, exclusion_data, user_id, log_id=None, verbose=0):
         """更新排除條件評估資料
         
         Args:
@@ -900,50 +916,29 @@ class edc_db:
             
             # 6. 更新資料表
             if additional_updates:
-                for table, updates in additional_updates.items():
-                    update_parts = []
-                    for field, value in updates.items():
-                        if field == 'updated_at':
-                            from datetime import datetime
-                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            update_parts.append(f"`{field}`='{timestamp}'")
-                        else:
-                            update_parts.append(f"`{field}`='{value}'")
-                    
-                    update_data = ', '.join(update_parts)
-                    update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
-                    
-                    if isinstance(update_result, str):
-                        return {
-                            'success': False,
-                            'message': f'更新 {table} 失敗: {update_result}',
-                            'error_code': 'UPDATE_FAILED'
-                        }
-            
-            # 7. 記錄日誌（如果沒有跳過）
-            if not skip_logging:
-                log_result = self.update_logs(
+                db_result = self.update_databases(
                     subject_code=subject_code,
                     user_id=user_id,
                     action_type='UPDATE',
-                    log_changes=log_changes,
-                    additional_updates=None,  # 已經更新過了
+                    additional_updates=additional_updates,
+                    log_id=log_id,
                     verbose=verbose
                 )
                 
-                if not log_result['success']:
-                    return log_result
+                if not db_result['success']:
+                    return db_result
                 
                 return {
                     'success': True,
                     'message': '排除條件評估資料更新成功',
                     'subject_code': subject_code,
-                    'log_id': log_result.get('log_id')
+                    'log_id': db_result.get('log_id'),
+                    'updated_tables': db_result.get('updated_tables', [])
                 }
             else:
                 return {
                     'success': True,
-                    'message': '排除條件評估資料更新成功',
+                    'message': '排除條件評估資料更新成功（無變更）',
                     'subject_code': subject_code
                 }
                 
@@ -1340,7 +1335,7 @@ class edc_db:
                 'error_code': 'TRANSACTION_ERROR'
             }
 
-    def update_subject_with_criteria(self, subject_code, subject_data, inclusion_data, exclusion_data, user_id, edit_log_data=None, verbose=0):
+    def update_subject_with_criteria(self, subject_code, subject_data, inclusion_data, exclusion_data, user_id, edit_log_data=None, verbose=False):
         """事務性更新受試者資料、納入條件和排除條件
         
         Args:
@@ -1364,7 +1359,7 @@ class edc_db:
             
             # 0. 生成統一的 log_id
             unified_log_id = self._generate_log_id()
-            print(f"統一 log_id: {unified_log_id}")
+            print(f"2. log_id: {unified_log_id}")
             
             # 1. 獲取受試者ID
             subject_result = self.sql.search('subjects', ['id'], criteria=f"`subject_code`='{subject_code}'")
@@ -1378,21 +1373,21 @@ class edc_db:
             subject_id = subject_result[0][0]
             
             # 2. 更新受試者資料
-            subject_update_result = self.update_subject(subject_id, subject_data, user_id, verbose, skip_logging=True)
+            subject_update_result = self.update_subject(subject_id, subject_data, user_id, log_id=unified_log_id, verbose=verbose)
             if not subject_update_result['success']:
                 # 回滾事務
                 self.sql.execute("ROLLBACK")
                 return subject_update_result
             
             # 3. 更新納入條件
-            inclusion_update_result = self.update_inclusion_criteria(subject_code, inclusion_data, user_id, verbose, skip_logging=True)
+            inclusion_update_result = self.update_inclusion_criteria(subject_code, inclusion_data, user_id, log_id=unified_log_id, verbose=verbose)
             if not inclusion_update_result['success']:
                 # 回滾事務
                 self.sql.execute("ROLLBACK")
                 return inclusion_update_result
-            
+                
             # 4. 更新排除條件
-            exclusion_update_result = self.update_exclusion_criteria(subject_code, exclusion_data, user_id, verbose, skip_logging=True)
+            exclusion_update_result = self.update_exclusion_criteria(subject_code, exclusion_data, user_id, log_id=unified_log_id, verbose=verbose)
             if not exclusion_update_result['success']:
                 # 回滾事務
                 self.sql.execute("ROLLBACK")
@@ -1414,7 +1409,7 @@ class edc_db:
                     user_id=user_id,
                     action_type='UPDATE',
                     log_changes=changes,
-                    additional_updates=None, # 不更新額外資料
+                    log_id=unified_log_id,  # 使用統一的 log_id
                     verbose=verbose
                 )
                 
@@ -1590,10 +1585,10 @@ class edc_db:
                     criteria += f" AND `imaging_type` = '{filters['imaging_type']}'"
                 if filters.get('kidney_stone_diagnosis') is not None:
                     criteria += f" AND `kidney_stone_diagnosis` = {filters['kidney_stone_diagnosis']}"
-                if filters.get('date_from'):
-                    criteria += f" AND `created_at` >= '{filters['date_from']}'"
-                if filters.get('date_to'):
-                    criteria += f" AND `created_at` <= '{filters['date_to']} 23:59:59'"
+                # if filters.get('date_from'):
+                #     criteria += f" AND `created_at` >= '{filters['date_from']}'"
+                # if filters.get('date_to'):
+                #     criteria += f" AND `created_at` <= '{filters['date_to']} 23:59:59'"
                 if filters.get('dm') is not None:
                     criteria += f" AND `dm` = {filters['dm']}"
                 if filters.get('gout') is not None:
@@ -2094,8 +2089,8 @@ class edc_db:
         except Exception as e:
             logger.error(f"Error getting subject history: {e}")
             return []
-        finally:
-            self.disconnect()
+        # finally:
+        #     self.disconnect()
 
     def submit_for_review(self, subject_code, user_id, verbose=0):
         """提交受試者資料供審核
@@ -2150,12 +2145,26 @@ class edc_db:
                 'inclusion_criteria': {'status': 'submitted'},
                 'exclusion_criteria': {'status': 'submitted'}
             }
+            # 1. 先更新資料表
+            db_result = self.update_databases(
+                subject_code=subject_code,
+                user_id=user_id,
+                action_type='SUBMIT',
+                additional_updates=additional_updates,
+                verbose=verbose
+            )
+            
+            if not db_result['success']:
+                self.sql.execute("ROLLBACK")
+                return db_result
+            
+            # 2. 再記錄日誌
             log_result = self.update_logs(
                 subject_code=subject_code,
                 user_id=user_id,
                 action_type='SUBMIT',
                 log_changes=log_changes,
-                additional_updates=additional_updates,
+                log_id=db_result.get('log_id'),
                 verbose=verbose
             )
             
@@ -2237,6 +2246,7 @@ class edc_db:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             # 記錄操作日誌
             log_id = self._generate_log_id()
+            print("3. log_id: ", log_id)
             
             # 在更新前先獲取當前數據，以便記錄編輯歷史
             tables_data = {}
@@ -2281,13 +2291,26 @@ class edc_db:
                 }
             }
             
-            # 使用統一日誌更新函數
+            # 1. 先更新資料表
+            db_result = self.update_databases(
+                subject_code=subject_code,
+                user_id=user_id,
+                action_type='SIGN',
+                additional_updates=additional_updates,
+                verbose=verbose
+            )
+            
+            if not db_result['success']:
+                self.sql.execute("ROLLBACK")
+                return db_result
+            
+            # 2. 再記錄日誌
             log_result = self.update_logs(
                 subject_code=subject_code,
                 user_id=user_id,
                 action_type='SIGN',
                 log_changes=log_changes,
-                additional_updates=additional_updates,
+                log_id=db_result.get('log_id'),
                 verbose=verbose
             )
             
@@ -2377,6 +2400,7 @@ class edc_db:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             # 記錄操作日誌
             log_id = self._generate_log_id()
+            print("4. log_id: ", log_id)
             
             # 在更新前先獲取當前數據，以便記錄編輯歷史
             tables_data = {}
@@ -2420,13 +2444,27 @@ class edc_db:
                 }
             }
             
-            # 使用統一日誌更新函數
+            # 1. 先更新資料表
+            db_result = self.update_databases(
+                subject_code=subject_code,
+                user_id=user_id,
+                action_type='SIGN',
+                additional_updates=additional_updates,
+                log_id=log_id,
+                verbose=verbose
+            )
+            
+            if not db_result['success']:
+                self.sql.execute("ROLLBACK")
+                return db_result
+            
+            # 2. 再記錄日誌
             log_result = self.update_logs(
                 subject_code=subject_code,
                 user_id=user_id,
                 action_type='SIGN',
                 log_changes=log_changes,
-                additional_updates=additional_updates,
+                log_id=log_id,
                 verbose=verbose
             )
             
@@ -2473,8 +2511,85 @@ class edc_db:
         hash_obj = hashlib.md5(timestamp.encode())
         return hash_obj.hexdigest()[:7].upper()
     
-    def update_logs(self, subject_code, user_id, action_type, log_changes=None, additional_updates=None, verbose=0):
-        """統一的日誌更新函數
+    def update_databases(self, subject_code, user_id, action_type, additional_updates=None, log_id=None, verbose=0):
+        """更新資料表函數
+        
+        Args:
+            subject_code: 受試者編號
+            user_id: 使用者ID
+            action_type: 操作類型 (如 'UPDATE', 'SUBMIT', 'SIGN', 'SUBMIT_AND_SIGN')
+            additional_updates: 額外的資料表更新，格式：{
+                'subjects': {'status': 'submitted', 'updated_by': user_id},
+                'inclusion_criteria': {'status': 'submitted'},
+                'exclusion_criteria': {'status': 'submitted'}
+            }
+            log_id: 外部傳入的 log_id（如果為 None 則自動生成）
+            verbose: 詳細模式 (0/1)
+            
+        Returns:
+            更新結果字典
+        """
+        try:
+            from datetime import datetime
+            
+            # 如果沒有提供 log_id，則自動生成
+            if log_id is None:
+                log_id = self._generate_log_id()
+            
+            if verbose:
+                print("1. log_id: ", log_id)
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            updated_tables = []
+            
+            # 只更新 additional_updates 中指定的資料表
+            if additional_updates:
+                for table, updates in additional_updates.items():
+                    # 獲取累積的 log_id
+                    updated_log = self.get_cumulative_log_id(table, subject_code, log_id, verbose)
+                    
+                    # 構建更新資料
+                    update_parts = [f"`log`='{updated_log}'"]
+                    
+                    # 添加額外的更新資料
+                    for field, value in updates.items():
+                        if field == 'updated_at' or field == 'signed_at':
+                            update_parts.append(f"`{field}`='{timestamp}'")
+                        else:
+                            update_parts.append(f"`{field}`='{value}'")
+                    
+                    update_data = ', '.join(update_parts)
+                    update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+                    
+                    if isinstance(update_result, str):
+                        return {
+                            'success': False,
+                            'message': f'更新 {table} 失敗: {update_result}',
+                            'error_code': 'UPDATE_DATABASE_FAILED'
+                        }
+                    
+                    updated_tables.append(table)
+                    if verbose:
+                        print(f"成功更新 {table} 資料表")
+            
+            return {
+                'success': True,
+                'message': '資料表更新成功',
+                'log_id': log_id,
+                'timestamp': timestamp,
+                'updated_tables': updated_tables
+            }
+            
+        except Exception as e:
+            logger.error(f"資料表更新失敗: {e}")
+            return {
+                'success': False,
+                'message': f'資料表更新失敗: {str(e)}',
+                'error_code': 'UPDATE_DATABASE_FAILED'
+            }
+    
+    def update_logs(self, subject_code, user_id, action_type, log_changes=None, log_id=None, verbose=0):
+        """更新日誌記錄函數
         
         Args:
             subject_code: 受試者編號
@@ -2487,11 +2602,7 @@ class edc_db:
                 'new_value': 'new_value',
                 'action': 'UPDATE'
             }]
-            additional_updates: 額外的資料表更新，格式：{
-                'subjects': {'status': 'submitted', 'updated_by': user_id},
-                'inclusion_criteria': {'status': 'submitted'},
-                'exclusion_criteria': {'status': 'submitted'}
-            }
+            log_id: 可選的 log_id（如果為 None 則自動生成）
             verbose: 詳細模式 (0/1)
             
         Returns:
@@ -2500,47 +2611,24 @@ class edc_db:
         try:
             from datetime import datetime
             
-            # 生成 log_id
-            log_id = self._generate_log_id()
+            # 如果沒有提供 log_id，則自動生成
+            if log_id is None:
+                log_id = self._generate_log_id()
+            
+            if verbose:
+                print("2. log_id: ", log_id)
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            recorded_changes = 0
             
-            # 預設的三個主資料表
-            main_tables = ['subjects', 'inclusion_criteria', 'exclusion_criteria']
-            
-            # 1. 更新三個主資料表的 log 欄位（累積格式）
-            for table in main_tables:
-                updated_log = self.get_cumulative_log_id(table, subject_code, log_id, verbose)
-                
-                # 構建更新資料
-                update_parts = [f"`log`='{updated_log}'"]
-                
-                # 如果有額外的更新資料，添加到更新語句中
-                if additional_updates and table in additional_updates:
-                    for field, value in additional_updates[table].items():
-                        if field == 'updated_at' or field == 'signed_at':
-                            update_parts.append(f"`{field}`='{timestamp}'")
-                        else:
-                            update_parts.append(f"`{field}`='{value}'")
-                
-                update_data = ', '.join(update_parts)
-                update_result = self.sql.update(table, update_data, criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
-                
-                if isinstance(update_result, str):
-                    return {
-                        'success': False,
-                        'message': f'更新 {table} log 欄位失敗: {update_result}',
-                        'error_code': 'UPDATE_LOG_FAILED'
-                    }
-            
-            # 2. 記錄變更到 edit_log 表
+            # 記錄變更到 edit_log 表
             if log_changes:
                 for change in log_changes:
-                    # 確保每個變更記錄都有必要的欄位
-                    change.setdefault('log_id', log_id)
-                    change.setdefault('subject_code', subject_code)
-                    change.setdefault('user_id', user_id)
-                    change.setdefault('action', action_type)
+                    change['log_id'] = log_id
+                    change['subject_code'] = subject_code
+                    change['user_id'] = user_id
+                    change['action'] = action_type
                     
+                    # columns = self.column_id['EDC']['column_id_edit_log']
                     columns = ['log_id', 'subject_code', 'table_name', 'field_name', 'old_value', 'new_value', 'action', 'user_id', 'created_at']
                     values = [
                         change['log_id'],
@@ -2565,6 +2653,8 @@ class edc_db:
                     try:
                         cursor = self.sql.db.cursor()
                         cursor.execute(query)
+                        self.sql.db.commit()
+                        recorded_changes += 1
                         if verbose:
                             print(f"成功插入 edit_log: {change['table_name']}.{change['field_name']}")
                     except Exception as err:
@@ -2575,7 +2665,7 @@ class edc_db:
                             'error_code': 'INSERT_LOG_FAILED'
                         }
             
-            # 3. 記錄系統操作日誌（如果沒有其他變更記錄）
+            # 記錄系統操作日誌（如果沒有其他變更記錄）
             if not log_changes:
                 system_log = {
                     'log_id': log_id,
@@ -2608,6 +2698,8 @@ class edc_db:
                 try:
                     cursor = self.sql.db.cursor()
                     cursor.execute(query)
+                    self.sql.db.commit() 
+                    recorded_changes = 1
                     if verbose:
                         print(f"成功插入系統操作日誌: {action_type}")
                 except Exception as err:
@@ -2620,17 +2712,18 @@ class edc_db:
             
             return {
                 'success': True,
-                'message': '日誌更新成功',
+                'message': '日誌記錄成功',
                 'log_id': log_id,
-                'timestamp': timestamp
+                'timestamp': timestamp,
+                'recorded_changes': recorded_changes
             }
             
         except Exception as e:
-            logger.error(f"統一日誌更新失敗: {e}")
+            logger.error(f"日誌記錄失敗: {e}")
             return {
                 'success': False,
-                'message': f'統一日誌更新失敗: {str(e)}',
-                'error_code': 'UNIFIED_LOG_UPDATE_FAILED'
+                'message': f'日誌記錄失敗: {str(e)}',
+                'error_code': 'UPDATE_LOGS_FAILED'
             }
     
     def generate_signature_hash(self, subject_code, user_id, timestamp, record_data):
@@ -2838,11 +2931,25 @@ class edc_db:
                 'exclusion_criteria': {'signature_hash': signature_hash}
             }
             
-            result = self.update_logs(
+            # 1. 先更新資料表
+            db_result = self.update_databases(
                 subject_code=subject_code,
                 user_id=user_id,
                 action_type='UPDATE_SIGNATURE',
                 additional_updates=additional_updates,
+                verbose=verbose
+            )
+            
+            if not db_result['success']:
+                return db_result
+            
+            # 2. 再記錄日誌
+            result = self.update_logs(
+                subject_code=subject_code,
+                user_id=user_id,
+                action_type='UPDATE_SIGNATURE',
+                log_changes=None,
+                log_id=db_result.get('log_id'),
                 verbose=verbose
             )
             

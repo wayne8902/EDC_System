@@ -56,6 +56,7 @@ const DataBrowserManager = {
         }
 
         const status = subject.status.toLowerCase();
+        // 只有 'submitted' 和 'signed' 狀態不能編輯，其他狀態（包括 'query'）都可以編輯
         return status !== 'submitted' && status !== 'signed';
     },
 
@@ -1014,7 +1015,33 @@ const DataBrowserManager = {
                 `;
             });
 
+            // 添加回應按鈕區域
             queryHTML += `
+                    </div>
+                    <div class="query-actions" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e9ecef;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            ${query.status === 'pending' ? `
+                                <button class="btn btn-sm btn-success" onclick="QueryManager.respondToQuery('${query.batch_id}', 'accept')" title="接受 Query">
+                                    <i class="fas fa-check"></i> 接受
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="QueryManager.respondToQuery('${query.batch_id}', 'reject')" title="拒絕 Query">
+                                    <i class="fas fa-times"></i> 拒絕
+                                </button>
+                                <button class="btn btn-sm btn-warning" onclick="QueryManager.respondToQuery('${query.batch_id}', 'correct')" title="修正 Query">
+                                    <i class="fas fa-edit"></i> 修正
+                                </button>
+                                <button class="btn btn-sm btn-info" onclick="QueryManager.respondToQuery('${query.batch_id}', 'explain')" title="說明 Query">
+                                    <i class="fas fa-comment"></i> 說明
+                                </button>
+                            ` : `
+                                <span class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    ${query.status === 'responded' ? '已回應' : 
+                                      query.status === 'resolved' ? '已解決' : 
+                                      query.status === 'closed' ? '已關閉' : '未知狀態'}
+                                </span>
+                            `}
+                        </div>
                     </div>
                 </div>
             `;

@@ -958,6 +958,268 @@ const QueryManager = {
         }
     },
 
+    /**
+     * 回應 Query
+     * @param {string} batchId - Query 批次 ID
+     * @param {string} responseType - 回應類型 (accept, reject, correct, explain)
+     */
+    respondToQuery: function(batchId, responseType) {
+        console.log(`回應 Query: ${batchId}, 類型: ${responseType}`);
+        
+        // 根據回應類型顯示不同的對話框
+        switch(responseType) {
+            case 'accept':
+                this.showAcceptQueryModal(batchId);
+                break;
+            case 'reject':
+                this.showRejectQueryModal(batchId);
+                break;
+            case 'correct':
+                this.showCorrectQueryModal(batchId);
+                break;
+            case 'explain':
+                this.showExplainQueryModal(batchId);
+                break;
+            default:
+                console.error('未知的回應類型:', responseType);
+        }
+    },
+
+    /**
+     * 顯示接受 Query 的對話框
+     */
+    showAcceptQueryModal: function(batchId) {
+        const modal = `
+            <div class="modal fade" id="acceptQueryModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-check text-success"></i> 接受 Query
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>您確定要接受這個 Query 嗎？</p>
+                            <div class="mb-3">
+                                <label for="acceptReason" class="form-label">接受原因（可選）:</label>
+                                <textarea class="form-control" id="acceptReason" rows="3" placeholder="請說明接受的原因..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-success" onclick="QueryManager.submitQueryResponse('${batchId}', 'accept')">
+                                <i class="fas fa-check"></i> 確認接受
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 移除舊的 modal 並添加新的
+        const oldModal = document.getElementById('acceptQueryModal');
+        if (oldModal) oldModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('acceptQueryModal'));
+        modalElement.show();
+    },
+
+    /**
+     * 顯示拒絕 Query 的對話框
+     */
+    showRejectQueryModal: function(batchId) {
+        const modal = `
+            <div class="modal fade" id="rejectQueryModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-times text-danger"></i> 拒絕 Query
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>請說明拒絕這個 Query 的原因：</p>
+                            <div class="mb-3">
+                                <label for="rejectReason" class="form-label">拒絕原因 <span class="text-danger">*</span>:</label>
+                                <textarea class="form-control" id="rejectReason" rows="3" placeholder="請詳細說明拒絕的原因..." required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-danger" onclick="QueryManager.submitQueryResponse('${batchId}', 'reject')">
+                                <i class="fas fa-times"></i> 確認拒絕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = document.getElementById('rejectQueryModal');
+        if (oldModal) oldModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('rejectQueryModal'));
+        modalElement.show();
+    },
+
+    /**
+     * 顯示修正 Query 的對話框
+     */
+    showCorrectQueryModal: function(batchId) {
+        const modal = `
+            <div class="modal fade" id="correctQueryModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-edit text-warning"></i> 修正 Query
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>請提供修正後的值：</p>
+                            <div class="mb-3">
+                                <label for="correctedValue" class="form-label">修正後的值 <span class="text-danger">*</span>:</label>
+                                <input type="text" class="form-control" id="correctedValue" placeholder="請輸入修正後的值..." required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="correctReason" class="form-label">修正說明:</label>
+                                <textarea class="form-control" id="correctReason" rows="3" placeholder="請說明修正的原因..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-warning" onclick="QueryManager.submitQueryResponse('${batchId}', 'correct')">
+                                <i class="fas fa-edit"></i> 確認修正
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = document.getElementById('correctQueryModal');
+        if (oldModal) oldModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('correctQueryModal'));
+        modalElement.show();
+    },
+
+    /**
+     * 顯示說明 Query 的對話框
+     */
+    showExplainQueryModal: function(batchId) {
+        const modal = `
+            <div class="modal fade" id="explainQueryModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-comment text-info"></i> 說明 Query
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>請提供額外的說明：</p>
+                            <div class="mb-3">
+                                <label for="explainText" class="form-label">說明內容 <span class="text-danger">*</span>:</label>
+                                <textarea class="form-control" id="explainText" rows="4" placeholder="請提供詳細的說明..." required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-info" onclick="QueryManager.submitQueryResponse('${batchId}', 'explain')">
+                                <i class="fas fa-comment"></i> 確認說明
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = document.getElementById('explainQueryModal');
+        if (oldModal) oldModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('explainQueryModal'));
+        modalElement.show();
+    },
+
+    /**
+     * 提交 Query 回應
+     */
+    submitQueryResponse: function(batchId, responseType) {
+        console.log(`提交 Query 回應: ${batchId}, 類型: ${responseType}`);
+        
+        // 收集表單資料
+        let responseData = {
+            batch_id: batchId,
+            response_type: responseType,
+            response_text: '',
+            corrected_value: null
+        };
+        
+        // 根據回應類型收集不同的資料
+        switch(responseType) {
+            case 'accept':
+                responseData.response_text = document.getElementById('acceptReason').value || '已接受';
+                break;
+            case 'reject':
+                responseData.response_text = document.getElementById('rejectReason').value;
+                if (!responseData.response_text.trim()) {
+                    alert('請填寫拒絕原因');
+                    return;
+                }
+                break;
+            case 'correct':
+                responseData.corrected_value = document.getElementById('correctedValue').value;
+                responseData.response_text = document.getElementById('correctReason').value || '已修正';
+                if (!responseData.corrected_value.trim()) {
+                    alert('請填寫修正後的值');
+                    return;
+                }
+                break;
+            case 'explain':
+                responseData.response_text = document.getElementById('explainText').value;
+                if (!responseData.response_text.trim()) {
+                    alert('請填寫說明內容');
+                    return;
+                }
+                break;
+        }
+        
+        // 調用後端 API
+        this.callRespondToQueryAPI(responseData);
+        
+        // 關閉 modal
+        const modal = document.querySelector('.modal.show');
+        if (modal) {
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            if (modalInstance) modalInstance.hide();
+        }
+    },
+
+    /**
+     * 調用後端 API 回應 Query
+     */
+    callRespondToQueryAPI: function(responseData) {
+        // 這裡應該調用後端 API
+        console.log('回應資料:', responseData);
+        
+        // 暫時顯示成功訊息
+        alert(`Query 回應已提交！\n類型: ${responseData.response_type}\n批次ID: ${responseData.batch_id}`);
+        
+        // 重新載入 Query 列表（如果 DataBrowserManager 存在）
+        if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.loadQueryList) {
+            DataBrowserManager.loadQueryList();
+        }
+    }
+
 };
 
 // 全域匯出

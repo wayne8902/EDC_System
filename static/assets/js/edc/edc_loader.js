@@ -144,7 +144,7 @@ function showEDCLoadingProgress() {
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">載入中...</span>
                 </div>
-                <h5 class="mt-3">EDC 系統載入中...</h5>
+                <h5 class="mt-3">系統載入中...</h5>
                 <div class="progress mt-3" style="width: 300px;">
                     <div class="progress-bar" role="progressbar" style="width: 0%"></div>
                 </div>
@@ -333,7 +333,7 @@ function openQueryCreation() {
 }
 
 function openQueryManagement() { 
-    showSuccessMessage('進入查詢管理功能'); 
+    showSuccessMessage('進入Query 查看功能'); 
 }
 
 function openSiteVisits() { 
@@ -356,148 +356,6 @@ function logout() {
     }
 }
 
-// 生成角色專屬儀表板
-function generateRoleDashboard() {
-    const roleContent = document.getElementById('roleBasedContent');
-    if (!roleContent) return;
-    
-    const roleConfig = ROLE_CONFIG[userRole];
-    
-    if (!roleConfig) {
-        roleContent.innerHTML = '<div class="alert alert-warning">無法識別用戶角色</div>';
-        return;
-    }
-
-    let html = `
-        <div class="role-dashboard">
-            <div class="role-header ${userRole}" style="border-left-color: ${roleConfig.color}">
-                <h3>
-                    <i class="${roleConfig.icon}" style="color: ${roleConfig.color}"></i>
-                    ${roleConfig.name}專屬功能
-                </h3>
-            </div>
-            <div class="feature-grid">
-    `;
-
-    // 動態生成功能卡片
-    roleConfig.features.forEach(feature => {
-        html += `
-            <div class="feature-card ${userRole}">
-                <div class="feature-icon">
-                    <i class="${feature.icon}"></i>
-                </div>
-                <div class="feature-title">${feature.title}</div>
-                <div class="feature-description">${feature.description}</div>
-                <button class="btn feature-button" onclick="${feature.action}()">
-                    進入功能
-                </button>
-            </div>
-        `;
-    });
-
-    html += `
-            </div>
-        </div>
-        
-        <!-- 系統角色權限說明表格 -->
-        <div class="role-permissions-table">
-            <div class="table-header">
-                <h4><i class="fas fa-info-circle"></i> 系統角色權限說明</h4>
-                <p class="text-muted">以下是系統中所有角色的權限說明，幫助您了解不同角色的功能範圍</p>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>角色</th>
-                            <th>權限說明</th>
-                            <th>主要功能</th>
-                            <th>適用場景</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <span class="badge bg-danger">系統管理員</span>
-                            </td>
-                            <td>擁有系統所有權限，可以管理用戶、權限、系統配置等</td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    <li><i class="fas fa-users text-primary"></i> 用戶管理</li>
-                                    <li><i class="fas fa-shield-alt text-success"></i> 權限管理</li>
-                                    <li><i class="fas fa-chart-line text-info"></i> 系統監控</li>
-                                    <li><i class="fas fa-history text-warning"></i> 審計記錄</li>
-                                </ul>
-                            </td>
-                            <td>IT管理員、系統維護人員</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span class="badge bg-success">試驗委託者</span>
-                            </td>
-                            <td>可以查看試驗資料、報告，進行資料匯出等操作</td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    <li><i class="fas fa-database text-primary"></i> 資料瀏覽</li>
-                                    <li><i class="fas fa-chart-bar text-success"></i> 報告查看</li>
-                                    <li><i class="fas fa-download text-info"></i> 資料匯出</li>
-                                </ul>
-                            </td>
-                            <td>藥廠代表、試驗委託方</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span class="badge bg-info">研究人員</span>
-                            </td>
-                            <td>負責試驗資料的新增、編輯、驗證和查詢回應</td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    <li><i class="fas fa-plus-circle text-primary"></i> 新增資料</li>
-                                    <li><i class="fas fa-edit text-success"></i> 編輯資料</li>
-                                    <li><i class="fas fa-reply text-info"></i> 回應查詢</li>
-                                    <li><i class="fas fa-check-double text-warning"></i> 資料驗證</li>
-                                </ul>
-                            </td>
-                            <td>護理師、研究助理、資料輸入員</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span class="badge bg-warning text-dark">試驗主持人</span>
-                            </td>
-                            <td>負責CRF審查、電子簽署、受試者同意和不良事件管理</td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    <li><i class="fas fa-check-circle text-primary"></i> CRF審查</li>
-                                    <li><i class="fas fa-signature text-success"></i> 電子簽署</li>
-                                    <li><i class="fas fa-user-check text-info"></i> 受試者同意</li>
-                                    <li><i class="fas fa-exclamation-triangle text-warning"></i> 不良事件</li>
-                                </ul>
-                            </td>
-                            <td>醫師、試驗主持人、主要研究者</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span class="badge bg-secondary">試驗監測者</span>
-                            </td>
-                            <td>負責資料審查、查詢管理、現場訪視和合規檢查</td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    <li><i class="fas fa-search text-primary"></i> 資料審查</li>
-                                    <li><i class="fas fa-snowflake text-success"></i> 資料凍結</li>
-                                    <li><i class="fas fa-question-circle text-info"></i> 查詢管理</li>
-                                    <li><i class="fas fa-map-marker-alt text-warning"></i> 現場訪視</li>
-                                </ul>
-                            </td>
-                            <td>CRA、試驗監測員、品質保證人員</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-
-    roleContent.innerHTML = html;
-}
 
 // 載入儀表板統計
 function loadDashboardStats() {
@@ -593,7 +451,6 @@ if (typeof window !== 'undefined') {
     window.openComplianceCheck = openComplianceCheck;
     window.openSystemManagement = openSystemManagement;
     window.logout = logout;
-    window.generateRoleDashboard = generateRoleDashboard;
     window.loadDashboardStats = loadDashboardStats;
     window.manageRoleForms = manageRoleForms;
 }

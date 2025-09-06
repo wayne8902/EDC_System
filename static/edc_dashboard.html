@@ -10,24 +10,56 @@
 
 </head>
 <body>
-    <div class="container-fluid">
-        <!-- 用戶資訊區 -->
-        <div class="user-info">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h2><i class="fas fa-user-circle"></i> 歡迎回來，<span id="userName">載入中...</span></h2>
-                    <p class="mb-1">用戶ID: <span id="userId">載入中...</span></p>
-                    <p class="mb-1">角色: <span id="userRole">載入中...</span></p>
-                    <p class="mb-0">登入時間: <span id="loginTime"></span></p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <button class="btn btn-outline-light btn-lg" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i> 登出
-                    </button>
-                </div>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg medical-navbar">
+        <!-- 品牌標識 -->
+        <div class="navbar-brand d-flex align-items-center">
+            <div class="brand-icon">
+                <i class="fas fa-hospital"></i>
+            </div>
+            <div class="brand-text">
+                <h4 class="mb-0">EDC 醫療系統</h4>
+                <small class="text-muted">電子資料擷取平台</small>
             </div>
         </div>
 
+        <!-- 用戶資訊區域 -->
+        <div class="navbar-nav ms-auto">
+            <div class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle user-profile" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                    <div class="user-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">歡迎回來，<span id="userName">載入中...</span></div>
+                        <div class="user-role"><span id="userRole">載入中...</span></div>
+                    </div>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end medical-dropdown">
+                    <li class="dropdown-header">
+                        <div class="user-info-item">
+                            <i class="fas fa-id-card"></i>
+                            <span>用戶ID: <span id="userId">載入中...</span></span>
+                        </div>
+                    </li>
+                    <li class="dropdown-header">
+                        <div class="user-info-item">
+                            <i class="fas fa-clock"></i>
+                            <span>登入時間: <span id="loginTime"></span></span>
+                        </div>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item logout-item" href="#" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i>
+                            登出系統
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container-fluid">
         <!-- 統計資訊區 -->
         <div class="stats-section">
             <div class="stats-row">

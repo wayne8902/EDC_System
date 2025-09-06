@@ -182,7 +182,9 @@ CREATE TRIGGER `queries_status_change_log` AFTER UPDATE ON `queries` FOR EACH RO
         INSERT INTO `query_status_history` 
         (`batch_id`, `old_status`, `new_status`, `changed_by`, `reason`)
         VALUES 
-        (NEW.batch_id, OLD.status, NEW.status, NEW.created_by, 'Status updated')$$
+        (NEW.batch_id, OLD.status, NEW.status, NEW.created_by, 'Status updated');
+    END IF;
+END$$
 DELIMITER ;
 
 -- --------------------------------------------------------
@@ -213,14 +215,6 @@ CREATE TABLE `query_responses` (
 -- 替換檢視表以便查看 `query_statistics`
 -- (請參考以下實際畫面)
 --
-CREATE TABLE `query_statistics` (
-`date` date
-,`status` enum('pending','in_progress','completed','cancelled')
-,`created_by` varchar(50)
-,`query_count` bigint
-,`total_questions` decimal(32,0)
-,`avg_completion_hours` decimal(24,4)
-);
 
 -- --------------------------------------------------------
 
