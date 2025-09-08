@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1deb3
+-- version 5.2.2
 -- https://www.phpmyadmin.net/
 --
--- 主機： localhost:3306
--- 產生時間： 2025 年 09 月 05 日 09:59
--- 伺服器版本： 8.0.43-0ubuntu0.24.04.1
--- PHP 版本： 8.3.6
+-- 主機： localhost
+-- 產生時間： 2025 年 09 月 08 日 10:24
+-- 伺服器版本： 9.0.1
+-- PHP 版本： 8.4.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -132,8 +132,8 @@ CREATE TABLE `Roles` (
 INSERT INTO `Roles` (`id`, `name`, `description`, `permissions`, `is_active`, `created_at`, `updated_at`) VALUES
 (1, 'system_admin', 'EDC系統管理員 - 帳號與權限設定，不參與資料輸入與修改', '[\"edc.system.admin\", \"edc.data.view\", \"edc.query.view\"]', 1, '2025-08-22 07:37:50', '2025-09-05 03:51:34'),
 (2, 'sponsor', '試驗委託者 - 資料讀取者，資料審查(唯讀)', '[\"edc.data.view\", \"edc.query.view\"]', 1, '2025-08-22 07:37:50', '2025-09-05 03:51:26'),
-(3, 'researcher', '研究人員 - 資料編輯者，新增、編輯資料，回應試驗監測者提出的Query', '[\"edc.data.view\", \"edc.data.create\", \"edc.data.edit\", \"edc.query.view\"]', 1, '2025-08-22 07:37:50', '2025-09-05 04:06:57'),
-(4, 'investigator', '試驗主持人 - 資料編輯者/電子簽章者，新增、編輯資料，審查並簽屬eCRF', '[\"edc.data.view\", \"edc.data.create\", \"edc.data.edit\", \"edc.crf.sign\", \"edc.query.view\"]', 1, '2025-08-22 07:37:50', '2025-09-05 04:08:50'),
+(3, 'researcher', '研究人員 - 資料編輯者，新增、編輯資料，回應試驗監測者提出的Query', '[\"edc.data.view\", \"edc.data.create\", \"edc.data.edit\", \"edc.query.view\", \"edc.query.response\"]', 1, '2025-08-22 07:37:50', '2025-09-06 15:33:53'),
+(4, 'investigator', '試驗主持人 - 資料編輯者/電子簽章者，新增、編輯資料，審查並簽屬eCRF', '[\"edc.data.view\", \"edc.data.create\", \"edc.data.edit\", \"edc.crf.sign\", \"edc.query.view\", \"edc.query.response\"]', 1, '2025-08-22 07:37:50', '2025-09-06 15:34:20'),
 (5, 'monitor', '試驗監測者 - 資料審核者/Query發起者，資料審查與凍結(唯讀處理)', '[\"edc.data.view\", \"edc.data.freeze\", \"edc.query.create\", \"edc.query.view\"]', 1, '2025-08-22 07:37:50', '2025-08-22 07:38:18');
 
 -- --------------------------------------------------------

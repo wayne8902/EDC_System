@@ -117,13 +117,13 @@ function getDisplayBMI() {
 
 // 自動計算 eGFR（使用IDMS-MDRD公式）
 function calculateEGFR() {
-    const creatinineInput = document.getElementById('creatinine');
+    const scrInput = document.getElementById('scr');
     const egfrInput = document.getElementById('egfr');
     const ageInput = document.getElementById('age');
     const genderInputs = document.querySelectorAll('input[name="gender"]:checked');
     
-    if (creatinineInput && egfrInput && ageInput && genderInputs.length > 0) {
-        const creatinine = parseFloat(creatinineInput.value);
+    if (scrInput && egfrInput && ageInput && genderInputs.length > 0) {
+        const creatinine = parseFloat(scrInput.value);
         const age = parseFloat(ageInput.value);
         const gender = genderInputs[0].value;
         
@@ -134,7 +134,7 @@ function calculateEGFR() {
             // 性別係數：男性=1.0，女性=0.742
             
             let genderCoefficient = 1.0;
-            if (gender === 'female') {
+            if (gender === '0' || gender === 'female') {
                 genderCoefficient = 0.742;
             }
             
@@ -178,10 +178,10 @@ function checkLabTimeInterval() {
     const labTimeWithin7Checkbox = document.getElementById('labTimeWithin7');
     if (!labTimeWithin7Checkbox) return;
     
-    // 獲取各種檢驗日期
-    const biochemDate = document.getElementById('biochemDate')?.value;
-    const urineDate = document.getElementById('urineDate')?.value;
-    const urinalysisDate = document.getElementById('urinalysisDate')?.value;
+    // 獲取各種檢驗日期（支援多種 ID 格式）
+    const biochemDate = document.getElementById('biochemDate')?.value || document.getElementById('biochem_date')?.value;
+    const urineDate = document.getElementById('urineDate')?.value || document.getElementById('urine_date')?.value;
+    const urinalysisDate = document.getElementById('urinalysisDate')?.value || document.getElementById('urinalysis_date')?.value;
     
     // 檢查是否有足夠的日期資料來進行比較
     if (biochemDate && urineDate && urinalysisDate) {
@@ -204,11 +204,11 @@ function checkImageLabTimeInterval() {
     const imgLabWithin7Checkbox = document.getElementById('imgLabWithin7');
     if (!imgLabWithin7Checkbox) return;
     
-    // 獲取影像檢查日期和各種檢驗日期
-    const imgDate = document.getElementById('imgDate')?.value;
-    const biochemDate = document.getElementById('biochemDate')?.value;
-    const urineDate = document.getElementById('urineDate')?.value;
-    const urinalysisDate = document.getElementById('urinalysisDate')?.value;
+    // 獲取影像檢查日期和各種檢驗日期（支援多種 ID 格式）
+    const imgDate = document.getElementById('imgDate')?.value || document.getElementById('imaging_date')?.value;
+    const biochemDate = document.getElementById('biochemDate')?.value || document.getElementById('biochem_date')?.value;
+    const urineDate = document.getElementById('urineDate')?.value || document.getElementById('urine_date')?.value;
+    const urinalysisDate = document.getElementById('urinalysisDate')?.value || document.getElementById('urinalysis_date')?.value;
     
     // 檢查是否有足夠的日期資料來進行比較
     if (imgDate && (biochemDate || urineDate || urinalysisDate)) {

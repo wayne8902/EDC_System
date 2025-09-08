@@ -12,6 +12,7 @@ from datetime import datetime
 import json
 import logging
 import io
+import os
 
 logging.basicConfig(level=logging.INFO)
 VERBOSE=True
@@ -720,7 +721,8 @@ def respond_to_query(batch_id):
             response_type=data['response_type'],
             original_value=data.get('original_value'),
             corrected_value=data.get('corrected_value'),
-            responded_by=current_user.unique_id
+            responded_by=current_user.UNIQUE_ID,
+            verbose=VERBOSE
         )
         
         if result['success']:
@@ -740,6 +742,36 @@ def respond_to_query(batch_id):
         return jsonify({
             'success': False,
             'message': f'回應 Query 失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/query/<batch_id>/responses', methods=['GET'])
+@login_required
+def get_query_responses(batch_id):
+    """獲取 Query 的回應記錄"""
+    try:
+        # 調用後端函數獲取回應記錄
+        result = edc_sys.get_query_responses(
+            batch_id=batch_id,
+            verbose=VERBOSE
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': '獲取回應記錄成功',
+                'data': result['data']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"獲取 Query 回應記錄失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'獲取回應記錄失敗: {str(e)}'
         }), 500
 
 @edc_blueprints.route('/update-subject/<subject_code>', methods=['PUT'])
@@ -1018,3 +1050,111 @@ def get_subject_history(subject_code):
             'success': False,
             'message': f'獲取歷程記錄失敗: {str(e)}'
         }), 500
+
+# ==================== 儀表板統計 API ====================
+
+@edc_blueprints.route('/get-subjects-count', methods=['GET'])
+@login_required
+def get_subjects_count():
+    """獲取總 CRF 數量"""
+    try:
+        edc_sys.connect()
+        result = edc_sys.sql.search('subjects', ['COUNT(*) as count'], criteria="1=1", verbose=VERBOSE)
+        print("result: ", result)
+        count = result[0][0] if result else 0
+        return jsonify({
+            'success': True,
+            'count': count
+        })
+        
+    except Exception as e:
+        logging.error(f"獲取總 CRF 數量失敗: {e}")
+        return jsonify({
+            'success': False,
+            'count': 0,
+            'message': f'獲取總 CRF 數量失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/get-pending-queries-count', methods=['GET'])
+@login_required
+def get_pending_queries_count():
+    """獲取待處理 Query 數量"""
+    try:
+        edc_sys.connect()
+        result = edc_sys.sql.search('queries', ['COUNT(*) as count'], criteria="status='pending'", verbose=VERBOSE)
+        count = result[0][0] if result else 0
+        edc_sys.disconnect()
+        return jsonify({
+            'success': True,
+            'count': count
+        })
+        
+    except Exception as e:
+        logging.error(f"獲取待處理 Query 數量失敗: {e}")
+        edc_sys.disconnect()
+        return jsonify({
+            'success': False,
+            'count': 0,
+            'message': f'獲取待處理 Query 數量失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/get-signed-crfs-count', methods=['GET'])
+@login_required
+def get_signed_crfs_count():
+    """獲取已簽署 CRF 數量"""
+    try:
+        edc_sys.connect()
+        result = edc_sys.sql.search('subjects', ['COUNT(*) as count'], criteria="status='signed'", verbose=VERBOSE)
+        count = result[0][0] if result else 0
+        return jsonify({
+            'success': True,
+            'count': count
+        })
+        edc_sys.disconnect()
+        
+    except Exception as e:
+        logging.error(f"獲取已簽署 CRF 數量失敗: {e}")
+        edc_sys.disconnect()
+        return jsonify({
+            'success': False,
+            'count': 0,
+            'message': f'獲取已簽署 CRF 數量失敗: {str(e)}'
+        }), 500
+
+@edc_blueprints.route('/get-active-users-count', methods=['GET'])
+@login_required
+def get_active_users_count():
+    """獲取使用者數量"""
+    try:
+        from function_sys.sqlconn import sqlconn
+        import json
+        
+        with open(os.path.join(os.path.dirname(__file__), '..', 'login_sys', 'config.json'), 'r') as f:
+            config = json.load(f)
+        
+        united_sql = sqlconn(
+            host=config['sql_host'],
+            port=config['sql_port'],
+            user=config['sql_user'],
+            passwd=config['sql_passwd'],
+            dbname=config['sql_dbname']
+        )
+        
+        result = united_sql.search('user', ['COUNT(*) as count'], verbose=VERBOSE)
+        count = result[0][0] if result else 0
+        
+        united_sql.dc()
+        
+        return jsonify({
+            'success': True,
+            'count': count
+        })
+        
+    except Exception as e:
+        logging.error(f"獲取活躍使用者數量失敗: {e}")
+        return jsonify({
+            'success': False,
+            'count': 0,
+            'message': f'獲取活躍使用者數量失敗: {str(e)}'
+        }), 500
+

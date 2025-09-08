@@ -2,32 +2,73 @@
   "subject_detail_page": {
     "title": "受試者詳細資料",
     "icon": "fas fa-user",
+    "tabs": [
+      {
+        "id": "subject",
+        "title": "受試者特性資料",
+        "active": true
+      },
+      {
+        "id": "criteria", 
+        "title": "納入條件",
+        "active": false
+      },
+      {
+        "id": "exclusion",
+        "title": "排除條件", 
+        "active": false
+      }
+    ],
     "sections": [
       {
         "id": "basic_info",
         "title": "基本資料",
         "icon": "fas fa-info-circle",
+        "tab": "subject",
         "fields": [
           {
-            "id": "subject_code",
+            "id": "enrollDate",
+            "label": "個案納入日期",
+            "type": "date",
+            "source": "subject.enroll_date",
+            "width": "col-10",
+            "required": true,
+            "readonly": true,
+            "hint": "格式：yyyy/mm/dd"
+          },
+          {
+            "id": "subjectCode",
             "label": "受試者編號",
             "type": "text",
             "source": "subject.subject_code",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "pattern": "^P[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}$",
+            "readonly": true,
+            "placeholder": "P(1碼)+機構代碼(2碼)+流水號(4碼)，例：P01-0001"
           },
           {
-            "id": "date_of_birth",
+            "id": "birthDate",
             "label": "出生日期",
-            "type": "text",
+            "type": "date",
             "source": "subject.date_of_birth",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "hint": "格式：yyyy/mm/dd"
           },
           {
             "id": "age",
             "label": "年齡",
-            "type": "text",
+            "type": "number",
             "source": "subject.age",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "min": 0,
+            "max": 120,
+            "step": 1,
+            "readonly": true,
+            "disabled": true,
+            "hint": "系統根據出生日期自動計算"
           },
           {
             "id": "gender",
@@ -35,87 +76,165 @@
             "type": "radio",
             "source": "subject.gender",
             "width": "col-10",
+            "required": true,
             "options": [
               {"value": "1", "text": "男"},
               {"value": "0", "text": "女"}
             ]
           },
           {
-            "id": "height_cm",
+            "id": "height",
             "label": "身高 (cm)",
-            "type": "text",
+            "type": "number",
             "source": "subject.height_cm",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "step": 0.1,
+            "min": 0,
+            "hint": "請輸入身高（公分）"
           },
           {
-            "id": "weight_kg",
+            "id": "weight",
             "label": "體重 (kg)",
-            "type": "text",
+            "type": "number",
             "source": "subject.weight_kg",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "step": 0.1,
+            "min": 0,
+            "hint": "請輸入體重（公斤）"
           },
           {
             "id": "bmi",
             "label": "BMI",
-            "type": "text",
+            "type": "number",
             "source": "subject.bmi",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "step": 0.1,
+            "min": 0,
+            "max": 100,
+            "readonly": true,
+            "disabled": true,
+            "hint": "系統根據身高體重自動計算"
+          },
+          {
+            "id": "biochemDate",
+            "label": "生化檢驗-採檢日期",
+            "type": "date",
+            "source": "subject.biochem_date",
+            "width": "col-10",
+            "required": true,
+            "readonly": true,
+            "hint": "格式：yyyy/mm/dd"
           },
           {
             "id": "scr",
             "label": "血清肌酸酐 (mg/dL)",
-            "type": "text",
+            "type": "number",
             "source": "subject.scr",
-            "width": "col-10"
+            "width": "col-10",
+            "step": 0.01,
+            "min": 0,
+            "max": 50,
+            "hint": "請輸入血清肌酸酐數值"
           },
           {
             "id": "egfr",
             "label": "估算腎絲球過濾率 (mL/min/1.73m²)",
-            "type": "text",
+            "type": "number",
             "source": "subject.egfr",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "step": 0.1,
+            "min": 90,
+            "max": 200,
+            "hint": "正常值：≥90 mL/min/1.73m²（可手動輸入或由肌酸酐自動計算，使用IDMS-MDRD公式）"
+          },
+          {
+            "id": "urineDate",
+            "label": "尿液檢驗-採檢日期",
+            "type": "date",
+            "source": "subject.urine_date",
+            "width": "col-10",
+            "required": true,
+            "readonly": true,
+            "hint": "格式：yyyy/mm/dd"
           },
           {
             "id": "ph",
             "label": "尿液酸鹼值",
-            "type": "text",
+            "type": "number",
             "source": "subject.ph",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "step": 0.1,
+            "min": 0,
+            "max": 14,
+            "hint": "請輸入尿液酸鹼值"
           },
           {
             "id": "sg",
             "label": "尿液比重",
-            "type": "text",
+            "type": "number",
             "source": "subject.sg",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "step": 0.001,
+            "min": 1.000,
+            "max": 1.100,
+            "hint": "請輸入尿液比重"
+          },
+          {
+            "id": "urinalysisDate",
+            "label": "尿液鏡檢-採檢日期",
+            "type": "date",
+            "source": "subject.urinalysis_date",
+            "width": "col-10",
+            "required": true,
+            "readonly": true,
+            "hint": "格式：yyyy/mm/dd"
           },
           {
             "id": "rbc",
             "label": "尿液紅血球計數 (/HPF)",
-            "type": "text",
+            "type": "number",
             "source": "subject.rbc",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "step": 1,
+            "min": 0,
+            "max": 1000,
+            "hint": "請輸入尿液紅血球數值"
           },
           {
-            "id": "imaging_type",
+            "id": "imgType",
             "label": "影像檢查類型",
-            "type": "text",
+            "type": "radio",
             "source": "subject.imaging_type",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "options": [
+              {"value": "CT", "text": "CT"},
+              {"value": "PET-CT", "text": "PET-CT"}
+            ]
           },
           {
-            "id": "imaging_date",
+            "id": "imgDate",
             "label": "影像檢查日期",
-            "type": "text",
+            "type": "date",
             "source": "subject.imaging_date",
-            "width": "col-10"
+            "width": "col-10",
+            "required": true,
+            "hint": "格式：yyyy/mm/dd"
           },
           {
-            "id": "kidney_stone_diagnosis",
+            "id": "stone",
             "label": "腎結石診斷",
             "type": "radio",
             "source": "subject.kidney_stone_diagnosis",
             "width": "col-10",
+            "required": true,
             "options": [
               {"value": "1", "text": "是"},
               {"value": "0", "text": "否"}
@@ -127,6 +246,7 @@
             "type": "radio",
             "source": "subject.dm",
             "width": "col-10",
+            "required": true,
             "options": [
               {"value": "1", "text": "是"},
               {"value": "0", "text": "否"}
@@ -138,17 +258,19 @@
             "type": "radio",
             "source": "subject.gout",
             "width": "col-10",
+            "required": true,
             "options": [
               {"value": "1", "text": "是"},
               {"value": "0", "text": "否"}
             ]
           },
           {
-            "id": "bac",
+            "id": "bacteriuria",
             "label": "菌尿症",
             "type": "radio",
             "source": "subject.bac",
             "width": "col-10",
+            "required": true,
             "options": [
               {"value": "1", "text": "是"},
               {"value": "0", "text": "否"}
@@ -160,12 +282,13 @@
         "id": "inclusion_criteria",
         "title": "納入條件評估",
         "icon": "fas fa-check-circle",
+        "tab": "criteria",
         "subsections": [
           {
             "title": "1. 患者年齡是否18歲(含)以上?",
             "fields": [
               {
-                "id": "age_18_above",
+                "id": "age18",
                 "label": "年齡18歲以上",
                 "type": "checkbox",
                 "source": "inclusion_criteria.age_18_above",
@@ -179,7 +302,7 @@
             "title": "2. 病歷中是否記載以下基本資料與病史:",
             "fields": [
               {
-                "id": "gender_available",
+                "id": "hasGender",
                 "label": "性別",
                 "type": "checkbox",
                 "source": "inclusion_criteria.gender_available",
@@ -188,7 +311,7 @@
                 "hint": "系統自動判讀輸入變項中的性別資訊"
               },
               {
-                "id": "age_available",
+                "id": "hasAge",
                 "label": "年齡",
                 "type": "checkbox",
                 "source": "inclusion_criteria.age_available",
@@ -197,7 +320,7 @@
                 "hint": "系統自動判讀輸入變項中的年齡資訊"
               },
               {
-                "id": "bmi_available",
+                "id": "hasBMI",
                 "label": "身體質量指數(BMI)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.bmi_available",
@@ -206,7 +329,7 @@
                 "hint": "系統自動判讀輸入變項中的身體質量指數(BMI)資訊"
               },
               {
-                "id": "dm_history_available",
+                "id": "hasDMHistory",
                 "label": "病史(糖尿病)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.dm_history_available",
@@ -215,7 +338,7 @@
                 "hint": "系統自動判讀輸入變項中的病史(糖尿病)資訊"
               },
               {
-                "id": "gout_history_available",
+                "id": "hasGoutHistory",
                 "label": "病史(痛風)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.gout_history_available",
@@ -229,7 +352,7 @@
             "title": "3. 病歷中具備以下完整之檢驗資料:",
             "fields": [
               {
-                "id": "egfr_available",
+                "id": "hasEGFR",
                 "label": "腎絲球過濾率估計值(eGFR)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.egfr_available",
@@ -238,7 +361,7 @@
                 "hint": "系統自動判讀輸入變項中的eGFR資訊"
               },
               {
-                "id": "urine_ph_available",
+                "id": "hasUrinePH",
                 "label": "尿液酸鹼值(urine pH)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.urine_ph_available",
@@ -247,7 +370,7 @@
                 "hint": "系統自動判讀輸入變項中的尿液pH資訊"
               },
               {
-                "id": "urine_sg_available",
+                "id": "hasUrineSG",
                 "label": "尿液比重(urine SG)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.urine_sg_available",
@@ -256,7 +379,7 @@
                 "hint": "系統自動判讀輸入變項中的尿液SG資訊"
               },
               {
-                "id": "urine_rbc_available",
+                "id": "hasUrineRBC",
                 "label": "尿液紅血球數量(urine RBC counts)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.urine_rbc_available",
@@ -265,7 +388,7 @@
                 "hint": "系統自動判讀輸入變項中的尿液RBC counts資訊"
               },
               {
-                "id": "bacteriuria_available",
+                "id": "hasBacteriuria",
                 "label": "菌尿症(bacteriuria)",
                 "type": "checkbox",
                 "source": "inclusion_criteria.bacteriuria_available",
@@ -274,7 +397,7 @@
                 "hint": "系統自動判讀輸入變項中的菌尿症資訊"
               },
               {
-                "id": "lab_interval_7days",
+                "id": "labTimeWithin7",
                 "label": "以上各檢驗項目採檢時間之間隔是否皆未超過7天?",
                 "type": "checkbox",
                 "source": "inclusion_criteria.lab_interval_7days",
@@ -288,11 +411,12 @@
             "title": "4. 病歷中曾記錄任一項影像資料 (腹部電腦斷層掃描(CT)或正子斷層造影檢查(PET-CT))?",
             "fields": [
               {
-                "id": "imaging_available",
+                "id": "hasImagingData",
                 "label": "影像資料完整",
                 "type": "checkbox",
                 "source": "inclusion_criteria.imaging_available",
                 "width": "col-10",
+                "required": true,
                 "disabled": true,
                 "hint": "系統自動判讀影像檢查類型資訊"
               }
@@ -302,7 +426,7 @@
             "title": "4.1 影像資料是否可完整顯現腎臟結構?",
             "fields": [
               {
-                "id": "kidney_structure_visible",
+                "id": "visKidney",
                 "label": "影像資料是否可完整顯現腎臟結構?",
                 "type": "radio",
                 "source": "inclusion_criteria.kidney_structure_visible",
@@ -320,7 +444,7 @@
             "title": "4.2 影像資料是否可完整顯現中段輸尿管結構?",
             "fields": [
               {
-                "id": "mid_ureter_visible",
+                "id": "visMidUreter",
                 "label": "影像資料是否可完整顯現中段輸尿管結構?",
                 "type": "radio",
                 "source": "inclusion_criteria.mid_ureter_visible",
@@ -338,7 +462,7 @@
             "title": "4.3 影像資料是否可完整顯現下段輸尿管結構?",
             "fields": [
               {
-                "id": "lower_ureter_visible",
+                "id": "visLowerUreter",
                 "label": "影像資料是否可完整顯現下段輸尿管結構?",
                 "type": "radio",
                 "source": "inclusion_criteria.lower_ureter_visible",
@@ -356,11 +480,12 @@
             "title": "4.4 影像資料與檢驗資料之時間間隔是否皆未超過7天?",
             "fields": [
               {
-                "id": "imaging_lab_interval_7days",
+                "id": "imgLabWithin7",
                 "label": "影像資料與檢驗資料之時間間隔是否皆未超過7天?",
                 "type": "checkbox",
                 "source": "inclusion_criteria.imaging_lab_interval_7days",
                 "width": "col-10",
+                "required": true,
                 "disabled": true,
                 "hint": "系統自動計算影像檢查日期與各項檢驗採檢日期間隔是否≤7天"
               }
@@ -370,7 +495,7 @@
             "title": "4.5 檢查期間未有任何治療處置紀錄(包括但不限於因症狀而開立之藥物、手術等)?",
             "fields": [
               {
-                "id": "no_treatment_during_exam",
+                "id": "noTx",
                 "label": "檢查期間未有任何治療處置紀錄?",
                 "type": "radio",
                 "source": "inclusion_criteria.no_treatment_during_exam",
@@ -392,6 +517,7 @@
                         "type": "textarea",
                         "source": "inclusion_criteria.medications",
                         "width": "col-12",
+                        "required": true,
                         "rows": 4,
                         "placeholder": "請輸入藥物治療記錄...",
                         "hint": "若檢查期間有治療處置，請填寫藥物治療記錄"
@@ -402,6 +528,7 @@
                         "type": "textarea",
                         "source": "inclusion_criteria.surgeries",
                         "width": "col-12",
+                        "required": true,
                         "rows": 4,
                         "placeholder": "請輸入手術治療記錄...",
                         "hint": "若檢查期間有治療處置，請填寫手術治療記錄"
@@ -418,12 +545,13 @@
         "id": "exclusion_criteria",
         "title": "排除條件評估",
         "icon": "fas fa-times-circle",
+        "tab": "exclusion",
         "subsections": [
           {
             "title": "1. 患者是否為懷孕女性?",
             "fields": [
               {
-                "id": "pregnant_female",
+                "id": "pregnantFemale",
                 "label": "患者是否為懷孕女性?",
                 "type": "radio",
                 "source": "exclusion_criteria.pregnant_female",
@@ -441,7 +569,7 @@
             "title": "2. 患者是否接受過腎臟移植?",
             "fields": [
               {
-                "id": "kidney_transplant",
+                "id": "kidneyTransplant",
                 "label": "患者是否接受過腎臟移植?",
                 "type": "radio",
                 "source": "exclusion_criteria.kidney_transplant",
@@ -459,7 +587,7 @@
             "title": "3. 患者是否為合併泌尿道異物者?",
             "fields": [
               {
-                "id": "urinary_tract_foreign_body",
+                "id": "urinaryForeignBody",
                 "label": "患者是否為合併泌尿道異物者?",
                 "type": "radio",
                 "source": "exclusion_criteria.urinary_tract_foreign_body",
@@ -476,7 +604,7 @@
                     "style": "display: none;",
                     "fields": [
                       {
-                        "id": "urinary_tract_foreign_body_type",
+                        "id": "foreignBodyType",
                         "label": "3.1 泌尿道異物種類名稱",
                         "type": "text",
                         "source": "exclusion_criteria.urinary_tract_foreign_body_type",
@@ -495,7 +623,7 @@
             "title": "4. 患者是否患有合併非腎結石相關之泌尿系統重大病變?",
             "fields": [
               {
-                "id": "non_stone_urological_disease",
+                "id": "urinarySystemLesion",
                 "label": "患者是否患有合併非腎結石相關之泌尿系統重大病變?",
                 "type": "radio",
                 "source": "exclusion_criteria.non_stone_urological_disease",
@@ -512,7 +640,7 @@
                     "style": "display: none;",
                     "fields": [
                       {
-                        "id": "non_stone_urological_disease_type",
+                        "id": "lesionType",
                         "label": "4.1 非腎結石相關之泌尿道重大病變名稱",
                         "type": "text",
                         "source": "exclusion_criteria.non_stone_urological_disease_type",
@@ -531,7 +659,7 @@
             "title": "5. 患者是否正在接受腎臟替代治療?",
             "fields": [
               {
-                "id": "renal_replacement_therapy",
+                "id": "renalReplacementTherapy",
                 "label": "患者是否正在接受腎臟替代治療?",
                 "type": "radio",
                 "source": "exclusion_criteria.renal_replacement_therapy",
@@ -548,7 +676,7 @@
                     "style": "display: none;",
                     "fields": [
                       {
-                        "id": "renal_replacement_therapy_type",
+                        "id": "therapyType",
                         "label": "5.1 腎臟替代治療名稱",
                         "type": "text",
                         "source": "exclusion_criteria.renal_replacement_therapy_type",
@@ -567,16 +695,13 @@
             "title": "6. 患者是否有病歷資料缺失或無腎結石診斷依據?",
             "fields": [
               {
-                "id": "medical_record_incomplete",
-                "label": "患者是否有病歷資料缺失或無腎結石診斷依據?",
-                "type": "radio",
+                "id": "missingData",
+                "label": "是",
+                "type": "checkbox",
                 "source": "exclusion_criteria.medical_record_incomplete",
                 "width": "col-10",
+                "required": true,
                 "disabled": true,
-                "options": [
-                  {"value": "1", "text": "是"},
-                  {"value": "0", "text": "否"}
-                ],
                 "hint": "系統自動判斷，此欄位為唯讀"
               }
             ]
@@ -585,7 +710,7 @@
             "title": "7. 患者是否患有合併重大血液、免疫或惡性腫瘤疾病?",
             "fields": [
               {
-                "id": "major_blood_immune_cancer",
+                "id": "hematologicalDisease",
                 "label": "患者是否患有合併重大血液、免疫或惡性腫瘤疾病?",
                 "type": "radio",
                 "source": "exclusion_criteria.major_blood_immune_cancer",
@@ -602,7 +727,7 @@
                     "style": "display: none;",
                     "fields": [
                       {
-                        "id": "major_blood_immune_cancer_type",
+                        "id": "hematologicalDiseaseType",
                         "label": "7.1 重大血液、免疫或惡性腫瘤疾病名稱",
                         "type": "text",
                         "source": "exclusion_criteria.major_blood_immune_cancer_type",
@@ -621,7 +746,7 @@
             "title": "8. 患者是否患有合併罕見代謝性疾病，可能顯著影響腎功能評估者?",
             "fields": [
               {
-                "id": "rare_metabolic_disease",
+                "id": "rareMetabolicDisease",
                 "label": "患者是否患有合併罕見代謝性疾病，可能顯著影響腎功能評估者?",
                 "type": "radio",
                 "source": "exclusion_criteria.rare_metabolic_disease",
@@ -638,7 +763,7 @@
                     "style": "display: none;",
                     "fields": [
                       {
-                        "id": "rare_metabolic_disease_type",
+                        "id": "metabolicDiseaseType",
                         "label": "8.1 罕見代謝性疾病名稱",
                         "type": "text",
                         "source": "exclusion_criteria.rare_metabolic_disease_type",
@@ -657,7 +782,7 @@
             "title": "9. 患者是否經試驗主持人專業判斷認定不適合納入本研究?",
             "fields": [
               {
-                "id": "investigator_judgment",
+                "id": "piJudgment",
                 "label": "患者是否經試驗主持人專業判斷認定不適合納入本研究?",
                 "type": "radio",
                 "source": "exclusion_criteria.investigator_judgment",
@@ -674,7 +799,7 @@
                     "style": "display: none;",
                     "fields": [
                       {
-                        "id": "judgment_reason",
+                        "id": "piJudgmentReason",
                         "label": "9.1 試驗主持人認定不適合納入本研究之原因",
                         "type": "textarea",
                         "source": "exclusion_criteria.judgment_reason",
@@ -697,6 +822,7 @@
         "title": "歷程記錄",
         "icon": "fas fa-history",
         "type": "placeholder",
+        "tab": "subject",
         "content": {
           "icon": "fas fa-clock",
           "icon_size": "4rem",
@@ -709,6 +835,7 @@
         "title": "Query 紀錄",
         "icon": "fas fa-history",
         "type": "placeholder",
+        "tab": "subject",
         "content": {
           "icon": "fas fa-question-circle",
           "icon_size": "4rem",

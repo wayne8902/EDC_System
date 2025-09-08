@@ -11,18 +11,13 @@ function setupInclusionCriteriaMonitoring() {
             // 只有在用戶開始填寫資料後才更新條件
             if (typeof hasUserStartedFillingForm === 'function' && hasUserStartedFillingForm()) {
                 updateInclusionCriteria();
+                updateExclusionCriteria();
             }
         }, 300); // 300ms 延遲
     };
     
     // 監聽相關欄位變化（只監聽 change 事件，移除 input 事件）
-    const fieldsToMonitor = [
-        'enrollDate', 'subjectCode', 'gender', 'birthDate', 'age', 
-        'measureDate', 'height', 'weight', 'bmi', 'biochemDate', 
-        'creatinine', 'egfr', 'ph', 'sg', 'rbc', 'bacteriuria', 
-        'urineDate', 'urinalysisDate', 'dm', 'gout', 'imgType', 
-        'imgDate', 'stone'
-    ];
+    const fieldsToMonitor = EDCConstants.FIELDS_TO_MONITOR;
     
     fieldsToMonitor.forEach(fieldId => {
         const field = document.getElementById(fieldId);
@@ -40,6 +35,10 @@ function setupInclusionCriteriaMonitoring() {
             }
             // 自動處理懷孕女性選項
             updatePregnantFemaleSelection();
+            // 性別變化時重新計算eGFR
+            if (typeof calculateEGFR === 'function') {
+                calculateEGFR();
+            }
         });
     });
     
@@ -81,25 +80,21 @@ function setupInclusionCriteriaMonitoring() {
     });
     
     // 監聽排除條件選擇
-    const exclusionFields = [
-        'pregnantFemale', 'kidneyTransplant', 'urinaryForeignBody', 
-        'urinarySystemLesion', 'renalReplacementTherapy', 'missingData', 
-        'hematologicalDisease', 'rareMetabolicDisease', 'piJudgment'
-    ];
+    const exclusionFields = EDCConstants.EXCLUSION_FIELDS;
     
     exclusionFields.forEach(fieldName => {
         const radios = document.querySelectorAll(`input[name="${fieldName}"]`);
         radios.forEach(radio => {
             radio.addEventListener('change', () => {
-                // 排除條件變化時，只更新 UI 顯示，不觸發驗證
                 toggleExclusionDetails();
+                updateExclusionCriteria();
             });
         });
     });
     
-    // 不在初始化時自動檢查條件，等待用戶開始填寫資料
-    // updateInclusionCriteria();
-    // updateExclusionCriteria();
+    toggleExclusionDetails();
+    updateInclusionCriteria();
+    updateExclusionCriteria();
 }
 
 // 更新納入條件
@@ -195,25 +190,18 @@ function updateInclusionCriteria() {
 // 更新排除條件
 function updateExclusionCriteria() {
     // 病歷資料缺失自動判斷
-    const missingDataRadio = document.getElementById('missingData');
-    const missingDataNoRadio = document.getElementById('missingDataNo');
+    const missingDataCheckbox = document.getElementById('missingData');
     
-    if (missingDataRadio && missingDataNoRadio) {
+    if (missingDataCheckbox) {
         // 檢查必填欄位是否完整
-        const requiredFields = [
-            'enrollDate', 'subjectCode', 'gender', 'birthDate', 'age', 
-            'measureDate', 'height', 'weight', 'bmi', 'biochemDate', 
-            'creatinine', 'egfr', 'ph', 'sg', 'rbc', 'bacteriuria', 
-            'urineDate', 'urinalysisDate', 'dm', 'gout', 'imgType', 
-            'imgDate', 'stone'
-        ];
+        const requiredFields = EDCConstants.ALL_FIELDS;
         
         let isComplete = true;
         let missingFields = [];
         
         requiredFields.forEach(fieldId => {
             // 對於radio button欄位，使用name屬性查找
-            if (['gender', 'bacteriuria', 'dm', 'gout', 'imgType', 'stone'].includes(fieldId)) {
+            if (EDCConstants.RADIO_FIELDS.includes(fieldId)) {
                 const radioGroup = document.querySelectorAll(`input[name="${fieldId}"]:checked`);
                 if (radioGroup.length === 0) {
                     isComplete = false;
@@ -269,13 +257,7 @@ function updateExclusionCriteria() {
             }
         });
         // 根據完整性自動勾選
-        if (isComplete) {
-            missingDataNoRadio.checked = true;
-        } else {
-            missingDataRadio.checked = true;
-        }
-        
-        // 直接調用 toggleExclusionDetails 而不觸發 change 事件
+        missingDataCheckbox.checked = !isComplete;
         toggleExclusionDetails();
     }
 }
@@ -286,7 +268,7 @@ function toggleTreatmentSection() {
     const treatmentSection = document.getElementById('treatmentSection');
     
     if (treatmentSection) {
-        if (noTxNoRadio && noTxNoRadio.value === 'no') {
+        if (noTxNoRadio && noTxNoRadio.value === '0') {
             treatmentSection.style.display = 'block';
         } else {
             treatmentSection.style.display = 'none';
@@ -301,7 +283,7 @@ function toggleExclusionDetails() {
     const foreignBodyTypeSection = document.getElementById('foreignBodyTypeSection');
     
     if (foreignBodyTypeSection) {
-        if (urinaryForeignBodyRadio && urinaryForeignBodyRadio.value === 'yes') {
+        if (urinaryForeignBodyRadio && urinaryForeignBodyRadio.value === '1') {
             foreignBodyTypeSection.style.display = 'block';
         } else {
             foreignBodyTypeSection.style.display = 'none';
@@ -313,7 +295,7 @@ function toggleExclusionDetails() {
     const lesionTypeSection = document.getElementById('lesionTypeSection');
     
     if (lesionTypeSection) {
-        if (urinarySystemLesionRadio && urinarySystemLesionRadio.value === 'yes') {
+        if (urinarySystemLesionRadio && urinarySystemLesionRadio.value === '1') {
             lesionTypeSection.style.display = 'block';
         } else {
             lesionTypeSection.style.display = 'none';
@@ -325,7 +307,7 @@ function toggleExclusionDetails() {
     const therapyTypeSection = document.getElementById('therapyTypeSection');
     
     if (therapyTypeSection) {
-        if (renalReplacementTherapyRadio && renalReplacementTherapyRadio.value === 'yes') {
+        if (renalReplacementTherapyRadio && renalReplacementTherapyRadio.value === '1') {
             therapyTypeSection.style.display = 'block';
         } else {
             therapyTypeSection.style.display = 'none';
@@ -337,7 +319,7 @@ function toggleExclusionDetails() {
     const hematologicalDiseaseTypeSection = document.getElementById('hematologicalDiseaseTypeSection');
     
     if (hematologicalDiseaseTypeSection) {
-        if (hematologicalDiseaseRadio && hematologicalDiseaseRadio.value === 'yes') {
+        if (hematologicalDiseaseRadio && hematologicalDiseaseRadio.value === '1') {
             hematologicalDiseaseTypeSection.style.display = 'block';
         } else {
             hematologicalDiseaseTypeSection.style.display = 'none';
@@ -349,7 +331,7 @@ function toggleExclusionDetails() {
     const metabolicDiseaseTypeSection = document.getElementById('metabolicDiseaseTypeSection');
     
     if (metabolicDiseaseTypeSection) {
-        if (rareMetabolicDiseaseRadio && rareMetabolicDiseaseRadio.value === 'yes') {
+        if (rareMetabolicDiseaseRadio && rareMetabolicDiseaseRadio.value === '1') {
             metabolicDiseaseTypeSection.style.display = 'block';
         } else {
             metabolicDiseaseTypeSection.style.display = 'none';
@@ -361,7 +343,7 @@ function toggleExclusionDetails() {
     const piJudgmentReasonSection = document.getElementById('piJudgmentReasonSection');
     
     if (piJudgmentReasonSection) {
-        if (piJudgmentRadio && piJudgmentRadio.value === 'yes') {
+        if (piJudgmentRadio && piJudgmentRadio.value === '1') {
             piJudgmentReasonSection.style.display = 'block';
         } else {
             piJudgmentReasonSection.style.display = 'none';
@@ -394,7 +376,7 @@ function setupTabNavigation() {
 
 // 驗證藥物和手術資料完整性
 function validateTreatmentData() {
-    const noTreatment = document.querySelector('input[name="noTx"]:checked')?.value === 'yes';
+    const noTreatment = document.querySelector('input[name="noTx"]:checked')?.value === '1';
     const drugList = document.getElementById('drugList');
     const surgList = document.getElementById('surgList');
     
@@ -502,7 +484,7 @@ function updatePregnantFemaleSelection() {
         
         if (selectedGender === '1') { // 男性
             // 如果是男性，自動勾選懷孕女性為"否"
-            const pregnantFemaleNoRadio = document.querySelector('input[name="pregnantFemale"][value="no"]');
+            const pregnantFemaleNoRadio = document.querySelector('input[name="pregnantFemale"][value="0"]');
             if (pregnantFemaleNoRadio) {
                 pregnantFemaleNoRadio.checked = true;
                 // 觸發 change 事件以更新相關顯示

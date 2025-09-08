@@ -419,6 +419,12 @@ const QueryManager = {
                     `• ${this.getFieldDisplayName(q.table_name, q.field_name)}: ${q.question.substring(0, 30)}...`
                 ).join('\n');
                 
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                } else {
+                    // 備用方案：直接跳轉到主頁面
+                    window.location.href = '/';
+                }
                 showSuccessMessage(`成功發起 ${queryCount} 個 Query！\n\n${queryList}`);
                 
                 // 關閉 modal
@@ -980,13 +986,17 @@ const QueryManager = {
             case 'explain':
                 this.showExplainQueryModal(batchId);
                 break;
+            case 'completed':
+                this.showCompleteQueryModal(batchId);
+                break;
             default:
                 console.error('未知的回應類型:', responseType);
         }
     },
 
     /**
-     * 顯示接受 Query 的對話框
+     * 顯示接受 Query 的確認對話框
+     * 用於確認當前數據值正確，不需要修改
      */
     showAcceptQueryModal: function(batchId) {
         const modal = `
@@ -1000,6 +1010,10 @@ const QueryManager = {
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>接受 Query：</strong>確認當前數據值正確，不需要修改
+                            </div>
                             <p>您確定要接受這個 Query 嗎？</p>
                             <div class="mb-3">
                                 <label for="acceptReason" class="form-label">接受原因（可選）:</label>
@@ -1041,6 +1055,10 @@ const QueryManager = {
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>拒絕 Query：</strong>不同意 試驗監測者 的質疑，認為 Query 本身有問題
+                            </div>
                             <p>請說明拒絕這個 Query 的原因：</p>
                             <div class="mb-3">
                                 <label for="rejectReason" class="form-label">拒絕原因 <span class="text-danger">*</span>:</label>
@@ -1081,6 +1099,10 @@ const QueryManager = {
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-edit"></i>
+                                <strong>修正 Query：</strong>承認數據錯誤，需要修改為期望值
+                            </div>
                             <p>請提供修正後的值：</p>
                             <div class="mb-3">
                                 <label for="correctedValue" class="form-label">修正後的值 <span class="text-danger">*</span>:</label>
@@ -1125,6 +1147,10 @@ const QueryManager = {
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-comment"></i>
+                                <strong>說明 Query：</strong>提供額外的文字解釋
+                            </div>
                             <p>請提供額外的說明：</p>
                             <div class="mb-3">
                                 <label for="explainText" class="form-label">說明內容 <span class="text-danger">*</span>:</label>
@@ -1151,6 +1177,52 @@ const QueryManager = {
     },
 
     /**
+     * 顯示完成 Query 的確認對話框
+     * 用於試驗監測者完成 Query
+     */
+    showCompleteQueryModal: function(batchId) {
+        const modal = `
+            <div class="modal fade" id="completeQueryModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-check-circle text-success"></i> 完成 Query
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>完成 Query：</strong>確認 Query 已處理完成
+                            </div>
+                            <p>您確定要完成這個 Query 嗎？</p>
+                            <div class="mb-3">
+                                <label for="completeReason" class="form-label">完成說明（可選）:</label>
+                                <textarea class="form-control" id="completeReason" rows="3" placeholder="請說明完成的原因..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-success" onclick="QueryManager.submitQueryResponse('${batchId}', 'completed')">
+                                <i class="fas fa-check-circle"></i> 確認完成
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 移除舊的 modal 並添加新的
+        const oldModal = document.getElementById('completeQueryModal');
+        if (oldModal) oldModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modal);
+        const modalElement = new bootstrap.Modal(document.getElementById('completeQueryModal'));
+        modalElement.show();
+    },
+
+    /**
      * 提交 Query 回應
      */
     submitQueryResponse: function(batchId, responseType) {
@@ -1162,6 +1234,15 @@ const QueryManager = {
             response_type: responseType,
             response_text: '',
             corrected_value: null
+        };
+        
+        // 映射前端按鈕類型到資料庫類型
+        const typeMapping = {
+            'accept': 'no_action',
+            'reject': 'escalation', 
+            'correct': 'correction',
+            'explain': 'clarification',
+            'completed': 'completed'
         };
         
         // 根據回應類型收集不同的資料
@@ -1191,7 +1272,13 @@ const QueryManager = {
                     return;
                 }
                 break;
+            case 'completed':
+                responseData.response_text = document.getElementById('completeReason').value || '已完成';
+                break;
         }
+        
+        // 添加資料庫映射類型
+        responseData.db_response_type = typeMapping[responseType];
         
         // 調用後端 API
         this.callRespondToQueryAPI(responseData);
@@ -1208,16 +1295,38 @@ const QueryManager = {
      * 調用後端 API 回應 Query
      */
     callRespondToQueryAPI: function(responseData) {
-        // 這裡應該調用後端 API
         console.log('回應資料:', responseData);
         
-        // 暫時顯示成功訊息
-        alert(`Query 回應已提交！\n類型: ${responseData.response_type}\n批次ID: ${responseData.batch_id}`);
-        
-        // 重新載入 Query 列表（如果 DataBrowserManager 存在）
-        if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.loadQueryList) {
-            DataBrowserManager.loadQueryList();
-        }
+        // 調用後端 API
+        fetch(`/edc/query/${responseData.batch_id}/respond`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                batch_id: responseData.batch_id,
+                response_text: responseData.response_text,
+                response_type: responseData.db_response_type, // 使用資料庫映射類型
+                corrected_value: responseData.corrected_value,
+                responded_by: window.userId || 'system'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Query 回應已提交！');
+                // 重新載入 Query 列表
+                if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.loadQueryList) {
+                    DataBrowserManager.loadQueryList();
+                }
+            } else {
+                alert('回應失敗：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('API 調用失敗:', error);
+            alert('回應失敗，請稍後再試');
+        });
     }
 
 };

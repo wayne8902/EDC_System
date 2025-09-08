@@ -57,7 +57,7 @@ const DataEntryManager = {
         const errors = [];
         
         // 檢查必填欄位
-        const requiredFields = ['enrollDate', 'subjectCode', 'birthDate', 'height', 'weight', 'biochemDate', 'egfr'];
+        const requiredFields = EDCConstants.REQUIRED_FIELDS;
         requiredFields.forEach(fieldId => {
             const field = form.querySelector(`#${fieldId}`);
             if (field && !field.value.trim()) {
@@ -81,10 +81,10 @@ const DataEntryManager = {
         }
         
         // 檢查病史選擇
-        if (!this.validateHistorySelection('dm')) {
+        if (!validateHistorySelection('dm')) {
             errors.push('請完成糖尿病病史選擇');
         }
-        if (!this.validateHistorySelection('gout')) {
+        if (!validateHistorySelection('gout')) {
             errors.push('請完成痛風病史選擇');
         }
         
@@ -95,11 +95,7 @@ const DataEntryManager = {
         }
         
         // 檢查納入條件
-        const inclusionCriteria = [
-            'age18', 'hasGender', 'hasAge', 'hasBMI', 'hasDMHistory', 'hasGoutHistory',
-            'hasEGFR', 'hasUrinePH', 'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria',
-            'labTimeWithin7', 'hasImagingData', 'imgLabWithin7'
-        ];
+        const inclusionCriteria = EDCConstants.INCLUSION_CRITERIA;
         
         inclusionCriteria.forEach(criteriaId => {
             const checkbox = form.querySelector(`#${criteriaId}`);
@@ -109,7 +105,7 @@ const DataEntryManager = {
         });
         
         // 檢查藥物和手術資料
-        const noTreatment = form.querySelector('input[name="noTx"]:checked')?.value === 'yes';
+        const noTreatment = form.querySelector('input[name="noTx"]:checked')?.value === "1";
         if (!noTreatment) {
             const medications = this.collectMedications();
             const surgeries = this.collectSurgeries();
@@ -128,35 +124,13 @@ const DataEntryManager = {
     },
     
     getFieldDisplayName(fieldId) {
-        const fieldNames = {
-            'enrollDate': '收案日期',
-            'subjectCode': '受試者代碼',
-            'birthDate': '出生日期',
-            'height': '身高',
-            'weight': '體重',
-            'biochemDate': '生化檢驗日期',
-            'egfr': 'eGFR',
-            'age18': '年齡18歲以上',
-            'hasGender': '性別資料',
-            'hasAge': '年齡資料',
-            'hasBMI': 'BMI資料',
-            'hasDMHistory': '糖尿病病史',
-            'hasGoutHistory': '痛風病史',
-            'hasEGFR': 'eGFR資料',
-            'hasUrinePH': '尿液pH資料',
-            'hasUrineSG': '尿液SG資料',
-            'hasUrineRBC': '尿液RBC counts資料',
-            'hasBacteriuria': '菌尿症資料',
-            'labTimeWithin7': '檢驗時間間隔≤7天',
-            'hasImagingData': '影像資料',
-            'imgLabWithin7': '影像與檢驗資料時間間隔≤7天'
-        };
-        return fieldNames[fieldId] || fieldId;
+        return EDCConstants.FIELD_NAMES[fieldId] || fieldId;
     },
     
     collectFormData(form) {
         const formData = {
             subject_data: {
+                enroll_date: form.querySelector('#enrollDate')?.value,
                 subject_code: form.querySelector('#subjectCode')?.value,
                 date_of_birth: form.querySelector('#birthDate')?.value,
                 age: form.querySelector('#age')?.value,
@@ -164,10 +138,13 @@ const DataEntryManager = {
                 height_cm: form.querySelector('#height')?.value,
                 weight_kg: form.querySelector('#weight')?.value,
                 bmi: form.querySelector('#bmi')?.getAttribute('data-precise-value') || form.querySelector('#bmi')?.value,
+                biochem_date: form.querySelector('#biochemDate')?.value,
                 scr: form.querySelector('#scr')?.value,
                 egfr: form.querySelector('#egfr')?.value,
+                urine_date: form.querySelector('#urineDate')?.value,
                 ph: form.querySelector('#ph')?.value,
                 sg: form.querySelector('#sg')?.value,
+                urinalysis_date: form.querySelector('#urinalysisDate')?.value,
                 rbc: form.querySelector('#rbc')?.value,
                 bac: form.querySelector('input[name="bacteriuria"]:checked')?.value,
                 dm: form.querySelector('input[name="dm"]:checked')?.value,
@@ -192,24 +169,24 @@ const DataEntryManager = {
                 bacteriuria_available: form.querySelector('#hasBacteriuria')?.checked ? 1 : 0,
                 lab_interval_7days: form.querySelector('#labTimeWithin7')?.checked ? 1 : 0,
                 imaging_available: form.querySelector('#hasImagingData')?.checked ? 1 : 0,
-                kidney_structure_visible: form.querySelector('input[name="visKidney"]:checked')?.value === 'yes' ? 1 : 0,
-                mid_ureter_visible: form.querySelector('input[name="visMidUreter"]:checked')?.value === 'yes' ? 1 : 0,
-                lower_ureter_visible: form.querySelector('input[name="visLowerUreter"]:checked')?.value === 'yes' ? 1 : 0,
+                kidney_structure_visible: form.querySelector('input[name="visKidney"]:checked')?.value === '1' ? 1 : 0,
+                mid_ureter_visible: form.querySelector('input[name="visMidUreter"]:checked')?.value === '1' ? 1 : 0,
+                lower_ureter_visible: form.querySelector('input[name="visLowerUreter"]:checked')?.value === '1' ? 1 : 0,
                 imaging_lab_interval_7days: form.querySelector('#imgLabWithin7')?.checked ? 1 : 0,
-                no_treatment_during_exam: form.querySelector('input[name="noTx"]:checked')?.value === 'yes' ? 1 : 0,
+                no_treatment_during_exam: form.querySelector('input[name="noTx"]:checked')?.value === '1' ? 1 : 0,
                 medications: this.collectMedications(),
                 surgeries: this.collectSurgeries()
             },
             exclusion_data: {
-                pregnant_female: form.querySelector('input[name="pregnantFemale"]:checked')?.value === 'yes' ? 1 : 0,
-                kidney_transplant: form.querySelector('input[name="kidneyTransplant"]:checked')?.value === 'yes' ? 1 : 0,
-                urinary_tract_foreign_body: form.querySelector('input[name="urinaryForeignBody"]:checked')?.value === 'yes' ? 1 : 0,
-                non_stone_urological_disease: form.querySelector('input[name="urinarySystemLesion"]:checked')?.value === 'yes' ? 1 : 0,
-                renal_replacement_therapy: form.querySelector('input[name="renalReplacementTherapy"]:checked')?.value === 'yes' ? 1 : 0,
-                medical_record_incomplete: form.querySelector('input[name="missingData"]:checked')?.value === 'yes' ? 1 : 0,
-                major_blood_immune_cancer: form.querySelector('input[name="hematologicalDisease"]:checked')?.value === 'yes' ? 1 : 0,
-                rare_metabolic_disease: form.querySelector('input[name="rareMetabolicDisease"]:checked')?.value === 'yes' ? 1 : 0,
-                investigator_judgment: form.querySelector('input[name="piJudgment"]:checked')?.value === 'yes' ? 1 : 0,
+                pregnant_female: form.querySelector('input[name="pregnantFemale"]:checked')?.value === '1' ? 1 : 0,
+                kidney_transplant: form.querySelector('input[name="kidneyTransplant"]:checked')?.value === '1' ? 1 : 0,
+                urinary_tract_foreign_body: form.querySelector('input[name="urinaryForeignBody"]:checked')?.value === '1' ? 1 : 0,
+                non_stone_urological_disease: form.querySelector('input[name="urinarySystemLesion"]:checked')?.value === '1' ? 1 : 0,
+                renal_replacement_therapy: form.querySelector('input[name="renalReplacementTherapy"]:checked')?.value === '1' ? 1 : 0,
+                medical_record_incomplete: form.querySelector('#missingData')?.checked ? 1 : 0,
+                major_blood_immune_cancer: form.querySelector('input[name="hematologicalDisease"]:checked')?.value === '1' ? 1 : 0,
+                rare_metabolic_disease: form.querySelector('input[name="rareMetabolicDisease"]:checked')?.value === '1' ? 1 : 0,
+                investigator_judgment: form.querySelector('input[name="piJudgment"]:checked')?.value === '1' ? 1 : 0,
                 judgment_reason: form.querySelector('#piJudgmentReason')?.value || ''
             }
         };
@@ -218,7 +195,7 @@ const DataEntryManager = {
     },
     
     collectMedications() {
-        const noTreatment = document.querySelector('input[name="noTx"]:checked')?.value === 'yes';
+        const noTreatment = document.querySelector('input[name="noTx"]:checked')?.value === '1';
         
         if (noTreatment) {
             return [];
@@ -245,7 +222,7 @@ const DataEntryManager = {
     },
     
     collectSurgeries() {
-        const noTreatment = document.querySelector('input[name="noTx"]:checked')?.value === 'yes';
+        const noTreatment = document.querySelector('input[name="noTx"]:checked')?.value === '1';
         
         if (noTreatment) {
             return [];
@@ -430,9 +407,9 @@ function setupFormValidation() {
     }
     
     // 肌酸酐輸入時自動計算eGFR
-    const creatinineInput = document.getElementById('creatinine');
-    if (creatinineInput) {
-        creatinineInput.addEventListener('input', calculateEGFR);
+    const scrInput = document.getElementById('scr');
+    if (scrInput) {
+        scrInput.addEventListener('input', calculateEGFR);
     }
     
     // 病史選擇事件監聽器
@@ -715,10 +692,10 @@ function fillDebugValues() {
     }
     
     // 選擇影像可見性（是）
-    const visKidneyYesRadio = document.querySelector('input[name="visKidney"][value="yes"]');
-    const visMidUreterYesRadio = document.querySelector('input[name="visMidUreter"][value="yes"]');
-    const visLowerUreterYesRadio = document.querySelector('input[name="visLowerUreter"][value="yes"]');
-    const noTxYesRadio = document.querySelector('input[name="noTx"][value="yes"]');
+    const visKidneyYesRadio = document.querySelector('input[name="visKidney"][value="1"]');
+    const visMidUreterYesRadio = document.querySelector('input[name="visMidUreter"][value="1"]');
+    const visLowerUreterYesRadio = document.querySelector('input[name="visLowerUreter"][value="1"]');
+    const noTxYesRadio = document.querySelector('input[name="noTx"][value="1"]');
     
     if (visKidneyYesRadio) visKidneyYesRadio.checked = true;
     if (visMidUreterYesRadio) visMidUreterYesRadio.checked = true;
@@ -726,11 +703,7 @@ function fillDebugValues() {
     if (noTxYesRadio) noTxYesRadio.checked = true;
     
     // 納入條件全部勾選（全部為1）
-    const inclusionCheckboxes = [
-        'age18', 'hasGender', 'hasAge', 'hasBMI', 'hasDMHistory', 'hasGoutHistory',
-        'hasEGFR', 'hasUrinePH', 'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria',
-        'labTimeWithin7', 'hasImagingData', 'imgLabWithin7'
-    ];
+    const inclusionCheckboxes = EDCConstants.INCLUSION_CRITERIA;
     
     inclusionCheckboxes.forEach(id => {
         const checkbox = document.getElementById(id);
@@ -740,14 +713,10 @@ function fillDebugValues() {
     });
     
     // 排除條件全部選擇"否"
-    const exclusionRadios = [
-        'pregnantFemale', 'kidneyTransplant', 'urinaryForeignBody', 
-        'urinarySystemLesion', 'renalReplacementTherapy', 'hematologicalDisease',
-        'rareMetabolicDisease', 'piJudgment'
-    ];
+    const exclusionRadios = EDCConstants.EXCLUSION_FIELDS;
     
     exclusionRadios.forEach(name => {
-        const radio = document.querySelector(`input[name="${name}"][value="no"]`);
+        const radio = document.querySelector(`input[name="${name}"][value="0"]`);
         if (radio) {
             radio.checked = true;
         }
@@ -759,7 +728,8 @@ function fillDebugValues() {
 // 提交表單
 async function submitForm() {
     if (validateAllFields()) {
-        const formData = collectFormData();
+        const form = document.querySelector('form') || document;
+        const formData = DataEntryManager.collectFormData(form);
         
         try {
             // 顯示載入狀態
@@ -804,10 +774,10 @@ async function submitForm() {
             alert(`請完成以下必填檢核項目：\n\n${errorMessages.join('\n')}`);
         } else if (hasUserStartedFillingForm()) {
             // 只有在用戶開始填寫資料後才顯示"請完成所有必填檢核項目"的訊息
-            alert('請完成所有必填檢核項目！');
+            showErrorMessage('請完成所有必填檢核項目！');
         } else {
             // 用戶還沒有開始填寫，顯示引導訊息
-            alert('請開始填寫表單資料！');
+            showErrorMessage('請開始填寫表單資料！');
         }
     }
 }
@@ -817,7 +787,7 @@ function collectValidationErrors() {
     const errorMessages = [];
     
     // 檢查必填欄位
-    const requiredFields = ['enrollDate', 'subjectCode', 'birthDate', 'height', 'weight', 'biochemDate', 'egfr'];
+    const requiredFields = EDCConstants.REQUIRED_FIELDS;
     requiredFields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
         if (field && !field.value.trim()) {
@@ -857,11 +827,7 @@ function collectValidationErrors() {
     // 只有在用戶開始填寫資料後才檢查納入條件
     if (hasUserStartedFillingForm()) {
         // 檢查納入條件
-        const inclusionCriteria = [
-            'age18', 'hasGender', 'hasAge', 'hasBMI', 'hasDMHistory', 'hasGoutHistory',
-            'hasEGFR', 'hasUrinePH', 'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria',
-            'labTimeWithin7', 'hasImagingData', 'imgLabWithin7'
-        ];
+        const inclusionCriteria = EDCConstants.INCLUSION_CRITERIA;
         
         inclusionCriteria.forEach(criteriaId => {
             const checkbox = document.getElementById(criteriaId);
@@ -876,29 +842,7 @@ function collectValidationErrors() {
 
 // 獲取欄位顯示名稱
 function getFieldDisplayName(fieldId) {
-    const fieldNames = {
-        'enrollDate': '個案納入日期',
-        'subjectCode': '受試者代碼',
-        'birthDate': '出生日期',
-        'height': '身高',
-        'weight': '體重',
-        'biochemDate': '生化檢驗採檢日期',
-        'egfr': 'eGFR',
-        'age18': '年齡18歲以上',
-        'hasGender': '性別',
-        'hasAge': '年齡',
-        'hasBMI': 'BMI',
-        'hasDMHistory': '糖尿病病史',
-        'hasGoutHistory': '痛風病史',
-        'hasEGFR': 'eGFR檢驗資料',
-        'hasUrinePH': '尿液pH',
-        'hasUrineSG': '尿液比重',
-        'hasUrineRBC': '尿液紅血球',
-        'hasBacteriuria': '菌尿症',
-        'labTimeWithin7': '檢驗時間間隔',
-        'hasImagingData': '影像資料',
-        'imgLabWithin7': '影像檢驗時間間隔'
-    };
+    const fieldNames = EDCConstants.FIELD_NAMES;
     
     return fieldNames[fieldId] || fieldId;
 }
@@ -933,7 +877,7 @@ function validateAllFields() {
 
 // 檢查用戶是否已經開始填寫表單
 function hasUserStartedFillingForm() {
-    const basicFields = ['enrollDate', 'subjectCode', 'birthDate', 'height', 'weight', 'biochemDate', 'egfr'];
+    const basicFields = EDCConstants.REQUIRED_FIELDS;
     const hasBasicData = basicFields.some(fieldId => {
         const field = document.getElementById(fieldId);
         return field && field.value && field.value.trim() !== '';
@@ -949,7 +893,7 @@ function hasUserStartedFillingForm() {
 
 // 驗證基本欄位
 function validateBasicFields() {
-    const requiredFields = ['enrollDate', 'subjectCode', 'birthDate', 'height', 'weight', 'biochemDate', 'egfr'];
+    const requiredFields = EDCConstants.REQUIRED_FIELDS;
     
     for (const fieldId of requiredFields) {
         const field = document.getElementById(fieldId);
@@ -976,11 +920,7 @@ function validateBasicFields() {
 
 // 驗證納入條件
 function validateInclusionCriteria() {
-    const inclusionCriteria = [
-        'age18', 'hasGender', 'hasAge', 'hasBMI', 'hasDMHistory', 'hasGoutHistory',
-        'hasEGFR', 'hasUrinePH', 'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria',
-        'labTimeWithin7', 'hasImagingData', 'imgLabWithin7'
-    ];
+    const inclusionCriteria = EDCConstants.INCLUSION_CRITERIA;
     
     for (const criteriaId of inclusionCriteria) {
         const checkbox = document.getElementById(criteriaId);
@@ -994,11 +934,7 @@ function validateInclusionCriteria() {
 
 // 驗證排除條件
 function validateExclusionCriteria() {
-    const exclusionFields = [
-        'pregnantFemale', 'kidneyTransplant', 'urinaryForeignBody', 
-        'urinarySystemLesion', 'renalReplacementTherapy', 'hematologicalDisease',
-        'rareMetabolicDisease', 'piJudgment'
-    ];
+    const exclusionFields = EDCConstants.EXCLUSION_FIELDS;
     
     for (const fieldName of exclusionFields) {
         const selected = document.querySelector(`input[name="${fieldName}"]:checked`);
@@ -1070,69 +1006,6 @@ async function generateResearcherFormHTML() {
             <button class="btn btn-primary" onclick="showResearcherForm()">重試</button> 
         </div> `; 
     }
-}
-
-// 收集表單資料
-function collectFormData() {
-    const formData = {
-        subject_data: {
-            subject_code: document.getElementById('subjectCode')?.value || '',
-            date_of_birth: document.getElementById('birthDate')?.value || '',
-            age: document.getElementById('age')?.value || '',
-            gender: document.querySelector('input[name="gender"]:checked')?.value || '',
-            height_cm: document.getElementById('height')?.value || '',
-            weight_kg: document.getElementById('weight')?.value || '',
-            bmi: document.getElementById('bmi')?.getAttribute('data-precise-value') || document.getElementById('bmi')?.value || '',
-            scr: document.getElementById('scr')?.value || '',
-            egfr: document.getElementById('egfr')?.value || '',
-            ph: document.getElementById('ph')?.value || '',
-            sg: document.getElementById('sg')?.value || '',
-            rbc: document.getElementById('rbc')?.value || '',
-            bac: document.querySelector('input[name="bacteriuria"]:checked')?.value || '',
-            dm: document.querySelector('input[name="dm"]:checked')?.value || '',
-            gout: document.querySelector('input[name="gout"]:checked')?.value || '',
-            imaging_type: document.querySelector('input[name="imgType"]:checked')?.value || '',
-            imaging_date: document.getElementById('imgDate')?.value || '',
-            kidney_stone_diagnosis: document.querySelector('input[name="stone"]:checked')?.value || '',
-            imaging_files: [],
-            imaging_report_summary: document.getElementById('imgReadingReport')?.value || ''
-        },
-        inclusion_data: {
-            age_18_above: document.getElementById('age18')?.checked ? 1 : 0,
-            gender_available: document.getElementById('hasGender')?.checked ? 1 : 0,
-            age_available: document.getElementById('hasAge')?.checked ? 1 : 0,
-            bmi_available: document.getElementById('hasBMI')?.checked ? 1 : 0,
-            dm_history_available: document.getElementById('hasDMHistory')?.checked ? 1 : 0,
-            gout_history_available: document.getElementById('hasGoutHistory')?.checked ? 1 : 0,
-            egfr_available: document.getElementById('hasEGFR')?.checked ? 1 : 0,
-            urine_ph_available: document.getElementById('hasUrinePH')?.checked ? 1 : 0,
-            urine_sg_available: document.getElementById('hasUrineSG')?.checked ? 1 : 0,
-            urine_rbc_available: document.getElementById('hasUrineRBC')?.checked ? 1 : 0,
-            bacteriuria_available: document.getElementById('hasBacteriuria')?.checked ? 1 : 0,
-            lab_interval_7days: document.getElementById('labTimeWithin7')?.checked ? 1 : 0,
-            imaging_available: document.getElementById('hasImagingData')?.checked ? 1 : 0,
-            kidney_structure_visible: document.querySelector('input[name="visKidney"]:checked')?.value === 'yes' ? 1 : 0,
-            mid_ureter_visible: document.querySelector('input[name="visMidUreter"]:checked')?.value === 'yes' ? 1 : 0,
-            lower_ureter_visible: document.querySelector('input[name="visLowerUreter"]:checked')?.value === 'yes' ? 1 : 0,
-            imaging_lab_interval_7days: document.getElementById('imgLabWithin7')?.checked ? 1 : 0,
-            no_treatment_during_exam: document.querySelector('input[name="noTx"]:checked')?.value === 'yes' ? 1 : 0,
-            medications: collectMedications(),
-            surgeries: collectSurgeries()
-        },
-        exclusion_data: {
-            pregnant_female: document.querySelector('input[name="pregnantFemale"]:checked')?.value === 'yes' ? 1 : 0,
-            kidney_transplant: document.querySelector('input[name="kidneyTransplant"]:checked')?.value === 'yes' ? 1 : 0,
-            urinary_tract_foreign_body: document.querySelector('input[name="urinaryForeignBody"]:checked')?.value === 'yes' ? 1 : 0,
-            non_stone_urological_disease: document.querySelector('input[name="urinarySystemLesion"]:checked')?.value === 'yes' ? 1 : 0,
-            renal_replacement_therapy: document.querySelector('input[name="renalReplacementTherapy"]:checked')?.value === 'yes' ? 1 : 0,
-            medical_record_incomplete: document.querySelector('input[name="missingData"]:checked')?.value === 'yes' ? 1 : 0,
-            major_blood_immune_cancer: document.querySelector('input[name="hematologicalDisease"]:checked')?.value === 'yes' ? 1 : 0,
-            rare_metabolic_disease: document.querySelector('input[name="rareMetabolicDisease"]:checked')?.value === 'yes' ? 1 : 0,
-            investigator_judgment: document.querySelector('input[name="piJudgment"]:checked')?.value === 'yes' ? 1 : 0,
-            judgment_reason: document.getElementById('piJudgmentReason')?.value || ''
-        }
-    };
-    return formData;
 }
 
 // 收集藥物資料

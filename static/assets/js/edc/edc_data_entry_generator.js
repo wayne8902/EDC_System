@@ -268,7 +268,15 @@ class FormGenerator {
         if (field.disabled) attrs.push('disabled');
         if (field.placeholder) attrs.push(`placeholder="${field.placeholder}"`);
         if (field.pattern) attrs.push(`pattern="${field.pattern}"`);
-        if (field.defaultValue) attrs.push(`value="${field.defaultValue}"`);
+        
+        // 處理 checkbox 的 checked 屬性
+        if (field.type === 'checkbox') {
+            if (field.defaultValue === true || field.defaultValue === '1' || field.defaultValue === 1) {
+                attrs.push('checked');
+            }
+        } else if (field.defaultValue) {
+            attrs.push(`value="${field.defaultValue}"`);
+        }
         
         return attrs.join(' ');
     }

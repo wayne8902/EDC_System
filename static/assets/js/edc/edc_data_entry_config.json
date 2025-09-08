@@ -488,8 +488,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工判斷，請勾選\"是\"或\"否\"",
                 "colClass": "col-9"
@@ -505,8 +505,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工判斷，請勾選\"是\"或\"否\"",
                 "colClass": "col-9"
@@ -522,8 +522,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工判斷，請勾選\"是\"或\"否\"",
                 "colClass": "col-9"
@@ -552,8 +552,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工判斷，請勾選\"是\"或\"否\"。若勾選\"否\"，請繼續選擇並填寫下列藥物及手術資訊",
                 "colClass": "col-12",
@@ -591,8 +591,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "系統會根據輸入變數自動判斷性別。若為男性，系統自動勾選\"否\"；若為女性，此欄位留空供人員人工檢核勾選",
                 "colClass": "col-9"
@@ -608,8 +608,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工勾選\"是\"或\"否\"",
                 "colClass": "col-9"
@@ -625,8 +625,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫泌尿道異物種類名稱",
                 "colClass": "col-9",
@@ -658,8 +658,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫非腎結石相關之泌尿道重大病變名稱",
                 "colClass": "col-9",
@@ -691,8 +691,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫腎臟替代治療名稱",
                 "colClass": "col-9",
@@ -720,13 +720,9 @@
             "fields": [
               {
                 "id": "missingData",
-                "label": "患者是否有病歷資料缺失或無腎結石診斷依據?",
-                "type": "radio",
+                "label": "是",
+                "type": "checkbox",
                 "disabled": true,
-                "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
-                ],
                 "hint": "系統自動判斷，此欄位為唯讀",
                 "colClass": "col-9"
               }
@@ -741,8 +737,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫重大血液、免疫或惡性腫瘤疾病名稱",
                 "colClass": "col-9",
@@ -774,8 +770,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "人工勾選\"是\"或\"否\"。若勾選\"是\"，請填寫罕見代謝性疾病名稱",
                 "colClass": "col-9",
@@ -807,8 +803,8 @@
                 "type": "radio",
                 "required": true,
                 "options": [
-                  {"value": "yes", "text": "是"},
-                  {"value": "no", "text": "否"}
+                  {"value": "1", "text": "是"},
+                  {"value": "0", "text": "否"}
                 ],
                 "hint": "經專業判斷後人工勾選\"是\"或\"否\"。若勾選\"是\"，請說明試驗主持人認定不適合納入本研究之原因",
                 "colClass": "col-9",

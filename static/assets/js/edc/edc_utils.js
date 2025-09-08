@@ -1,6 +1,121 @@
 // EDC 系統工具函數檔案
 // 包含各種通用工具函數和輔助功能
 
+// ========================================
+// EDC 系統常數定義
+// ========================================
+const EDCConstants = {
+    // 基本欄位定義
+    RADIO_FIELDS: [
+        'gender', 'bacteriuria', 'dm', 'gout', 'imgType', 'stone',
+        'visKidney', 'visMidUreter', 'visLowerUreter', 'noTx',
+        'pregnantFemale', 'kidneyTransplant', 'urinaryForeignBody', 
+        'urinarySystemLesion', 'renalReplacementTherapy', 'hematologicalDisease',
+        'rareMetabolicDisease', 'piJudgment'
+    ],
+    
+    INPUT_FIELDS: [
+        'enrollDate', 'subjectCode', 'birthDate', 'age', 
+        'measureDate', 'height', 'weight', 'bmi', 'biochemDate', 
+        'scr', 'egfr', 'ph', 'sg', 'rbc', 
+        'urineDate', 'urinalysisDate', 'imgDate'
+    ],
+    
+    // 條件欄位
+    INCLUSION_CRITERIA: [
+        'age18', 'hasGender', 'hasAge', 'hasBMI', 'hasDMHistory', 'hasGoutHistory',
+        'hasEGFR', 'hasUrinePH', 'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria',
+        'labTimeWithin7', 'hasImagingData', 'imgLabWithin7'
+    ],
+    
+    EXCLUSION_FIELDS: [
+        'pregnantFemale', 'kidneyTransplant', 'urinaryForeignBody', 
+        'urinarySystemLesion', 'renalReplacementTherapy',
+        'hematologicalDisease', 'rareMetabolicDisease', 'piJudgment'
+    ],
+    
+    // 系統自動判斷欄位（永遠不可編輯）
+    SYSTEM_AUTO_FIELDS: [
+        // 基本資料自動計算欄位
+        'age', 'bmi',
+        // 納入條件自動判斷欄位
+        'age18', 'hasGender', 'hasAge', 'hasBMI', 'hasDMHistory', 'hasGoutHistory',
+        'hasEGFR', 'hasUrinePH', 'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria', 'labTimeWithin7',
+        'hasImagingData', 'imgLabWithin7',
+        // 排除條件自動判斷欄位
+        'pregnantFemale', 'missingData'
+    ],
+    
+    // 組合欄位（自動生成）
+    get FIELDS_TO_MONITOR() {
+        return [...this.RADIO_FIELDS, ...this.INPUT_FIELDS];
+    },
+    
+    get ALL_FIELDS() {
+        return [...this.INPUT_FIELDS, ...this.RADIO_FIELDS];
+    },
+    
+    get REQUIRED_FIELDS() {
+        return ['enrollDate', 'subjectCode', 'birthDate', 'height', 'weight', 'biochemDate', 'egfr'];
+    },
+    
+    // 欄位名稱對應
+    FIELD_NAMES: {
+        'enrollDate': '個案納入日期',
+        'subjectCode': '受試者代碼',
+        'birthDate': '出生日期',
+        'gender': '性別',
+        'height': '身高',
+        'weight': '體重',
+        'biochemDate': '生化檢驗採檢日期',
+        'egfr': 'eGFR',
+        'age18': '年齡18歲以上',
+        'hasGender': '性別',
+        'hasAge': '年齡',
+        'hasBMI': 'BMI',
+        'hasDMHistory': '糖尿病病史',
+        'hasGoutHistory': '痛風病史',
+        'hasEGFR': 'eGFR檢驗資料',
+        'hasUrinePH': '尿液pH',
+        'hasUrineSG': '尿液比重',
+        'hasUrineRBC': '尿液紅血球',
+        'hasBacteriuria': '菌尿症',
+        'labTimeWithin7': '檢驗時間間隔',
+        'hasImagingData': '影像資料',
+        'imgLabWithin7': '影像檢驗時間間隔'
+    },
+    
+    // 系統自動判斷欄位相關工具函數
+    /**
+     * 檢查欄位是否為系統自動判斷欄位
+     * @param {HTMLElement} input - 輸入元素
+     * @returns {boolean} 是否為系統自動判斷欄位
+     */
+    isSystemAutoField(input) {
+        return this.SYSTEM_AUTO_FIELDS.includes(input.id) || 
+               this.SYSTEM_AUTO_FIELDS.includes(input.name) ||
+               input.placeholder?.includes('受試者編號') || 
+               input.previousElementSibling?.textContent?.includes('受試者編號') ||
+               input.placeholder?.includes('年齡') || 
+               input.placeholder?.includes('BMI') ||
+               input.previousElementSibling?.textContent?.includes('年齡') ||
+               input.previousElementSibling?.textContent?.includes('BMI');
+    },
+
+    /**
+     * 將欄位設為系統自動判斷樣式（灰色且不可編輯）
+     * @param {HTMLElement} input - 輸入元素
+     */
+    setSystemAutoFieldStyle(input) {
+        input.readOnly = true;
+        input.disabled = true;
+        input.style.backgroundColor = '#f8f9fa';
+        input.style.borderColor = '#dee2e6';
+        input.style.opacity = '0.6';
+        input.style.cursor = 'not-allowed';
+    }
+};
+
 // Cookie 管理
 function getCookie(name) {
     const value = `; ${document.cookie}`;
@@ -378,6 +493,10 @@ async function reloadPageData() {
 
         console.log('正在刷新頁面資料...', subjectCode);
         
+        // 保存當前分頁狀態
+        const currentPagination = typeof DataBrowserManager !== 'undefined' ? 
+            DataBrowserManager.pagination : null;
+        
         // 顯示載入狀態（如果 LoadingManager 可用）
         if (typeof LoadingManager !== 'undefined') {
             LoadingManager.show('正在更新資料...');
@@ -521,19 +640,29 @@ function getCurrentSubjectCode() {
     
     // 方法1: 從 URL 參數
     const urlParams = new URLSearchParams(window.location.search);
-    let subjectCode = urlParams.get('subject_code');
+    let subjectCode = urlParams.get('subjectCode') || urlParams.get('subject_code');
     if (subjectCode) {
-        console.log('從 URL 參數獲取 subject_code:', subjectCode);
+        console.log('從 URL 參數獲取 subjectCode:', subjectCode);
         return subjectCode;
     }
     
-    // 方法2: 從頁面元素
-    const subjectCodeElement = document.querySelector('[data-field="subject_code"]');
-    if (subjectCodeElement) {
-        subjectCode = subjectCodeElement.textContent.trim();
-        if (subjectCode) {
-            console.log('從頁面元素獲取 subject_code:', subjectCode);
-            return subjectCode;
+    // 方法2: 從表單中的受試者編號欄位（多種選擇器）
+    const subjectCodeSelectors = [
+        '#subjectCode',
+        'input[name="subjectCode"]',
+        'input[name="subject_code"]',
+        '[data-field="subjectCode"]',
+        '[data-field="subject_code"]'
+    ];
+    
+    for (const selector of subjectCodeSelectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+            subjectCode = element.value || element.textContent || element.getAttribute('value');
+            if (subjectCode && subjectCode.trim()) {
+                console.log(`從選擇器 ${selector} 獲取 subjectCode:`, subjectCode.trim());
+                return subjectCode.trim();
+            }
         }
     }
     
@@ -542,7 +671,7 @@ function getCurrentSubjectCode() {
         typeof DataEditorManager.getCurrentSubjectCode === 'function') {
         const managerSubjectCode = DataEditorManager.getCurrentSubjectCode();
         if (managerSubjectCode) {
-            console.log('從 DataEditorManager 獲取 subject_code:', managerSubjectCode);
+            console.log('從 DataEditorManager 獲取 subjectCode:', managerSubjectCode);
             return managerSubjectCode;
         }
     }
@@ -553,13 +682,33 @@ function getCurrentSubjectCode() {
         return window.currentSubjectCode;
     }
     
+    // 方法5: 從頁面標題或內容中提取
+    const pageTitle = document.title;
+    const subjectCodeMatch = pageTitle.match(/P[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}/);
+    if (subjectCodeMatch) {
+        console.log('從頁面標題獲取 subjectCode:', subjectCodeMatch[0]);
+        return subjectCodeMatch[0];
+    }
+    
+    // 方法6: 從頁面內容中搜尋受試者編號模式
+    const pageContent = document.body.textContent || document.body.innerText;
+    const contentMatch = pageContent.match(/P[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}/);
+    if (contentMatch) {
+        console.log('從頁面內容獲取 subjectCode:', contentMatch[0]);
+        return contentMatch[0];
+    }
+    
     // 調試信息：顯示當前頁面狀態
     console.warn('getCurrentSubjectCode 調試信息:', {
         'URL': window.location.href,
         'URL 參數': Object.fromEntries(urlParams.entries()),
-        '頁面元素 [data-field="subject_code"]': subjectCodeElement ? subjectCodeElement.textContent : '不存在',
+        '頁面標題': pageTitle,
         'DataEditorManager': typeof DataEditorManager,
-        'window.currentSubjectCode': window.currentSubjectCode
+        'window.currentSubjectCode': window.currentSubjectCode,
+        '找到的元素': subjectCodeSelectors.map(selector => {
+            const el = document.querySelector(selector);
+            return `${selector}: ${el ? (el.value || el.textContent || '存在但無值') : '不存在'}`;
+        })
     });
     
     return null;
@@ -594,6 +743,8 @@ if (typeof module !== 'undefined' && module.exports) {
         determineUserRole,
         showDefaultRole,
         setupQuickActions,
+        loadDashboardStats,
+        logout,
         reloadPageData,
         refreshPageContent,
         updateKeyElements,
@@ -601,6 +752,63 @@ if (typeof module !== 'undefined' && module.exports) {
         setupPageEvents,
         getCurrentSubjectCode
     };
+}
+
+// 儀表板統計資料載入
+async function loadDashboardStats() {
+    try {
+        // 1. 總 CRF 數量 (subjects 表中的所有記錄)
+        const totalCRFsResponse = await fetch('/edc/get-subjects-count');
+        const totalCRFsData = await totalCRFsResponse.json();
+        const totalCRFsElement = document.getElementById('totalCRFs');
+        if (totalCRFsElement) {
+            totalCRFsElement.textContent = totalCRFsData.count || '0';
+        }
+
+        // 2. 待處理 Query 數量 (queries 表中 status='pending' 的記錄)
+        const pendingQueriesResponse = await fetch('/edc/get-pending-queries-count');
+        const pendingQueriesData = await pendingQueriesResponse.json();
+        const pendingQueriesElement = document.getElementById('pendingQueries');
+        if (pendingQueriesElement) {
+            pendingQueriesElement.textContent = pendingQueriesData.count || '0';
+        }
+
+        // 3. 已簽署 CRF 數量 (subjects 表中 status='signed' 的記錄)
+        const signedCRFsResponse = await fetch('/edc/get-signed-crfs-count');
+        const signedCRFsData = await signedCRFsResponse.json();
+        const signedCRFsElement = document.getElementById('signedCRFs');
+        if (signedCRFsElement) {
+            signedCRFsElement.textContent = signedCRFsData.count || '0';
+        }
+
+        // 4. 活躍使用者數量 (user 表中有登入記錄的使用者)
+        const activeUsersResponse = await fetch('/edc/get-active-users-count');
+        const activeUsersData = await activeUsersResponse.json();
+        const activeUsersElement = document.getElementById('activeUsers');
+        if (activeUsersElement) {
+            activeUsersElement.textContent = activeUsersData.count || '0';
+        }
+
+    } catch (error) {
+        console.error('載入儀表板統計資料失敗:', error);
+        // 如果 API 失敗，顯示預設值
+        const totalCRFsElement = document.getElementById('totalCRFs');
+        const pendingQueriesElement = document.getElementById('pendingQueries');
+        const signedCRFsElement = document.getElementById('signedCRFs');
+        const activeUsersElement = document.getElementById('activeUsers');
+        
+        if (totalCRFsElement) totalCRFsElement.textContent = '0';
+        if (pendingQueriesElement) pendingQueriesElement.textContent = '0';
+        if (signedCRFsElement) signedCRFsElement.textContent = '0';
+        if (activeUsersElement) activeUsersElement.textContent = '0';
+    }
+}
+
+// 登出功能
+function logout() {
+    if (confirm('確定要登出嗎？')) {
+        window.location.href = '/login/logout';
+    }
 }
 
 // 瀏覽器環境全域匯出
@@ -632,6 +840,8 @@ if (typeof window !== 'undefined') {
     window.determineUserRole = determineUserRole;
     window.showDefaultRole = showDefaultRole;
     window.setupQuickActions = setupQuickActions;
+    window.loadDashboardStats = loadDashboardStats;
+    window.logout = logout;
     
     // 匯出頁面刷新相關函數到全域
     window.reloadPageData = reloadPageData;
@@ -640,4 +850,7 @@ if (typeof window !== 'undefined') {
     window.updateButtonStates = updateButtonStates;
     window.setupPageEvents = setupPageEvents;
     window.getCurrentSubjectCode = getCurrentSubjectCode;
+    
+    // 匯出 EDC 常數到全域
+    window.EDCConstants = EDCConstants;
 }

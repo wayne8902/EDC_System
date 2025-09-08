@@ -149,15 +149,58 @@ class DataBrowserGenerator {
                         </div>
                     </div>
                 </section>
+
+                <!-- 分頁導航 -->
+                ${this.generateTabNavigation(config.tabs)}
                 
-                <!-- 主要資料區域 -->
-                <div class="grid">
-                    <div class="col-12">
-                        ${this.generateSections(config.sections, data, styles)}
-                    </div>
-                </div>
+                <!-- 分頁內容 -->
+                ${this.generateTabContents(config.tabs, config.sections, data, styles)}
             </div>
         `;
+    }
+
+    /**
+     * 生成分頁導航
+     */
+    generateTabNavigation(tabs) {
+        if (!tabs || tabs.length === 0) return '';
+        
+        return `
+            <div class="tab-navigation col-12">
+                ${tabs.map(tab => 
+                    `<button class="tab-btn ${tab.active ? 'active' : ''}" data-tab="${tab.id}">${tab.title}</button>`
+                ).join('')}
+            </div>
+        `;
+    }
+
+    /**
+     * 生成分頁內容
+     */
+    generateTabContents(tabs, sections, data, styles) {
+        if (!tabs || tabs.length === 0) {
+            // 如果沒有分頁配置，使用原來的生成方式
+            return `
+                <div class="grid">
+                    <div class="col-12">
+                        ${this.generateSections(sections, data, styles)}
+                    </div>
+                </div>
+            `;
+        }
+
+        return tabs.map(tab => {
+            const tabSections = sections.filter(section => section.tab === tab.id);
+            return `
+                <div id="${tab.id}-tab" class="tab-content ${tab.active ? 'active' : ''}">
+                    <div class="grid">
+                        <div class="col-12">
+                            ${this.generateSections(tabSections, data, styles)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
     
     /**
@@ -307,12 +350,14 @@ class DataBrowserGenerator {
                 
                 // 為 radio button 添加 name 屬性，確保只能單選
                 const nameAttr = inputType === 'radio' ? `name="${field.id}"` : '';
+                const idAttr = inputType === 'radio' ? `id="${field.id}_${option.value}"` : `id="${field.id}"`;
                 
                 return `
                     <label class="radio-checkbox-option" style="display: flex; align-items: center; margin-right: 1.5rem; margin-bottom: 0.5rem;">
                         <input type="${inputType}" 
                                value="${option.value}" 
                                ${nameAttr}
+                               ${idAttr}
                                ${checkedAttr} 
                                ${disabledAttr}
                                style="margin-right: 0.5rem; opacity: 0.6; cursor: not-allowed;">
@@ -347,7 +392,7 @@ class DataBrowserGenerator {
         return `
             <div class="${field.width}">
                 <label style="font-weight: ${styles.label_font_weight}; margin-bottom: ${styles.label_margin_bottom}; display: block;">
-                    ${field.label}
+                    ${field.label}${field.required ? ' <span style="color: red;">*</span>' : ''}
                 </label>
                 <div class="options-container" style="padding: ${styles.input_padding}; border: ${styles.input_border}; border-radius: ${styles.input_border_radius}; background-color: ${styles.input_background};">
                     ${optionsHTML}
@@ -368,7 +413,7 @@ class DataBrowserGenerator {
         return `
             <div class="${field.width}">
                 <label style="font-weight: ${styles.label_font_weight}; margin-bottom: ${styles.label_margin_bottom}; display: block;">
-                    ${field.label}
+                    ${field.label}${field.required ? ' <span style="color: red;">*</span>' : ''}
                 </label>
                 <textarea readonly 
                         disabled
@@ -395,29 +440,68 @@ class DataBrowserGenerator {
     generateTextField(field, displayValue, styles) {
         const placeholder = field.placeholder || '';
         const hintHTML = field.hint ? `<small class="text-muted" style="display: block; margin-top: 0.5rem;">${field.hint}</small>` : '';
+        
+        // 根據欄位類型決定 input type
+        const inputType = field.type === 'number' ? 'number' : 
+                         field.type === 'date' ? 'date' : 'text';
+        
+        // 生成驗證屬性
+        const validationAttrs = this.buildValidationAttributes(field);
+        
+        // 預設為 readonly 模式
+        // 只有在編輯模式下才會被 DataEditorManager 改為可編輯
+        const readonlyAttr = 'readonly';
+        const disabledAttr = 'disabled';
+        
+        // 生成樣式（預設為 readonly 樣式）
+        const inputStyle = `width: 100%; padding: ${styles.input_padding}; border: ${styles.input_border}; border-radius: ${styles.input_border_radius}; background-color: ${styles.input_background}; opacity: 0.6; cursor: not-allowed;`;
 
         return `
             <div class="${field.width}">
                 <label style="font-weight: ${styles.label_font_weight}; margin-bottom: ${styles.label_margin_bottom}; display: block;">
-                    ${field.label}
+                    ${field.label}${field.required ? ' <span style="color: red;">*</span>' : ''}
                 </label>
-                <input type="text" 
+                <input type="${inputType}" 
                     id="${field.id}"
                     name="${field.id}"
                     value="${displayValue}" 
                     placeholder="${placeholder}"
-                    readonly 
-                    disabled
-                    style="width: 100%; 
-                            padding: ${styles.input_padding}; 
-                            border: ${styles.input_border}; 
-                            border-radius: ${styles.input_border_radius}; 
-                            background-color: ${styles.input_background};
-                            opacity: 0.6; 
-                            cursor: not-allowed;">
+                    ${readonlyAttr}
+                    ${disabledAttr}
+                    ${validationAttrs}
+                    style="${inputStyle}">
                 ${hintHTML}
             </div>
         `;
+    }
+    
+    /**
+     * 生成驗證屬性
+     */
+    buildValidationAttributes(field) {
+        let attrs = [];
+        
+        if (field.required) {
+            attrs.push('required');
+        }
+        
+        if (field.pattern) {
+            attrs.push(`pattern="${field.pattern}"`);
+        }
+        
+        if (field.min !== undefined) {
+            attrs.push(`min="${field.min}"`);
+        }
+        
+        if (field.max !== undefined) {
+            attrs.push(`max="${field.max}"`);
+        }
+        
+        if (field.step !== undefined) {
+            attrs.push(`step="${field.step}"`);
+        }
+        
+        return attrs.join(' ');
     }
 
     /**

@@ -298,7 +298,7 @@ const COMMON_VALIDATIONS = {
     // 實驗室檢查驗證
     labResults: {
         creatinine: ['number', 'positive', 'range:0.1,20'],
-        egfr: ['number', 'positive', 'range:5,200'],
+        egfr: ['number', 'positive', 'range:90,200'],
         hemoglobin: ['number', 'positive', 'range:5,25'],
         whiteBloodCell: ['number', 'positive', 'range:1,100'],
         platelet: ['number', 'positive', 'range:10,1000']

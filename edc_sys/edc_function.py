@@ -267,9 +267,7 @@ class edc_db:
         # finally:
         #     self.disconnect()
     
-    def respond_to_query(self, batch_id, response_text, response_type, 
-                        original_value=None, corrected_value=None, 
-                        responded_by=None, verbose=0):
+    def respond_to_query(self, batch_id, response_text, response_type, original_value=None, corrected_value=None, responded_by=None, verbose=0):
         """回應 Query
         
         Args:
@@ -288,7 +286,7 @@ class edc_db:
             self.connect()
             
             # 檢查 Query 是否存在
-            existing_query = self.sql.search('queries', ['*'], criteria=f"`batch_id`='{batch_id}'")
+            existing_query = self.sql.search('queries', ['*'], criteria=f"`batch_id`='{batch_id}'", verbose=verbose)
             if not existing_query:
                 return {
                     'success': False,
@@ -299,8 +297,30 @@ class edc_db:
             query_row = existing_query[0]
             batch_data = json.loads(query_row[3])
             
-            # 為每個 Query 創建回應記錄
+            # 根據回應類型處理不同的邏輯
             response_ids = []
+            
+            # 根據回應類型設定 Query 狀態
+            # 映射前端按鈕類型到資料庫狀態
+            type_mapping = {
+                'no_action': 'accept',      # 接受
+                'escalation': 'reject',     # 拒絕
+                'correction': 'correct',    # 修正
+                'clarification': 'explain', # 說明
+                'completed': 'completed'    # 完成
+            }
+            
+            query_status = type_mapping.get(response_type, 'accept')
+            
+            # 處理修正類型：需要更新受試者資料
+            if response_type == 'correction' and corrected_value:
+                self._update_subject_data_for_correction(batch_data, corrected_value, verbose)
+            
+            # 如果是試驗監測者回應，直接完成 Query
+            if responded_by and 'monitor' in responded_by.lower():
+                query_status = 'completed'
+            
+            # 為每個 Query 創建回應記錄
             for query in batch_data.get('queries', []):
                 columns = ['batch_id', 'field_name', 'table_name', 'original_question', 'response_text', 
                             'response_type', 'original_value', 'corrected_value', 'status', 'responded_by', 'responded_at']
@@ -323,13 +343,17 @@ class edc_db:
                     response_ids.append(response_id)
             
             # 更新 Query 狀態
-            update_data = {
-                'status': 'completed',
-                'completed_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
+            completed_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
-            self.sql.update('queries', update_data, f"`batch_id`='{batch_id}'", verbose=verbose)
+            update_set = f"`status`='{query_status}', `completed_at`='{completed_at}', `updated_at`='{updated_at}'"
+
+            
+            self.sql.update('queries', update_set, f"`batch_id`='{batch_id}'", verbose=verbose)
+            
+            # 如果是 completed 狀態，檢查是否還有其他未完成的 Query
+            if query_status == 'completed':
+                self._check_and_update_subject_status_if_all_queries_completed(batch_id, responded_by, verbose)
             
             return {
                 'success': True,
@@ -350,6 +374,162 @@ class edc_db:
             }
         finally:
             self.disconnect()
+    
+    def get_query_responses(self, batch_id, verbose=0):
+        """獲取 Query 的回應記錄
+        
+        Args:
+            batch_id: 批次ID
+            verbose: 詳細模式
+            
+        Returns:
+            回應結果字典
+        """
+        try:
+            self.connect()
+            
+            # 查詢該 batch_id 的所有回應記錄
+            responses = self.sql.search('query_responses', ['*'], 
+                                     criteria=f"`batch_id`='{batch_id}' ORDER BY `responded_at` ASC",
+                                     verbose=verbose)
+            
+            if not responses:
+                return {
+                    'success': True,
+                    'message': '無回應記錄',
+                    'data': []
+                }
+            
+            # 格式化回應資料
+            formatted_responses = []
+            for response in responses:
+                formatted_responses.append({
+                    'id': response[0],
+                    'batch_id': response[1],
+                    'field_name': response[2],
+                    'table_name': response[3],
+                    'original_question': response[4],
+                    'response_text': response[5],
+                    'response_type': response[6],
+                    'original_value': response[7],
+                    'corrected_value': response[8],
+                    'status': response[9],
+                    'responded_by': response[10],
+                    'responded_at': response[11],
+                    'attachments': response[12] if len(response) > 12 else None
+                })
+            
+            return {
+                'success': True,
+                'message': '獲取回應記錄成功',
+                'data': formatted_responses
+            }
+                
+        except Exception as e:
+            logger.error(f"獲取 Query 回應記錄失敗: {e}")
+            return {
+                'success': False,
+                'message': f'獲取回應記錄失敗: {str(e)}',
+                'error_code': 'DATABASE_ERROR'
+            }
+    
+    def _update_subject_data_for_correction(self, batch_data, corrected_value, verbose=0):
+        """為修正類型的Query更新受試者資料
+        
+        Args:
+            batch_data: Query批次資料
+            corrected_value: 修正後的值
+            verbose: 詳細模式
+        """
+        try:
+            for query in batch_data.get('queries', []):
+                table_name = query.get('table_name')
+                field_name = query.get('field_name')
+                
+                if table_name and field_name:
+                    # 更新對應的資料表
+                    update_set = f"`{field_name}`='{corrected_value}'"
+                    criteria = f"`subject_code`='{query.get('subject_code', '')}'"
+                    
+                    self.sql.update(table_name, update_set, criteria, verbose=verbose)
+                    
+                    if verbose:
+                        print(f"已更新 {table_name}.{field_name} = {corrected_value}")
+                        
+        except Exception as e:
+            logger.error(f"更新受試者資料失敗: {e}")
+            raise e
+    
+    def _check_and_update_subject_status_if_all_queries_completed(self, batch_id, responded_by=None, verbose=0):
+        """檢查受試者是否還有未完成的 Query，如果沒有則將狀態改回 draft
+        
+        Args:
+            batch_id: Query 批次 ID
+            responded_by: 回應者 ID
+            verbose: 詳細模式
+        """
+        try:
+            # 獲取該 Query 的受試者編號
+            query_info = self.sql.search('queries', ['subject_code'], 
+                                       criteria=f"`batch_id`='{batch_id}'", 
+                                       verbose=verbose)
+            
+            if not query_info:
+                if verbose:
+                    print(f"找不到 batch_id {batch_id} 的 Query 記錄")
+                return
+                
+            subject_code = query_info[0][0]
+            
+            # 檢查該受試者是否還有非 completed 狀態的 Query
+            pending_queries = self.sql.search('queries', ['batch_id'], 
+                                            criteria=f"`subject_code`='{subject_code}' AND `status` != 'completed'", 
+                                            verbose=verbose)
+            
+            if not pending_queries:
+                # 沒有未完成的 Query，將受試者狀態改回 draft
+                # 先獲取當前狀態用於日誌記錄
+                current_subject = self.sql.search('subjects', ['status'], 
+                                                criteria=f"`subject_code`='{subject_code}'", 
+                                                verbose=verbose)
+                
+                if current_subject:
+                    old_status = current_subject[0][0]
+                    
+                    # 更新受試者狀態
+                    self.sql.update('subjects', 
+                                  "`status`='draft', `updated_at`=NOW()", 
+                                  f"`subject_code`='{subject_code}'", 
+                                  verbose=verbose)
+                    
+                    # 記錄變更日誌
+                    if responded_by:
+                        log_changes = [{
+                            'table_name': 'subjects',
+                            'field_name': 'status',
+                            'old_value': old_status,
+                            'new_value': 'draft',
+                            'action': 'QUERY_COMPLETED'
+                        }]
+                        
+                        # 使用 update_logs 記錄變更
+                        self.update_logs(
+                            subject_code=subject_code,
+                            user_id=responded_by,
+                            action_type='QUERY_COMPLETED',
+                            log_changes=log_changes,
+                            verbose=verbose
+                        )
+                    
+                    if verbose:
+                        print(f"受試者 {subject_code} 的所有 Query 已完成，狀態已改回 draft")
+            else:
+                if verbose:
+                    print(f"受試者 {subject_code} 還有 {len(pending_queries)} 個未完成的 Query")
+                    
+        except Exception as e:
+            logger.error(f"檢查受試者 Query 狀態失敗: {e}")
+            # 不拋出異常，避免影響主要的 Query 回應流程
     
     # ==================== 輔助工具方法 ====================
     
@@ -1045,6 +1225,7 @@ class edc_db:
             驗證結果字典
         """
         errors = []
+        print("data: ", data)
         
         # 必填欄位檢查
         required_fields = ['subject_code', 'date_of_birth', 'gender']
@@ -1053,11 +1234,21 @@ class edc_db:
                 errors.append(f'缺少必填欄位: {field}')
         
         # 日期格式驗證
-        try:
-            if data.get('date_of_birth'):
-                datetime.strptime(data['date_of_birth'], '%Y-%m-%d')
-        except ValueError:
-            errors.append('出生日期格式錯誤')
+        date_fields = [
+            ('date_of_birth', '出生日期'),
+            ('enroll_date', '個案納入日期'),
+            ('biochem_date', '生化檢驗採檢日期'),
+            ('urine_date', '尿液檢驗採檢日期'),
+            ('urinalysis_date', '尿液鏡檢採檢日期'),
+            ('imaging_date', '影像檢查日期')
+        ]
+        
+        for field, label in date_fields:
+            try:
+                if data.get(field):
+                    datetime.strptime(data[field], '%Y-%m-%d')
+            except ValueError:
+                errors.append(f'{label}格式錯誤')
         
         # 數值範圍驗證
         try:
@@ -1951,7 +2142,7 @@ class edc_db:
                 subject_data['imaging_type_display'] = subject_data['imaging_type'] or '未指定'
             
             # 格式化日期欄位
-            date_fields = ['date_of_birth', 'imaging_date', 'created_at', 'updated_at']
+            date_fields = ['date_of_birth', 'imaging_date', 'enroll_date', 'biochem_date', 'urine_date', 'urinalysis_date', 'created_at', 'updated_at']
             for field in date_fields:
                 if field in subject_data and subject_data[field]:
                     # 如果日期是字串格式，嘗試格式化

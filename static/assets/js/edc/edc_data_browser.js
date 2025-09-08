@@ -115,11 +115,190 @@ const DataBrowserManager = {
     },
 
     /**
+     * 檢查是否可以回應 Query
+     * @param {Object} subject - 受試者資料對象
+     * @returns {boolean} - 是否可以回應 Query
+     */
+    canRespondToQuery(subject = null) {
+        if (!this.hasPermission('edc.query.response')) {
+            return false;
+        }
+        if (subject) {
+            const currentUserId = this.getCurrentUserId();
+            return subject.created_by === currentUserId;
+        }
+        
+        return true;
+    },
+
+    /**
+     * 檢查是否可以完成 Query
+     * @param {Object} subject - 受試者資料對象
+     * @returns {boolean} - 是否可以完成 Query
+     */
+    canCompleteQuery(query = null) {
+        if (!this.hasPermission('edc.query.create')) {
+            return false;
+        }
+        if (query) {
+            const currentUserId = this.getCurrentUserId();
+            return query.created_by === currentUserId;
+        }
+        
+        return true;
+    },
+
+    /**
+     * 取得回應類型的中文文字
+     * @param {string} responseType - 回應類型
+     * @returns {string} - 中文文字
+     */
+    getResponseTypeText(responseType) {
+        const typeMap = {
+            'clarification': '說明',
+            'correction': '修正',
+            'no_action': '接受',
+            'escalation': '拒絕'
+        };
+        return typeMap[responseType] || responseType;
+    },
+
+    /**
+     * 取得回應類型的顏色
+     * @param {string} responseType - 回應類型
+     * @returns {string} - 顏色代碼
+     */
+    getResponseTypeColor(responseType) {
+        const colorMap = {
+            'clarification': '#17a2b8', // 藍色
+            'correction': '#ffc107',    // 黃色
+            'no_action': '#28a745',     // 綠色
+            'escalation': '#dc3545'     // 紅色
+        };
+        return colorMap[responseType] || '#6c757d';
+    },
+
+    /**
+     * 取得回應狀態的中文文字
+     * @param {string} status - 狀態
+     * @returns {string} - 中文文字
+     */
+    getResponseStatusText(status) {
+        const statusMap = {
+            'open': '開啟',
+            'responded': '已回應',
+            'resolved': '已解決',
+            'closed': '已關閉'
+        };
+        return statusMap[status] || status;
+    },
+
+    /**
+     * 載入 Query 的回應資料
+     * @param {string} batchId - 批次ID
+     * @returns {Promise<Array>} - 回應資料陣列
+     */
+    async loadQueryResponses(batchId) {
+        try {
+            const response = await fetch(`/edc/query/${batchId}/responses`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                return result.data || [];
+            } else {
+                console.error('載入回應資料失敗:', result.message);
+                return [];
+            }
+        } catch (error) {
+            console.error('載入回應資料時發生錯誤:', error);
+            return [];
+        }
+    },
+
+    /**
+     * 驗證詳細資料表單
+     * @param {HTMLElement} form - 表單元素
+     * @returns {boolean} - 驗證是否通過
+     */
+    validateDetailForm(form) {
+        // 直接重用新增資料的驗證邏輯
+        if (typeof DataEntryManager !== 'undefined' && DataEntryManager.validateForm) {
+            const isValid = DataEntryManager.validateForm(form);
+            if (!isValid) {
+                return false;  // 驗證失敗，直接返回 false
+            }
+        }
+        return true;
+    },
+
+    /**
+     * 顯示驗證錯誤
+     * @param {Array} errors - 錯誤訊息陣列
+     */
+    showValidationErrors(errors) {
+        const errorMessage = errors.join('\n');
+        alert('表單驗證失敗：\n' + errorMessage);
+    },
+
+    /**
+     * 驗證單一欄位
+     * @param {HTMLElement} field - 欄位元素
+     */
+    validateField(field) {
+        // 移除之前的錯誤樣式
+        field.classList.remove('is-invalid');
+        
+        // 基本驗證
+        if (field.hasAttribute('required') && !field.value.trim()) {
+            field.classList.add('is-invalid');
+            return false;
+        }
+        
+        // 格式驗證
+        if (field.hasAttribute('pattern')) {
+            const pattern = new RegExp(field.getAttribute('pattern'));
+            if (field.value && !pattern.test(field.value)) {
+                field.classList.add('is-invalid');
+                return false;
+            }
+        }
+        
+        // 數值範圍驗證
+        if (field.type === 'number') {
+            const min = field.getAttribute('min');
+            const max = field.getAttribute('max');
+            const value = parseFloat(field.value);
+            
+            if (field.value && !isNaN(value)) {
+                if (min && value < parseFloat(min)) {
+                    field.classList.add('is-invalid');
+                    return false;
+                }
+                if (max && value > parseFloat(max)) {
+                    field.classList.add('is-invalid');
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    },
+
+    /**
      * 獲取當前使用者 ID
      * @returns {string} - 當前使用者 ID
      */
     getCurrentUserId() {
-        return getCookie('unique_id') || '未知ID';
+        return getCookie('unique_id');
     },
 
     /**
@@ -160,10 +339,16 @@ const DataBrowserManager = {
         switch (status) {
             case 'pending':
                 return 'badge-warning';
-            case 'responded':
+            case 'accept':
                 return 'badge-success';
-            case 'closed':
-                return 'badge-secondary';
+            case 'reject':
+                return 'badge-danger';
+            case 'correct':
+                return 'badge-warning';
+            case 'explain':
+                return 'badge-info';
+            case 'completed':
+                return 'badge-primary';
             default:
                 return 'badge-light';
         }
@@ -178,10 +363,16 @@ const DataBrowserManager = {
         switch (status) {
             case 'pending':
                 return '待回應';
-            case 'responded':
-                return '已回應';
-            case 'closed':
-                return '已關閉';
+            case 'accept':
+                return '已接受';
+            case 'reject':
+                return '已拒絕';
+            case 'correct':
+                return '已修正';
+            case 'explain':
+                return '已說明';
+            case 'completed':
+                return '已完成';
             default:
                 return '未知';
         }
@@ -225,6 +416,7 @@ const DataBrowserManager = {
     init() {
         this.setupEventListeners();
         this.setupFilters();
+        this.setupFilterControls();
         this.loadInitialData();
 
         // 初始化資料編輯器
@@ -322,6 +514,7 @@ const DataBrowserManager = {
 
         // 下拉選單篩選器
         const genderSelect = document.getElementById('genderFilter');
+        const statusSelect = document.getElementById('statusFilter');
         const imagingTypeSelect = document.getElementById('imagingTypeFilter');
         const stoneDiagnosisSelect = document.getElementById('stoneDiagnosisFilter');
         const dmSelect = document.getElementById('dmFilter');
@@ -329,11 +522,54 @@ const DataBrowserManager = {
         const bacSelect = document.getElementById('bacFilter');
 
         if (genderSelect) genderSelect.addEventListener('change', () => this.updateFilters());
+        if (statusSelect) statusSelect.addEventListener('change', () => this.updateFilters());
         if (imagingTypeSelect) imagingTypeSelect.addEventListener('change', () => this.updateFilters());
         if (stoneDiagnosisSelect) stoneDiagnosisSelect.addEventListener('change', () => this.updateFilters());
         if (dmSelect) dmSelect.addEventListener('change', () => this.updateFilters());
         if (goutSelect) goutSelect.addEventListener('change', () => this.updateFilters());
         if (bacSelect) bacSelect.addEventListener('change', () => this.updateFilters());
+
+        // 文字輸入篩選器
+        const subjectCodeInput = document.getElementById('subjectCodeFilter');
+        const createdByInput = document.getElementById('createdByFilter');
+
+        if (subjectCodeInput) subjectCodeInput.addEventListener('input', () => this.updateFilters());
+        if (createdByInput) createdByInput.addEventListener('input', () => this.updateFilters());
+    },
+
+    /**
+     * 設置篩選器控制功能
+     */
+    setupFilterControls() {
+        // 進階篩選器摺疊功能
+        const toggleBtn = document.getElementById('toggleAdvancedFilters');
+        const advancedFilters = document.getElementById('advancedFilters');
+        
+        if (toggleBtn && advancedFilters) {
+            toggleBtn.addEventListener('click', () => {
+                const isHidden = advancedFilters.style.display === 'none' || advancedFilters.style.display === '';
+                advancedFilters.style.display = isHidden ? 'block' : 'none';
+                
+                const icon = toggleBtn.querySelector('i');
+                if (icon) {
+                    icon.className = isHidden ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+                }
+                
+                toggleBtn.textContent = isHidden ? ' 隱藏進階篩選' : ' 進階篩選';
+            });
+        }
+
+        // 即時搜尋功能
+        const filterInputs = document.querySelectorAll('.filter-input, .filter-select');
+        filterInputs.forEach(input => {
+            input.addEventListener('input', () => {
+                // 延遲搜尋，避免頻繁請求
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    this.searchData();
+                }, 500);
+            });
+        });
     },
 
     /**
@@ -374,6 +610,18 @@ const DataBrowserManager = {
         const genderSelect = document.getElementById('genderFilter');
         if (genderSelect && genderSelect.value !== '') {
             this.currentFilters.gender = parseInt(genderSelect.value);
+        }
+
+        // 狀態
+        const statusSelect = document.getElementById('statusFilter');
+        if (statusSelect && statusSelect.value !== '') {
+            this.currentFilters.status = statusSelect.value;
+        }
+
+        // 建立者
+        const createdByInput = document.getElementById('createdByFilter');
+        if (createdByInput && createdByInput.value.trim()) {
+            this.currentFilters.created_by = createdByInput.value.trim();
         }
 
         // 年齡範圍
@@ -506,7 +754,7 @@ const DataBrowserManager = {
 
         if (this.currentData.length === 0) {
             const noDataRow = document.createElement('tr');
-            noDataRow.innerHTML = '<td colspan="20" class="text-center">沒有找到符合條件的資料</td>';
+            noDataRow.innerHTML = '<td colspan="6" class="text-center">沒有找到符合條件的資料</td>';
             tableBody.appendChild(noDataRow);
             return;
         }
@@ -515,25 +763,15 @@ const DataBrowserManager = {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${subject.subject_code || ''}</td>
-                <td>${subject.date_of_birth || ''}</td>
                 <td>${subject.age || ''}</td>
                 <td>${subject.gender === 1 ? '男' : '女'}</td>
-                <td>${subject.height_cm || ''}</td>
-                <td>${subject.weight_kg || ''}</td>
-                <td>${subject.bmi || ''}</td>
-                <td>${subject.scr || ''}</td>
-                <td>${subject.egfr || ''}</td>
-                <td>${subject.ph || ''}</td>
-                <td>${subject.sg || ''}</td>
-                <td>${subject.rbc || ''}</td>
-                <td>${subject.bac === 1 ? '有' : '無'}</td>
-                <td>${subject.dm === 1 ? '有' : '無'}</td>
-                <td>${subject.gout === 1 ? '有' : '無'}</td>
-                <td>${subject.imaging_type || ''}</td>
-                <td>${subject.imaging_date || ''}</td>
-                <td>${subject.kidney_stone_diagnosis === 1 ? '是' : '否'}</td>
-                <td>${subject.status || ''}</td>
                 <td>${subject.created_at || ''}</td>
+                <td>${subject.created_by || ''}</td>
+                <td>
+                    <span class="status-badge status-${subject.status || 'draft'}">
+                        ${subject.status || 'draft'}
+                    </span>
+                </td>
                 <td>
                     <button class="btn-ghost" onclick="DataBrowserManager.viewDetails('${subject.subject_code}')">
                         詳細資料
@@ -805,6 +1043,9 @@ const DataBrowserManager = {
             // 替換主內容區域
             mainContent.innerHTML = detailPage;
 
+            // 初始化頁籤切換功能
+            this.initializeTabSwitching();
+
             // 載入歷程記錄
             this.loadSubjectHistory(data.subject?.subject_code);
             
@@ -813,6 +1054,28 @@ const DataBrowserManager = {
         } catch (error) {
             console.error('創建詳細資料頁面失敗:', error);
         }
+    },
+
+    /**
+     * 初始化頁籤切換功能
+     */
+    initializeTabSwitching() {
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetTab = button.getAttribute('data-tab');
+                
+                // 移除所有 active 狀態
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // 添加 active 狀態到選中的頁籤
+                button.classList.add('active');
+                document.getElementById(`${targetTab}-tab`).classList.add('active');
+            });
+        });
     },
 
     /**
@@ -926,12 +1189,12 @@ const DataBrowserManager = {
 
         try {
             const queries = await this.loadQueries(subjectCode);
-            this.displayQuerySection(queries, false);
+            this.displayQuerySection(queries, false, subject);
         } catch (error) {
             console.error('載入 Query 區塊時發生錯誤:', error);
             // 顯示錯誤訊息給用戶
             showErrorMessage('載入 Query 失敗: ' + error.message);
-            this.displayQuerySection([], true);
+            this.displayQuerySection([], true, subject);
         }
     },
 
@@ -940,8 +1203,9 @@ const DataBrowserManager = {
      * 顯示 Query 紀錄區塊
      * @param {Array} queries - Query 列表
      * @param {boolean} hasError - 是否有載入錯誤
+     * @param {Object} subject - 受試者資料對象
      */
-    displayQuerySection(queries, hasError = false) {
+    async displayQuerySection(queries, hasError = false, subject = null) {
         const queryContainer = document.getElementById('queryRecordContent');
         if (!queryContainer) return;
 
@@ -970,12 +1234,16 @@ const DataBrowserManager = {
         // 生成 Query 記錄 HTML
         let queryHTML = '<div class="query-timeline">';
 
-        queries.forEach((query, index) => {
+        // 使用 Promise.all 來並行載入所有 Query 的回應資料
+        const queryPromises = queries.map(async (query, index) => {
             const statusClass = this.getQueryStatusClass(query.status);
             const batchData = query.batch_data || {};
             const queryList = batchData.queries || [];
             
-            queryHTML += `
+            // 載入回應資料
+            const responses = await this.loadQueryResponses(query.batch_id);
+            
+            let queryItemHTML = `
                 <div class="query-item" style="border-left: 3px solid #ffc107; padding-left: 1rem; margin-bottom: 2rem;">
                     <div class="query-header" style="margin-bottom: 1rem;">
                         <h5 style="color: #ffc107; margin-bottom: 0.5rem;">
@@ -993,7 +1261,12 @@ const DataBrowserManager = {
             `;
 
             queryList.forEach((q, qIndex) => {
-                queryHTML += `
+                // 過濾出該欄位的回應資料
+                const fieldResponses = responses.filter(response => 
+                    response.field_name === q.field_name && response.table_name === q.table_name
+                );
+                
+                queryItemHTML += `
                     <div class="change-item" style="background: #f8f9fa; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 4px;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">
                             ${this.getTableNameText(q.table_name)} - ${q.field_name}
@@ -1011,42 +1284,102 @@ const DataBrowserManager = {
                                 <span style="color: #28a745;">期望值: ${q.expected_value}</span>
                             ` : ''}
                         </div>
+                        ${fieldResponses && fieldResponses.length > 0 ? `
+                            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #dee2e6;">
+                                <div style="font-weight: 600; color: #495057; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-reply"></i> 回應記錄
+                                </div>
+                                ${fieldResponses.map(response => `
+                                    <div style="background: #ffffff; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 4px; border-left: 3px solid ${this.getResponseTypeColor(response.response_type)};">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                            <span style="font-weight: 600; color: #495057;">
+                                                ${this.getResponseTypeText(response.response_type)}
+                                            </span>
+                                            <span style="font-size: 0.8rem; color: #6c757d;">
+                                                ${response.responded_at ? new Date(response.responded_at).toLocaleString('zh-TW') : 'N/A'}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.9rem; color: #495057; margin-bottom: 0.25rem;">
+                                            <strong>回應者:</strong> ${response.responded_by || 'N/A'}
+                                        </div>
+                                        <div style="font-size: 0.9rem; color: #495057; margin-bottom: 0.25rem;">
+                                            <strong>回應內容:</strong> ${response.response_text || 'N/A'}
+                                        </div>
+                                        ${response.original_value ? `
+                                            <div style="font-size: 0.9rem; color: #6c757d; margin-bottom: 0.25rem;">
+                                                <strong>原始值:</strong> ${response.original_value}
+                                            </div>
+                                        ` : ''}
+                                        ${response.corrected_value ? `
+                                            <div style="font-size: 0.9rem; color: #28a745; margin-bottom: 0.25rem;">
+                                                <strong>修正值:</strong> ${response.corrected_value}
+                                            </div>
+                                        ` : ''}
+                                        <div style="font-size: 0.8rem; color: #6c757d;">
+                                            <strong>狀態:</strong> ${this.getResponseStatusText(response.status)}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
                     </div>
                 `;
             });
 
             // 添加回應按鈕區域
-            queryHTML += `
+            queryItemHTML += `
                     </div>
                     <div class="query-actions" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e9ecef;">
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            ${query.status === 'pending' ? `
-                                <button class="btn btn-sm btn-success" onclick="QueryManager.respondToQuery('${query.batch_id}', 'accept')" title="接受 Query">
-                                    <i class="fas fa-check"></i> 接受
+                            ${this.canCompleteQuery(query) && (query.status === 'accept' || query.status === 'reject' || query.status === 'correct' || query.status === 'explain') ? `
+                                <button class="btn btn-sm btn-primary" onclick="QueryManager.respondToQuery('${query.batch_id}', 'completed')" title="試驗監測者完成 Query">
+                                    <i class="fas fa-check"></i> 接受回應
                                 </button>
-                                <button class="btn btn-sm btn-danger" onclick="QueryManager.respondToQuery('${query.batch_id}', 'reject')" title="拒絕 Query">
-                                    <i class="fas fa-times"></i> 拒絕
-                                </button>
-                                <button class="btn btn-sm btn-warning" onclick="QueryManager.respondToQuery('${query.batch_id}', 'correct')" title="修正 Query">
-                                    <i class="fas fa-edit"></i> 修正
-                                </button>
-                                <button class="btn btn-sm btn-info" onclick="QueryManager.respondToQuery('${query.batch_id}', 'explain')" title="說明 Query">
-                                    <i class="fas fa-comment"></i> 說明
-                                </button>
+                            ` : this.canRespondToQuery(subject) ? `
+                                ${query.status === 'pending' ? `
+                                    <button class="btn btn-sm btn-success" onclick="QueryManager.respondToQuery('${query.batch_id}', 'accept')" title="接受 Query">
+                                        <i class="fas fa-check"></i> 接受
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="QueryManager.respondToQuery('${query.batch_id}', 'reject')" title="拒絕 Query">
+                                        <i class="fas fa-times"></i> 拒絕
+                                    </button>
+                                    <button class="btn btn-sm btn-warning" onclick="QueryManager.respondToQuery('${query.batch_id}', 'correct')" title="修正 Query">
+                                        <i class="fas fa-edit"></i> 修正
+                                    </button>
+                                    <button class="btn btn-sm btn-info" onclick="QueryManager.respondToQuery('${query.batch_id}', 'explain')" title="說明 Query">
+                                        <i class="fas fa-comment"></i> 說明
+                                    </button>
+                                ` : query.status === 'completed' ? `
+                                    <span class="text-success">
+                                        <i class="fas fa-check-circle"></i> 已完成
+                                    </span>
+                                ` : (query.status === 'accept' || query.status === 'reject' || query.status === 'correct' || query.status === 'explain') ? `
+                                    <span class="text-warning">
+                                        <i class="fas fa-hourglass-half"></i> 等待試驗監測者的回應
+                                    </span>
+                                ` : `
+                                    <span class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 未知狀態
+                                    </span>
+                                `}
                             ` : `
                                 <span class="text-muted">
-                                    <i class="fas fa-info-circle"></i> 
-                                    ${query.status === 'responded' ? '已回應' : 
-                                      query.status === 'resolved' ? '已解決' : 
-                                      query.status === 'closed' ? '已關閉' : '未知狀態'}
+                                    <i class="fas fa-lock"></i> 
+                                    ${!this.hasPermission('edc.query.response') ? '無權限回應 Query' : 
+                                      '只有該筆資料的建立者可以回應 Query'}
                                 </span>
                             `}
                         </div>
                     </div>
                 </div>
             `;
+            
+            return queryItemHTML;
         });
 
+        // 等待所有 Promise 完成
+        const queryItems = await Promise.all(queryPromises);
+        queryHTML += queryItems.join('');
         queryHTML += '</div>';
         queryContainer.innerHTML = queryHTML;
     },
@@ -1177,108 +1510,159 @@ function showDataBrowser() {
         <div class="wrap">
             <!-- 篩選器 -->
             <section class="card col-12 fade-in">
-                <h2><i class="fas fa-search"></i> 資料瀏覽</h2>
-                <div class="grid" id="dataBrowserFilters">
-                    <div class="col-3">
-                        <label>受試者編號</label>
-                        <input type="text" id="subjectCodeFilter" placeholder="輸入受試者編號">
+                <div class="filter-header">
+                    <h2><i class="fas fa-search"></i> 資料瀏覽</h2>
+                    <div class="filter-controls">
+                        <button class="btn-ghost btn-sm" id="toggleAdvancedFilters">
+                            <i class="fas fa-chevron-down"></i> 進階篩選
+                        </button>
                     </div>
-                    <div class="col-3">
-                        <label>性別</label>
-                        <select id="genderFilter">
-                            <option value="">全部</option>
-                            <option value="1">男</option>
-                            <option value="0">女</option>
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <label>年齡範圍</label>
-                        <div class="row">
-                            <input type="number" id="ageMin" placeholder="最小年齡">
-                            <input type="number" id="ageMax" placeholder="最大年齡">
+                </div>
+                
+                <!-- 基本篩選器 -->
+                <div class="filter-section" id="basicFilters">
+                    <div class="grid">
+                        <div class="col-8">
+                            <label>受試者編號</label>
+                            <input type="text" id="subjectCodeFilter" placeholder="輸入受試者編號" class="filter-input">
+                        </div>
+                        <div class="col-10">
+                            <label>年齡範圍</label>
+                            <div class="range-inputs">
+                                <input type="number" id="ageMin" placeholder="最小年齡" class="filter-input">
+                                <span class="range-separator">-</span>
+                                <input type="number" id="ageMax" placeholder="最大年齡" class="filter-input">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label>性別</label>
+                            <select id="genderFilter" class="filter-select">
+                                <option value="">全部</option>
+                                <option value="1">男</option>
+                                <option value="0">女</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label>狀態</label>
+                            <select id="statusFilter" class="filter-select">
+                                <option value="">全部</option>
+                                <option value="draft">草稿</option>
+                                <option value="query">查詢中</option>
+                                <option value="submitted">已提交</option>
+                                <option value="signed">已簽署</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label>建立者</label>
+                            <input type="text" id="createdByFilter" placeholder="輸入建立者" class="filter-input">
+                        </div>
+                        <div class="col-8">
+                            <label>建立日期範圍</label>
+                            <div class="date-range">
+                                <input type="date" id="dateFrom" class="filter-input">
+                                <span class="date-separator">至</span>
+                                <input type="date" id="dateTo" class="filter-input">
+                            </div>
                         </div>
                     </div>
-                    <div class="col-3">
-                        <label>BMI 範圍</label>
-                        <div class="row">
-                            <input type="number" id="bmiMin" placeholder="最小 BMI" step="0.1">
-                            <input type="number" id="bmiMax" placeholder="最大 BMI" step="0.1">
+                </div>
+
+                <!-- 進階篩選器 -->
+                <div class="filter-section advanced-filters" id="advancedFilters" style="display: none;">
+                    <div class="filter-group">
+                        <h4><i class="fas fa-user"></i> 基本資料</h4>
+                        <div class="grid">
+                            <div class="col-8">
+                                <label>BMI 範圍</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="bmiMin" placeholder="最小 BMI" step="0.1" class="filter-input">
+                                    <span class="range-separator">-</span>
+                                    <input type="number" id="bmiMax" placeholder="最大 BMI" step="0.1" class="filter-input">
+                                </div>
+                            </div>
+                            <div class="col-8">
+                                <label>血清肌酸酐範圍</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="scrMin" placeholder="最小值" step="0.01" class="filter-input">
+                                    <span class="range-separator">-</span>
+                                    <input type="number" id="scrMax" placeholder="最大值" step="0.01" class="filter-input">
+                                </div>
+                            </div>
+                            <div class="col-8">
+                                <label>eGFR 範圍</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="egfrMin" placeholder="最小值" step="0.1" class="filter-input">
+                                    <span class="range-separator">-</span>
+                                    <input type="number" id="egfrMax" placeholder="最大值" step="0.1" class="filter-input">
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-3">
-                        <label>血清肌酸酐範圍</label>
-                        <div class="row">
-                            <input type="number" id="scrMin" placeholder="最小值" step="0.01">
-                            <input type="number" id="scrMax" placeholder="最大值" step="0.01">
+
+                    <div class="filter-group">
+                        <h4><i class="fas fa-stethoscope"></i> 疾病診斷</h4>
+                        <div class="grid">
+                            <div class="col-6">
+                                <label>糖尿病</label>
+                                <select id="dmFilter" class="filter-select">
+                                    <option value="">全部</option>
+                                    <option value="1">有</option>
+                                    <option value="0">無</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label>痛風</label>
+                                <select id="goutFilter" class="filter-select">
+                                    <option value="">全部</option>
+                                    <option value="1">有</option>
+                                    <option value="0">無</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label>菌尿症</label>
+                                <select id="bacFilter" class="filter-select">
+                                    <option value="">全部</option>
+                                    <option value="1">有</option>
+                                    <option value="0">無</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label>腎結石診斷</label>
+                                <select id="stoneDiagnosisFilter" class="filter-select">
+                                    <option value="">全部</option>
+                                    <option value="1">是</option>
+                                    <option value="0">否</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-3">
-                        <label>eGFR 範圍</label>
-                        <div class="row">
-                            <input type="number" id="egfrMin" placeholder="最小值" step="0.1">
-                            <input type="number" id="egfrMax" placeholder="最大值" step="0.1">
+
+                    <div class="filter-group">
+                        <h4><i class="fas fa-x-ray"></i> 影像檢查</h4>
+                        <div class="grid">
+                            <div class="col-12">
+                                <label>影像檢查類型</label>
+                                <select id="imagingTypeFilter" class="filter-select">
+                                    <option value="">全部</option>
+                                    <option value="CT">CT</option>
+                                    <option value="PET-CT">PET-CT</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-3">
-                        <label>影像檢查類型</label>
-                        <select id="imagingTypeFilter">
-                            <option value="">全部</option>
-                            <option value="CT">CT</option>
-                            <option value="PET-CT">PET-CT</option>
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <label>腎結石診斷</label>
-                        <select id="stoneDiagnosisFilter">
-                            <option value="">全部</option>
-                            <option value="1">是</option>
-                            <option value="0">否</option>
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <label>糖尿病</label>
-                        <select id="dmFilter">
-                            <option value="">全部</option>
-                            <option value="1">有</option>
-                            <option value="0">無</option>
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <label>痛風</label>
-                        <select id="goutFilter">
-                            <option value="">全部</option>
-                            <option value="1">有</option>
-                            <option value="0">無</option>
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <label>菌尿症</label>
-                        <select id="bacFilter">
-                            <option value="">全部</option>
-                            <option value="1">有</option>
-                            <option value="0">無</option>
-                        </select>
-                    </div>
-                    <div class="col-3">
-                        <label>建立日期範圍</label>
-                        <div class="row">
-                            <input type="date" id="dateFrom">
-                            <input type="date" id="dateTo">
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="actions">
-                            <button class="btn-primary" id="dataSearchBtn">
-                                <i class="fas fa-search"></i> 搜尋
-                            </button>
-                            <button class="btn-ghost" id="dataResetBtn">
-                                <i class="fas fa-undo"></i> 重置
-                            </button>
-                            <button class="btn-ghost" id="dataExportBtn">
-                                <i class="fas fa-download"></i> 匯出
-                            </button>
-                        </div>
-                    </div>
+                </div>
+
+                <!-- 操作按鈕 -->
+                <div class="filter-actions">
+                    <button class="btn-primary" id="dataSearchBtn">
+                        <i class="fas fa-search"></i> 搜尋
+                    </button>
+                    <button class="btn-ghost" id="dataResetBtn">
+                        <i class="fas fa-undo"></i> 重置
+                    </button>
+                    <button class="btn-ghost" id="dataExportBtn">
+                        <i class="fas fa-download"></i> 匯出
+                    </button>
                 </div>
             </section>
             
@@ -1290,25 +1674,11 @@ function showDataBrowser() {
                         <thead>
                             <tr>
                                 <th class="sortable-header" data-field="subject_code">受試者編號</th>
-                                <th class="sortable-header" data-field="date_of_birth">出生日期</th>
                                 <th class="sortable-header" data-field="age">年齡</th>
                                 <th class="sortable-header" data-field="gender">性別</th>
-                                <th class="sortable-header" data-field="height_cm">身高(cm)</th>
-                                <th class="sortable-header" data-field="weight_kg">體重(kg)</th>
-                                <th class="sortable-header" data-field="bmi">BMI</th>
-                                <th class="sortable-header" data-field="scr">血清肌酸酐</th>
-                                <th class="sortable-header" data-field="egfr">eGFR</th>
-                                <th class="sortable-header" data-field="ph">尿液pH</th>
-                                <th class="sortable-header" data-field="sg">尿液比重</th>
-                                <th class="sortable-header" data-field="rbc">尿液RBC</th>
-                                <th class="sortable-header" data-field="bac">菌尿症</th>
-                                <th class="sortable-header" data-field="dm">糖尿病</th>
-                                <th class="sortable-header" data-field="gout">痛風</th>
-                                <th class="sortable-header" data-field="imaging_type">影像檢查類型</th>
-                                <th class="sortable-header" data-field="imaging_date">影像檢查日期</th>
-                                <th class="sortable-header" data-field="kidney_stone_diagnosis">腎結石診斷</th>
-                                <th class="sortable-header" data-field="status">狀態</th>
                                 <th class="sortable-header" data-field="created_at">建立時間</th>
+                                <th class="sortable-header" data-field="created_by">建立者</th>
+                                <th class="sortable-header" data-field="status">狀態</th>
                                 <th>操作</th>
                             </tr>
                         </thead>

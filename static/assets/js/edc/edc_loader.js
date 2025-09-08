@@ -11,8 +11,8 @@ const MODULE_DEPENDENCIES = {
     'edc_data_entry_generator': [],
     'edc_data_entry': ['edc_core', 'edc_utils', 'edc_calculations', 'edc_validation', 'edc_data_entry_handler', 'edc_data_entry_generator'],
     'edc_data_query': ['edc_core', 'edc_utils'],
-    'edc_data_browser': ['edc_core', 'edc_utils', 'edc_data_browser_generator', 'edc_data_editor', 'edc_data_query'],
-    'edc_data_editor': ['edc_core', 'edc_utils']
+    'edc_data_browser': ['edc_core', 'edc_utils', 'edc_calculations', 'edc_data_browser_generator', 'edc_data_editor', 'edc_data_query'],
+    'edc_data_editor': ['edc_core', 'edc_utils', 'edc_calculations']
 };
 
 // 模組載入狀態
@@ -265,7 +265,6 @@ function openSystemConfig() {
 function openDataBrowser() {
 
     if (typeof showDataBrowser === 'function') {
-
         showDataBrowser();
     } else {
         console.error('showDataBrowser 函數未找到');
@@ -349,48 +348,10 @@ function openSystemManagement() {
     showSuccessMessage('進入系統管理功能'); 
 }
 
-// 登出
-function logout() {
-    if (confirm('確定要登出嗎？')) {
-        window.location.href = '/login/logout';
-    }
-}
 
-
-// 載入儀表板統計
-function loadDashboardStats() {
-    // 這裡可以從後端 API 獲取實際統計資料
-    const totalCRFsElement = document.getElementById('totalCRFs');
-    const pendingQueriesElement = document.getElementById('pendingQueries');
-    const signedCRFsElement = document.getElementById('signedCRFs');
-    const activeUsersElement = document.getElementById('activeUsers');
-    
-    if (totalCRFsElement) totalCRFsElement.textContent = '156';
-    if (pendingQueriesElement) pendingQueriesElement.textContent = '23';
-    if (signedCRFsElement) signedCRFsElement.textContent = '89';
-    if (activeUsersElement) activeUsersElement.textContent = '12';
-}
-
-// 管理角色表單的顯示/隱藏
-function manageRoleForms() {
-    // 隱藏所有角色表單
-    if (typeof hideResearcherForm === 'function') {
-        hideResearcherForm();
-    }
-    
-    // 根據角色顯示對應表單
-    if (userRole === 'researcher') {
-        if (typeof showResearcherForm === 'function') {
-            showResearcherForm();
-        }
-    }
-    // 未來可以添加其他角色的表單控制
-}
 
 // 主要初始化函數
 async function initializeEDC() {
-
-    
     try {
         // 顯示載入進度
         const progress = showEDCLoadingProgress();
@@ -401,6 +362,7 @@ async function initializeEDC() {
         if (success) {
             progress.hide(); // 隱藏載入進度
             initializeDashboard(); // 初始化儀表板
+            openDataBrowser();
         } else {
             throw new Error('模組載入失敗');
         }
@@ -413,7 +375,6 @@ async function initializeEDC() {
 
 // 頁面載入時執行
 document.addEventListener('DOMContentLoaded', function() {
-
     initializeEDC();
 });
 
@@ -450,7 +411,4 @@ if (typeof window !== 'undefined') {
     window.openSiteVisits = openSiteVisits;
     window.openComplianceCheck = openComplianceCheck;
     window.openSystemManagement = openSystemManagement;
-    window.logout = logout;
-    window.loadDashboardStats = loadDashboardStats;
-    window.manageRoleForms = manageRoleForms;
 }

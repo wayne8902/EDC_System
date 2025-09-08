@@ -113,28 +113,120 @@ const DataEditorManager = {
         this.updateViewModeButton();
     },
     
+
     /**
      * 將欄位轉換為可編輯狀態
      */
     convertFieldsToEditable() {
         // 轉換所有文字欄位（包括不在 .options-container 內的）
-        const textInputs = document.querySelectorAll('input[type="text"], textarea');
+        const textInputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], textarea');
         textInputs.forEach(input => {
+            // 檢查是否為系統自動判斷欄位
+            if (EDCConstants.isSystemAutoField(input)) {
+                EDCConstants.setSystemAutoFieldStyle(input);
+                return;
+            }
+            
             input.readOnly = false;
             input.disabled = false;
             input.style.backgroundColor = '#ffffff';
             input.style.borderColor = '#155eef';
             input.style.opacity = '1';
             input.style.cursor = 'text';
+            
+            // 添加即時驗證事件監聽器
+            input.addEventListener('change', () => {
+                if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.validateField) {
+                    DataBrowserManager.validateField(input);
+                }
+            });
+            
+            // 添加自動計算功能
+            if (input.id === 'birthDate' || input.name === 'birthDate') {
+                // 出生日期變化時自動計算年齡
+                input.addEventListener('change', () => {
+                    if (typeof calculateAge === 'function') {
+                        calculateAge();
+                    }
+                });
+            }
+            
+            if (input.id === 'height' || input.name === 'height' || 
+                input.id === 'weight' || input.name === 'weight') {
+                // 身高體重變化時自動計算BMI
+                input.addEventListener('input', () => {
+                    if (typeof calculateBMI === 'function') {
+                        calculateBMI();
+                    }
+                });
+            }
+            
+            // 肌酸酐輸入時自動計算eGFR
+            if (input.id === 'scr' || input.name === 'scr') {
+                input.addEventListener('input', () => {
+                    if (typeof calculateEGFR === 'function') {
+                        calculateEGFR();
+                    }
+                });
+            }
+            
+            // 影像檢查類型變化時觸發納入條件更新
+            if (input.id === 'imgType' || input.name === 'imgType') {
+                input.addEventListener('change', () => {
+                    if (typeof updateInclusionCriteria === 'function') {
+                        updateInclusionCriteria();
+                    }
+                });
+            }
+            
+            // 病史選擇時觸發納入條件更新
+            if (input.id === 'dm' || input.name === 'dm' || 
+                input.id === 'gout' || input.name === 'gout') {
+                input.addEventListener('change', () => {
+                    if (typeof updateInclusionCriteria === 'function') {
+                        updateInclusionCriteria();
+                    }
+                });
+            }
         });
 
         // 轉換單選和複選欄位
         const radioCheckboxes = document.querySelectorAll('input[type="radio"], input[type="checkbox"]');
         radioCheckboxes.forEach(input => {
-            input.disabled = false;
-            // 移除唯讀樣式
-            input.style.opacity = '1';
-            input.style.cursor = 'pointer';
+            // 特殊處理：missingData 欄位保持 disabled 狀態
+            if (input.id === 'missingData') {
+                input.disabled = true;
+                input.style.opacity = '0.6';
+                input.style.cursor = 'not-allowed';
+            } else {
+                input.disabled = false;
+                // 移除唯讀樣式
+                input.style.opacity = '1';
+                input.style.cursor = 'pointer';
+            }
+            
+            // 添加事件監聽器
+            input.addEventListener('change', () => {
+                // 即時驗證
+                if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.validateField) {
+                    DataBrowserManager.validateField(input);
+                }
+                
+                // 觸發納入條件更新
+                if (typeof updateInclusionCriteria === 'function') {
+                    updateInclusionCriteria();
+                }
+                
+                // 觸發排除條件更新
+                if (typeof updateExclusionCriteria === 'function') {
+                    updateExclusionCriteria();
+                }
+                
+                // 性別變化時重新計算eGFR
+                if (input.name === 'gender' && typeof calculateEGFR === 'function') {
+                    calculateEGFR();
+                }
+            });
         });
 
         // 轉換選擇欄位
@@ -150,9 +242,9 @@ const DataEditorManager = {
      * 將欄位轉換回唯讀狀態
      */
     convertFieldsToReadOnly() {
-        // 轉換所有文字欄位（包括不在 .options-container 內的）
-        const textInputs = document.querySelectorAll('input[type="text"], textarea');
-        textInputs.forEach(input => {
+        // 轉換所有輸入欄位（包括 text, number, date, textarea）
+        const allInputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], textarea');
+        allInputs.forEach(input => {
             input.readOnly = true;
             input.disabled = true;
             input.style.backgroundColor = '#f8f9fa';
@@ -315,7 +407,13 @@ const DataEditorManager = {
      */
     async saveChanges() {
         try {
-
+            // 先進行表單驗證
+            const form = document.querySelector('.wrap');
+            if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.validateDetailForm) {
+                if (!DataBrowserManager.validateDetailForm(form)) {
+                    return; // 驗證失敗，停止儲存
+                }
+            }
             
             // 顯示載入狀態
             this.showLoadingState();
@@ -372,7 +470,12 @@ const DataEditorManager = {
                 this.switchToViewMode();
                 
                 // 重新載入頁面資料（可選）
-                this.reloadPageData();
+                await this.reloadPageData();
+                
+                // 重新初始化頁籤切換功能
+                if (typeof DataBrowserManager !== 'undefined' && typeof DataBrowserManager.initializeTabSwitching === 'function') {
+                    DataBrowserManager.initializeTabSwitching();
+                }
                 
             } else {
                 console.error('更新失敗:', result);
@@ -400,68 +503,135 @@ const DataEditorManager = {
             
             // 收集基本資料欄位
             const basicFields = [
-                'subject_code','date_of_birth', 'age', 'gender', 'height_cm', 'weight_kg', 'bmi',
-                'scr', 'egfr', 'ph', 'sg', 'rbc', 'bac', 'dm', 'gout', 'imaging_type', 'imaging_date', 
-                'kidney_stone_diagnosis', 'imaging_report_summary'
+                'enrollDate', 'subjectCode', 'birthDate', 'age', 'gender', 'height', 'weight', 'bmi',
+                'biochemDate', 'scr', 'egfr', 'urineDate', 'ph', 'sg', 'urinalysisDate', 'rbc', 'bacteriuria', 'dm', 'gout', 'imgType', 'imgDate', 
+                'stone', 'imgReport', 'imgReadingReport'
             ];
+            
+            // 基本資料欄位名稱對應 (前端 -> 後端)
+            const basicFieldMapping = {
+                'enrollDate': 'enroll_date',
+                'subjectCode': 'subject_code',
+                'birthDate': 'date_of_birth',
+                'height': 'height_cm',
+                'weight': 'weight_kg',
+                'biochemDate': 'biochem_date',
+                'urineDate': 'urine_date',
+                'urinalysisDate': 'urinalysis_date',
+                'bacteriuria': 'bac',
+                'imgType': 'imaging_type',
+                'imgDate': 'imaging_date',
+                'stone': 'kidney_stone_diagnosis',
+                'imgReport': 'imaging_files',
+                'imgReadingReport': 'imaging_report_summary'
+            };
             
             basicFields.forEach(field => {
                 const element = document.querySelector(`[name="${field}"], [id="${field}"]`);
                 if (element) {
+                    const backendField = basicFieldMapping[field] || field;
                     if (element.type === 'radio') {
                         const checkedRadio = document.querySelector(`[name="${field}"]:checked`);
-                        formData.subject_data[field] = checkedRadio ? checkedRadio.value : '';
+                        formData.subject_data[backendField] = checkedRadio ? checkedRadio.value : '';
                     } else if (element.type === 'checkbox') {
-                        formData.subject_data[field] = element.checked ? '1' : '0';
+                        formData.subject_data[backendField] = element.checked ? '1' : '0';
                     } else {
-                        formData.subject_data[field] = element.value || '';
+                        formData.subject_data[backendField] = element.value || '';
                     }
+                } else {
+                    console.warn(`找不到欄位: ${field}`);
                 }
             });
             
             // 收集納入條件欄位
             const inclusionFields = [
-                'age_18_above', 'gender_available', 'age_available', 'bmi_available',
-                'dm_history_available', 'gout_history_available', 'egfr_available',
-                'urine_ph_available', 'urine_sg_available', 'urine_rbc_available',
-                'bacteriuria_available', 'lab_interval_7days', 'imaging_available',
-                'kidney_structure_visible', 'mid_ureter_visible', 'lower_ureter_visible',
-                'imaging_lab_interval_7days', 'no_treatment_during_exam'
+                'age18', 'hasGender', 'hasAge', 'hasBMI',
+                'hasDMHistory', 'hasGoutHistory', 'hasEGFR',
+                'hasUrinePH', 'hasUrineSG', 'hasUrineRBC',
+                'hasBacteriuria', 'labTimeWithin7', 'hasImagingData',
+                'visKidney', 'visMidUreter', 'visLowerUreter',
+                'imgLabWithin7', 'noTx'
             ];
-            
+
+            // 納入條件欄位名稱對應 (前端 -> 後端)
+            const inclusionFieldMapping = {
+                'age18': 'age_18_above',
+                'hasGender': 'gender_available',
+                'hasAge': 'age_available',
+                'hasBMI': 'bmi_available',
+                'hasDMHistory': 'dm_history_available',
+                'hasGoutHistory': 'gout_history_available',
+                'hasEGFR': 'egfr_available',
+                'hasUrinePH': 'urine_ph_available',
+                'hasUrineSG': 'urine_sg_available',
+                'hasUrineRBC': 'urine_rbc_available',
+                'hasBacteriuria': 'bacteriuria_available',
+                'labTimeWithin7': 'lab_interval_7days',
+                'hasImagingData': 'imaging_available',
+                'visKidney': 'kidney_structure_visible',
+                'visMidUreter': 'mid_ureter_visible',
+                'visLowerUreter': 'lower_ureter_visible',
+                'imgLabWithin7': 'imaging_lab_interval_7days',
+                'noTx': 'no_treatment_during_exam'
+            };
+
             inclusionFields.forEach(field => {
                 const element = document.querySelector(`[name="${field}"], [id="${field}"]`);
                 if (element) {
+                    const backendField = inclusionFieldMapping[field] || field;
                     if (element.type === 'checkbox') {
-                        formData.inclusion_data[field] = element.checked ? '1' : '0';
+                        formData.inclusion_data[backendField] = element.checked ? '1' : '0';
                     } else if (element.type === 'radio') {
                         const checkedRadio = document.querySelector(`[name="${field}"]:checked`);
-                        formData.inclusion_data[field] = checkedRadio ? checkedRadio.value : '0';
+                        formData.inclusion_data[backendField] = checkedRadio ? checkedRadio.value : '';
                     } else {
-                        formData.inclusion_data[field] = element.value || '0';
+                        formData.inclusion_data[backendField] = element.value || '';
                     }
+                } else {
+                    console.warn(`找不到納入條件欄位: ${field}`);
                 }
             });
             
             // 收集排除條件欄位
-            const exclusionFields = [
-                'subject_code', 'pregnant_female', 'kidney_transplant', 'urinary_tract_foreign_body',
-                'non_stone_urological_disease', 'renal_replacement_therapy',
-                'medical_record_incomplete', 'major_blood_immune_cancer',
-                'rare_metabolic_disease', 'investigator_judgment'
-            ];
+            const exclusionFields = EDCConstants.EXCLUSION_FIELDS;
             
+            // 排除條件欄位名稱對應 (前端 -> 後端)
+            const exclusionFieldMapping = {
+                'pregnantFemale': 'pregnant_female',
+                'kidneyTransplant': 'kidney_transplant',
+                'urinaryForeignBody': 'urinary_tract_foreign_body',
+                'urinarySystemLesion': 'non_stone_urological_disease',
+                'renalReplacementTherapy': 'renal_replacement_therapy',
+                'missingData': 'medical_record_incomplete',
+                'hematologicalDisease': 'major_blood_immune_cancer',
+                'rareMetabolicDisease': 'rare_metabolic_disease',
+                'piJudgment': 'investigator_judgment'
+            };
+
             exclusionFields.forEach(field => {
                 const element = document.querySelector(`[name="${field}"], [id="${field}"]`);
                 if (element) {
+                    const backendField = exclusionFieldMapping[field] || field;
                     if (element.type === 'radio') {
                         const checkedRadio = document.querySelector(`[name="${field}"]:checked`);
-                        formData.exclusion_data[field] = checkedRadio ? checkedRadio.value : '0';
+                        formData.exclusion_data[backendField] = checkedRadio ? checkedRadio.value : '';
+                    } else if (element.type === 'checkbox') {
+                        formData.exclusion_data[backendField] = element.checked ? '1' : '0';
                     } else {
-                        formData.exclusion_data[field] = element.value || '0';
+                        formData.exclusion_data[backendField] = element.value || '';
                     }
+                } else {
+                    console.warn(`找不到排除條件欄位: ${field}`);
                 }
             });
+            
+            // 特別處理 missingData 欄位（系統自動判斷，但需要收集值）
+            const missingDataElement = document.querySelector('#missingData');
+            if (missingDataElement) {
+                formData.exclusion_data.medical_record_incomplete = missingDataElement.checked ? '1' : '0';
+            } else {
+                console.warn('找不到 missingData 欄位');
+            }
             
             // 處理藥物和手術資料（如果有）
             const medications = this.collectMedicationsData();
@@ -528,14 +698,14 @@ const DataEditorManager = {
      */
     getSubjectCode() {
         // 嘗試從頁面中獲取受試者編號
-        const subjectCodeElement = document.querySelector('[name="subject_code"], [id="subject_code"]');
+        const subjectCodeElement = document.querySelector('[name="subjectCode"], [id="subjectCode"]');
         if (subjectCodeElement) {
             return subjectCodeElement.value;
         }
         
         // 如果沒有找到，嘗試從 URL 或其他地方獲取
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('subject_code') || urlParams.get('code');
+        return urlParams.get('subjectCode') || urlParams.get('code');
     },
     
     /**
