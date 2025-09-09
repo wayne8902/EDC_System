@@ -757,36 +757,46 @@ if (typeof module !== 'undefined' && module.exports) {
 // 儀表板統計資料載入
 async function loadDashboardStats() {
     try {
-        // 1. 總 CRF 數量 (subjects 表中的所有記錄)
-        const totalCRFsResponse = await fetch('/edc/get-subjects-count');
-        const totalCRFsData = await totalCRFsResponse.json();
-        const totalCRFsElement = document.getElementById('totalCRFs');
-        if (totalCRFsElement) {
-            totalCRFsElement.textContent = totalCRFsData.count || '0';
-        }
+        // 使用統一的統計 API
+        const response = await fetch('/edc/get-dashboard-stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            const stats = data.data;
+            
+            // 1. 總 CRF 數量
+            const totalCRFsElement = document.getElementById('totalCRFs');
+            if (totalCRFsElement) {
+                totalCRFsElement.textContent = stats.total_subjects || '0';
+            }
 
-        // 2. 待處理 Query 數量 (queries 表中 status='pending' 的記錄)
-        const pendingQueriesResponse = await fetch('/edc/get-pending-queries-count');
-        const pendingQueriesData = await pendingQueriesResponse.json();
-        const pendingQueriesElement = document.getElementById('pendingQueries');
-        if (pendingQueriesElement) {
-            pendingQueriesElement.textContent = pendingQueriesData.count || '0';
-        }
+            // 2. 待處理 Query 數量
+            const pendingQueriesElement = document.getElementById('pendingQueries');
+            if (pendingQueriesElement) {
+                pendingQueriesElement.textContent = stats.pending_queries || '0';
+            }
 
-        // 3. 已簽署 CRF 數量 (subjects 表中 status='signed' 的記錄)
-        const signedCRFsResponse = await fetch('/edc/get-signed-crfs-count');
-        const signedCRFsData = await signedCRFsResponse.json();
-        const signedCRFsElement = document.getElementById('signedCRFs');
-        if (signedCRFsElement) {
-            signedCRFsElement.textContent = signedCRFsData.count || '0';
-        }
+            // 3. 已簽署 CRF 數量
+            const signedCRFsElement = document.getElementById('signedCRFs');
+            if (signedCRFsElement) {
+                signedCRFsElement.textContent = stats.signed_crfs || '0';
+            }
 
-        // 4. 活躍使用者數量 (user 表中有登入記錄的使用者)
-        const activeUsersResponse = await fetch('/edc/get-active-users-count');
-        const activeUsersData = await activeUsersResponse.json();
-        const activeUsersElement = document.getElementById('activeUsers');
-        if (activeUsersElement) {
-            activeUsersElement.textContent = activeUsersData.count || '0';
+            // 4. 活躍使用者數量
+            const activeUsersElement = document.getElementById('activeUsers');
+            if (activeUsersElement) {
+                activeUsersElement.textContent = stats.active_users || '0';
+            }
+        } else {
+            console.error('載入統計資料失敗:', data.message);
+            // 顯示預設值
+            const elements = ['totalCRFs', 'pendingQueries', 'signedCRFs', 'activeUsers'];
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = '0';
+                }
+            });
         }
 
     } catch (error) {

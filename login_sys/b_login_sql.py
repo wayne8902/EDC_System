@@ -160,8 +160,8 @@ def checklogin_post():
         privilege = fidb.verification_sql(request.cookies['session_id'],verbose=VERBOSE)
         # logging.info(privilege)
         if(privilege['state']==False): 
-
             raise Exception("You haven't login.")
+
         else:
             # logging.info("帳號已登入")
             resp = make_response(json.dumps(privilege))

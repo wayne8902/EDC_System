@@ -38,7 +38,7 @@ CREATE TABLE `config` (
 --
 
 INSERT INTO `config` (`INDEXNUMBER`, `ID`, `VALUE`) VALUES
-(1, 'column_id_subjects', 'id,enroll_date,subject_code,date_of_birth,age,gender,height_cm,weight_kg,bmi,biochem_date,scr,egfr,urine_date,ph,sg,urinalysis_date,rbc,bac,dm,gout,imaging_type,imaging_date,kidney_stone_diagnosis,imaging_files,imaging_report_summary,signature_hash,log,status,created_by,created_at,updated_by,updated_at,signed_by,signed_at'),
+(1, 'column_id_subjects', 'id,enroll_date,subject_code,date_of_birth,age,gender,height_cm,weight_kg,bmi,biochem_date,scr,egfr,urine_date,ph,sg,urinalysis_date,rbc,bac,dm,dm_date,gout,gout_date,imaging_type,imaging_date,kidney_stone_diagnosis,imaging_files,imaging_report_summary,signature_hash,log,status,created_by,created_at,updated_by,updated_at,signed_by,signed_at'),
 (2, 'column_id_inclusion_criteria', 'id,subject_code,age_18_above,gender_available,age_available,bmi_available,dm_history_available,gout_history_available,egfr_available,urine_ph_available,urine_sg_available,urine_rbc_available,bacteriuria_available,lab_interval_7days,imaging_available,kidney_structure_visible,mid_ureter_visible,lower_ureter_visible,imaging_lab_interval_7days,no_treatment_during_exam,medications,surgeries,signature_hash,log,status,created_by,created_at,updated_by,updated_at,signed_by,signed_at'),
 (3, 'column_id_exclusion_criteria', 'id,subject_code,pregnant_female,kidney_transplant,urinary_tract_foreign_body,urinary_tract_foreign_body_type,non_stone_urological_disease,non_stone_urological_disease_type,renal_replacement_therapy,renal_replacement_therapy_type,medical_record_incomplete,major_blood_immune_cancer,major_blood_immune_cancer_type,rare_metabolic_disease,rare_metabolic_disease_type,investigator_judgment,judgment_reason,signature_hash,log,status,created_by,created_at,updated_by,updated_at,signed_by,signed_at'),
 (4, 'column_id_queries', 'id,batch_id,subject_code,batch_data,query_count,status,created_by,created_at,assigned_to,assigned_at,completed_at,due_date,notes,updated_at'),
@@ -242,7 +242,9 @@ CREATE TABLE `subjects` (
   `rbc` float DEFAULT NULL,
   `bac` int DEFAULT NULL COMMENT '菌尿症(0=無,1=有)',
   `dm` int DEFAULT NULL COMMENT '糖尿病(0=無,1=有)',
+  `dm_date` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '糖尿病診斷日期',
   `gout` int DEFAULT NULL COMMENT '痛風(0=無,1=有)',
+  `gout_date` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '痛風診斷日期',
   `imaging_type` enum('CT','PET-CT') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '影像檢查類型',
   `imaging_date` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '影像檢查日期',
   `kidney_stone_diagnosis` int DEFAULT NULL COMMENT '腎結石診斷結果',

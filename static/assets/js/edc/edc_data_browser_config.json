@@ -253,6 +253,19 @@
             ]
           },
           {
+            "id": "dmDateSection",
+            "label": "糖尿病診斷日期",
+            "type": "date",
+            "source": "subject.dm_date",
+            "width": "col-10",
+            "required": false,
+            "conditional": {
+              "field": "dm",
+              "value": "1",
+              "show": true
+            }
+          },
+          {
             "id": "gout",
             "label": "痛風",
             "type": "radio",
@@ -263,6 +276,19 @@
               {"value": "1", "text": "是"},
               {"value": "0", "text": "否"}
             ]
+          },
+          {
+            "id": "goutDateSection",
+            "label": "痛風診斷日期",
+            "type": "date",
+            "source": "subject.gout_date",
+            "width": "col-10",
+            "required": false,
+            "conditional": {
+              "field": "gout",
+              "value": "1",
+              "show": true
+            }
           },
           {
             "id": "bacteriuria",

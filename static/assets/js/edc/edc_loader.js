@@ -223,17 +223,16 @@ function initializeDashboard() {
         updateLoginTime();
     }
     
-    // 載入儀表板統計
-    if (typeof loadDashboardStats === 'function') {
-        loadDashboardStats();
-    }
-    
     // 初始化資料輸入模組
     if (typeof initDataEntry === 'function') {
         initDataEntry();
     }
     
 
+    // 載入儀表板統計
+    if (typeof loadDashboardStats === 'function') {
+        loadDashboardStats();
+    }
 }
 
 // 功能按鈕點擊處理 - 系統管理員
@@ -284,8 +283,6 @@ function openDataExport() {
 function openDataEntry() { 
     if (typeof showResearcherForm === 'function') {
         showResearcherForm();
-    } else {
-        showSuccessMessage('進入資料新增功能');
     }
 }
 
@@ -355,6 +352,7 @@ async function initializeEDC() {
     try {
         // 顯示載入進度
         const progress = showEDCLoadingProgress();
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // 載入所有模組
         const success = await edcModuleLoader.loadAllModules();
@@ -362,6 +360,7 @@ async function initializeEDC() {
         if (success) {
             progress.hide(); // 隱藏載入進度
             initializeDashboard(); // 初始化儀表板
+            await new Promise(resolve => setTimeout(resolve, 300));
             openDataBrowser();
         } else {
             throw new Error('模組載入失敗');

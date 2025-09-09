@@ -1053,108 +1053,78 @@ def get_subject_history(subject_code):
 
 # ==================== 儀表板統計 API ====================
 
-@edc_blueprints.route('/get-subjects-count', methods=['GET'])
+@edc_blueprints.route('/get-dashboard-stats', methods=['GET'])
 @login_required
-def get_subjects_count():
-    """獲取總 CRF 數量"""
+def get_dashboard_stats():
+    """獲取儀表板統計資料（統一 API）
+    
+    回應格式:
+    {
+        "success": true,
+        "data": {
+            "total_subjects": 100,
+            "pending_queries": 5,
+            "signed_crfs": 80,
+            "active_users": 25
+        }
+    }
+    """
     try:
-        edc_sys.connect()
-        result = edc_sys.sql.search('subjects', ['COUNT(*) as count'], criteria="1=1", verbose=VERBOSE)
-        print("result: ", result)
-        count = result[0][0] if result else 0
-        return jsonify({
-            'success': True,
-            'count': count
-        })
+        # 調用 edc_function 中的統計方法
+        result = edc_sys.get_dashboard_statistics(verbose=VERBOSE)
         
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 500
+            
     except Exception as e:
-        logging.error(f"獲取總 CRF 數量失敗: {e}")
+        logging.error(f"獲取儀表板統計資料失敗: {e}")
         return jsonify({
             'success': False,
-            'count': 0,
-            'message': f'獲取總 CRF 數量失敗: {str(e)}'
+            'message': f'獲取儀表板統計資料失敗: {str(e)}',
+            'data': {
+                'total_subjects': 0,
+                'pending_queries': 0,
+                'signed_crfs': 0,
+                'active_users': 0
+            }
         }), 500
 
-@edc_blueprints.route('/get-pending-queries-count', methods=['GET'])
-@login_required
-def get_pending_queries_count():
-    """獲取待處理 Query 數量"""
-    try:
-        edc_sys.connect()
-        result = edc_sys.sql.search('queries', ['COUNT(*) as count'], criteria="status='pending'", verbose=VERBOSE)
-        count = result[0][0] if result else 0
-        edc_sys.disconnect()
-        return jsonify({
-            'success': True,
-            'count': count
-        })
-        
-    except Exception as e:
-        logging.error(f"獲取待處理 Query 數量失敗: {e}")
-        edc_sys.disconnect()
-        return jsonify({
-            'success': False,
-            'count': 0,
-            'message': f'獲取待處理 Query 數量失敗: {str(e)}'
-        }), 500
 
-@edc_blueprints.route('/get-signed-crfs-count', methods=['GET'])
+@edc_blueprints.route('/generate-subject-code', methods=['POST'])
 @login_required
-def get_signed_crfs_count():
-    """獲取已簽署 CRF 數量"""
+def generate_subject_code():
+    """生成受試者代碼 API
+    
+    回應格式:
+    {
+        "success": true,
+        "subject_code": "P010001",
+        "message": "受試者代碼生成成功"
+    }
+    """
     try:
-        edc_sys.connect()
-        result = edc_sys.sql.search('subjects', ['COUNT(*) as count'], criteria="status='signed'", verbose=VERBOSE)
-        count = result[0][0] if result else 0
-        return jsonify({
-            'success': True,
-            'count': count
-        })
-        edc_sys.disconnect()
+        user_id = current_user.UNIQUE_ID
         
+        subject_code = edc_sys.generate_subject_code(user_id, verbose=VERBOSE)
+        
+        if subject_code:
+            return jsonify({
+                'success': True,
+                'subject_code': subject_code,
+                'message': '受試者代碼生成成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '無法生成受試者代碼，請檢查使用者機構設定'
+            }), 400
+            
     except Exception as e:
-        logging.error(f"獲取已簽署 CRF 數量失敗: {e}")
-        edc_sys.disconnect()
+        logging.error(f"生成受試者代碼失敗: {e}")
         return jsonify({
             'success': False,
-            'count': 0,
-            'message': f'獲取已簽署 CRF 數量失敗: {str(e)}'
-        }), 500
-
-@edc_blueprints.route('/get-active-users-count', methods=['GET'])
-@login_required
-def get_active_users_count():
-    """獲取使用者數量"""
-    try:
-        from function_sys.sqlconn import sqlconn
-        import json
-        
-        with open(os.path.join(os.path.dirname(__file__), '..', 'login_sys', 'config.json'), 'r') as f:
-            config = json.load(f)
-        
-        united_sql = sqlconn(
-            host=config['sql_host'],
-            port=config['sql_port'],
-            user=config['sql_user'],
-            passwd=config['sql_passwd'],
-            dbname=config['sql_dbname']
-        )
-        
-        result = united_sql.search('user', ['COUNT(*) as count'], verbose=VERBOSE)
-        count = result[0][0] if result else 0
-        
-        united_sql.dc()
-        
-        return jsonify({
-            'success': True,
-            'count': count
-        })
-        
-    except Exception as e:
-        logging.error(f"獲取活躍使用者數量失敗: {e}")
-        return jsonify({
-            'success': False,
-            'count': 0,
-            'message': f'獲取活躍使用者數量失敗: {str(e)}'
+            'message': f'生成受試者代碼失敗: {str(e)}'
         }), 500
 

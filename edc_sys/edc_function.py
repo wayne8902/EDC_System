@@ -48,7 +48,7 @@ class edc_db:
         """獲取資料庫欄位 ID 配置"""
         try:
             self.connect()
-            col_ids = ['column_id_subjects', 'column_id_inclusion_criteria', 'column_id_exclusion_criteria', 'column_id_queries']
+            col_ids = ['column_id_subjects', 'column_id_inclusion_criteria', 'column_id_exclusion_criteria', 'column_id_queries', 'column_id_edit_log']
             for col_id in col_ids:
                 result = self.sql.search('config',['VALUE'], criteria=f"`ID` = '{col_id}'")
                 self.column_id['EDC'][col_id] = result[0][0].split(',')
@@ -59,6 +59,177 @@ class edc_db:
     def connect_sql(self):
         """建立新的資料庫連接"""
         return sqlconn(self.config['sql_host'],self.config['sql_port'],self.config['sql_user'],self.config['sql_passwd'],self.config['sql_dbname'])
+    
+    def get_user_institution_code(self, user_id, verbose=0):
+        """獲取使用者的機構代碼
+        
+        Args:
+            user_id: 使用者ID
+            verbose: 是否顯示詳細日誌
+            
+        Returns:
+            機構代碼 (2位數字字串) 或 None
+        """
+        try:
+            # 連接到 united_khh 資料庫查詢使用者資訊
+            united_sql = sqlconn(
+                self.config['sql_host'],
+                self.config['sql_port'],
+                self.config['sql_user'],
+                self.config['sql_passwd'],
+                'united_khh'  # 連接到 united_khh 資料庫
+            )
+            
+            result = united_sql.search('user', ['INSTITUTION_CODE'], criteria=f"`UNIQUE_ID`='{user_id}'", verbose=verbose)
+            
+            if result and len(result) > 0 and len(result[0]) > 0:
+                institution_code = result[0][0]
+                logger.info(f"使用者 {user_id} 的機構代碼: {institution_code}")
+                return institution_code
+            else:
+                logger.warning(f"找不到使用者 {user_id} 的機構代碼")
+                return None
+                
+        except Exception as e:
+            logger.error(f"查詢使用者機構代碼失敗: {e}")
+            return None
+    
+    def generate_subject_code(self, user_id, verbose=0):
+        """生成受試者代碼
+        
+        格式: P + 機構代碼(2碼) + 流水號(4碼)
+        
+        Args:
+            user_id: 使用者ID
+            verbose: 是否顯示詳細日誌
+            
+        Returns:
+            受試者代碼 (7碼字串) 或 None
+        """
+        try:
+            # 1. 獲取使用者機構代碼
+            institution_code = self.get_user_institution_code(user_id, verbose)
+            if not institution_code:
+                logger.error(f"無法獲取使用者 {user_id} 的機構代碼")
+                return None
+            
+            # 2. 查詢該機構的最大流水號
+            self.connect()
+            criteria = f"`subject_code` LIKE 'P{institution_code}%'"
+            result = self.sql.search('subjects', ['subject_code'], criteria=criteria, verbose=verbose)
+            
+            max_serial = 0
+            if result:
+                for row in result:
+                    subject_code = row[0]
+                    if len(subject_code) == 7 and subject_code.startswith(f'P{institution_code}'):
+                        try:
+                            serial = int(subject_code[3:])  # 取後4碼
+                            max_serial = max(max_serial, serial)
+                        except ValueError:
+                            continue
+            
+            # 3. 生成新的流水號
+            new_serial = max_serial + 1
+            subject_code = f"P{institution_code}{new_serial:04d}"
+            
+            logger.info(f"為使用者 {user_id} 生成受試者代碼: {subject_code}")
+            return subject_code
+            
+        except Exception as e:
+            logger.error(f"生成受試者代碼失敗: {e}")
+            return None
+    
+    def get_dashboard_statistics(self, verbose=0):
+        """獲取儀表板統計資料
+        
+        Args:
+            verbose: 是否顯示詳細日誌
+            
+        Returns:
+            統計資料字典
+        """
+        try:
+            self.connect()
+            stats = {}
+            
+            # 1. 獲取總 CRF 數量
+            try:
+                result = self.sql.search('subjects', ['COUNT(*) as count'], verbose=verbose)
+                if result and result != "error occurs!":
+                    stats['total_subjects'] = result[0][0] if result else 0
+                else:
+                    stats['total_subjects'] = 0
+            except Exception as e:
+                logger.error(f"獲取總 CRF 數量失敗: {e}")
+                stats['total_subjects'] = 0
+            
+            # 2. 獲取待處理 Query 數量
+            try:
+                result = self.sql.search('queries', ['COUNT(*) as count'], criteria="`status`='pending'", verbose=verbose)
+                if result and result != "error occurs!":
+                    stats['pending_queries'] = result[0][0] if result else 0
+                else:
+                    stats['pending_queries'] = 0
+            except Exception as e:
+                logger.error(f"獲取待處理 Query 數量失敗: {e}")
+                stats['pending_queries'] = 0
+            
+            # 3. 獲取已簽署 CRF 數量
+            try:
+                result = self.sql.search('subjects', ['COUNT(*) as count'], criteria="`status`='signed'", verbose=verbose)
+                if result and result != "error occurs!":
+                    stats['signed_crfs'] = result[0][0] if result else 0
+                else:
+                    stats['signed_crfs'] = 0
+            except Exception as e:
+                logger.error(f"獲取已簽署 CRF 數量失敗: {e}")
+                stats['signed_crfs'] = 0
+            
+            # 4. 獲取使用者數量
+            try:
+                from function_sys.sqlconn import sqlconn
+                import json
+                
+                with open(os.path.join(os.path.dirname(__file__), '..', 'login_sys', 'config.json'), 'r') as f:
+                    config = json.load(f)
+                
+                united_sql = sqlconn(
+                    host=config['sql_host'],
+                    port=config['sql_port'],
+                    user=config['sql_user'],
+                    passwd=config['sql_passwd'],
+                    dbname=config['sql_dbname']
+                )
+                
+                result = united_sql.search('user', ['COUNT(*) as count'], verbose=verbose)
+                if result and result != "error occurs!":
+                    stats['active_users'] = result[0][0] if result else 0
+                else:
+                    stats['active_users'] = 0
+                
+                united_sql.dc()
+            except Exception as e:
+                logger.error(f"獲取使用者數量失敗: {e}")
+                stats['active_users'] = 0
+            
+            return {
+                'success': True,
+                'data': stats
+            }
+            
+        except Exception as e:
+            logger.error(f"獲取儀表板統計資料失敗: {e}")
+            return {
+                'success': False,
+                'message': f'獲取儀表板統計資料失敗: {str(e)}',
+                'data': {
+                    'total_subjects': 0,
+                    'pending_queries': 0,
+                    'signed_crfs': 0,
+                    'active_users': 0
+                }
+            }
     
     def connect(self):
         """建立資料庫連接"""
@@ -215,8 +386,6 @@ class edc_db:
                 'message': f'批量創建失敗: {str(e)}',
                 'error_code': 'DATABASE_ERROR'
             }
-        finally:
-            self.disconnect()
     
     def get_queries_by_subject(self, subject_code, verbose=0):
         """獲取受試者的 Query 列表
@@ -232,11 +401,20 @@ class edc_db:
             self.connect()
             
             # 查詢該受試者的所有 Query
-            result = self.sql.search('queries', ['*'], criteria=f"`subject_code`='{subject_code}' ORDER BY created_at DESC", verbose=verbose)
-            
-            if result:
+            result = self.sql.search('queries', ['*'], criteria=f"`subject_code`='{subject_code}'", order='`created_at` DESC', verbose=verbose)
+            print(result)
+            if result == "error occurs!":
+                # 查詢失敗
+                return {
+                    'success': False,
+                    'data': [],
+                    'message': "查詢 Query 記錄時發生錯誤。"
+                }
+            elif result and len(result) > 0:
+                # 查詢成功且有資料
                 queries = []
                 columns = self.column_id['EDC']['column_id_queries']
+                
                 for row in result:
                     query_data = {}
                     for idx, col in enumerate(columns):
@@ -254,7 +432,8 @@ class edc_db:
             else:
                 return {
                     'success': True,
-                    'data': []
+                    'data': [],
+                    'message': "此受試者尚無 Query 記錄。"
                 }
                 
         except Exception as e:
@@ -264,8 +443,6 @@ class edc_db:
                 'message': f'獲取失敗: {str(e)}',
                 'error_code': 'DATABASE_ERROR'
             }
-        # finally:
-        #     self.disconnect()
     
     def respond_to_query(self, batch_id, response_text, response_type, original_value=None, corrected_value=None, responded_by=None, verbose=0):
         """回應 Query
@@ -372,8 +549,6 @@ class edc_db:
                 'message': f'回應失敗: {str(e)}',
                 'error_code': 'DATABASE_ERROR'
             }
-        finally:
-            self.disconnect()
     
     def get_query_responses(self, batch_id, verbose=0):
         """獲取 Query 的回應記錄
@@ -390,7 +565,8 @@ class edc_db:
             
             # 查詢該 batch_id 的所有回應記錄
             responses = self.sql.search('query_responses', ['*'], 
-                                     criteria=f"`batch_id`='{batch_id}' ORDER BY `responded_at` ASC",
+                                     criteria=f"`batch_id`='{batch_id}'",
+                                     order='`responded_at` ASC',
                                      verbose=verbose)
             
             if not responses:
@@ -574,7 +750,20 @@ class edc_db:
             self.connect()
             
             print(subject_data)
-            # 1. 驗證受試者編號唯一性
+            
+            # 1. 自動生成受試者代碼（如果沒有提供）
+            if not subject_data.get('subject_code'):
+                generated_code = self.generate_subject_code(user_id, verbose)
+                if not generated_code:
+                    return {
+                        'success': False,
+                        'message': '無法生成受試者代碼',
+                        'error_code': 'CODE_GENERATION_FAILED'
+                    }
+                subject_data['subject_code'] = generated_code
+                logger.info(f"自動生成受試者代碼: {generated_code}")
+            
+            # 2. 驗證受試者編號唯一性
             result = self.sql.search('subjects', ['id'], criteria=f"`subject_code`='{subject_data['subject_code']}'", verbose=verbose)
             if result:
                 return {
@@ -1658,8 +1847,6 @@ class edc_db:
         except Exception as e:
             logger.error(f"Error getting subject by ID: {e}")
             return None
-        finally:
-            self.disconnect()
     
     def get_subject_by_code(self, subject_code, verbose=0):
         """根據受試者編號獲取受試者資料
@@ -1680,8 +1867,6 @@ class edc_db:
         except Exception as e:
             logger.error(f"Error getting subject by code: {e}")
             return None
-        finally:
-            self.disconnect()
     
     def get_subject_detail_by_code(self, subject_code, verbose=0):
         """根據受試者編號獲取受試者完整詳細資料（包含納入和排除條件）
@@ -1727,8 +1912,6 @@ class edc_db:
         except Exception as e:
             logger.error(f"Error getting subject detail by code: {e}")
             return None
-        finally:
-            self.disconnect()
     
     def search_subjects(self, user_id, filters=None, page=1, page_size=20, sort_field='id', sort_direction='DESC', verbose=0):
         """搜尋受試者資料（支援分頁和排序）
@@ -1752,42 +1935,47 @@ class edc_db:
             # criteria = f"`created_by` = '{user_id}'"
             criteria = "1=1"
             if filters:
-                if filters.get('subject_code'):
-                    criteria += f" AND `subject_code` LIKE '%{filters['subject_code']}%'"
-                if filters.get('gender') is not None:
-                    criteria += f" AND `gender` = {filters['gender']}"
-                if filters.get('age_min') is not None:
-                    criteria += f" AND `age` >= {filters['age_min']}"
-                if filters.get('age_max') is not None:
-                    criteria += f" AND `age` <= {filters['age_max']}"
-                if filters.get('bmi_min') is not None:
-                    criteria += f" AND `bmi` >= {filters['bmi_min']}"
-                if filters.get('bmi_max') is not None:
-                    criteria += f" AND `bmi` <= {filters['bmi_max']}"
-                if filters.get('scr_min') is not None:
-                    criteria += f" AND `scr` >= {filters['scr_min']}"
-                if filters.get('scr_max') is not None:
-                    criteria += f" AND `scr` <= {filters['scr_max']}"
-                if filters.get('egfr_min') is not None:
-                    criteria += f" AND `egfr` >= {filters['egfr_min']}"
-                if filters.get('egfr_max') is not None:
-                    criteria += f" AND `egfr` <= {filters['egfr_max']}"
-                if filters.get('imaging_type'):
-                    criteria += f" AND `imaging_type` = '{filters['imaging_type']}'"
-                if filters.get('kidney_stone_diagnosis') is not None:
-                    criteria += f" AND `kidney_stone_diagnosis` = {filters['kidney_stone_diagnosis']}"
-                # if filters.get('date_from'):
-                #     criteria += f" AND `created_at` >= '{filters['date_from']}'"
-                # if filters.get('date_to'):
-                #     criteria += f" AND `created_at` <= '{filters['date_to']} 23:59:59'"
-                if filters.get('dm') is not None:
-                    criteria += f" AND `dm` = {filters['dm']}"
-                if filters.get('gout') is not None:
-                    criteria += f" AND `gout` = {filters['gout']}"
-                if filters.get('bac') is not None:
-                    criteria += f" AND `bac` = {filters['bac']}"
+                try:
+                    if filters.get('subject_code') is not None:
+                        criteria += f" AND `subject_code` LIKE '%{str(filters['subject_code'])}%'"
+                    if filters.get('gender') is not None:
+                        criteria += f" AND `gender` = {str(filters['gender'])}"
+                    if filters.get('age_min') is not None:
+                        criteria += f" AND `age` >= {str(filters['age_min'])}"
+                    if filters.get('age_max') is not None:
+                        criteria += f" AND `age` <= {str(filters['age_max'])}"
+                    if filters.get('bmi_min') is not None:
+                        criteria += f" AND `bmi` >= {str(filters['bmi_min'])}"
+                    if filters.get('bmi_max') is not None:
+                        criteria += f" AND `bmi` <= {str(filters['bmi_max'])}"
+                    if filters.get('scr_min') is not None:
+                        criteria += f" AND `scr` >= {str(filters['scr_min'])}"
+                    if filters.get('scr_max') is not None:
+                        criteria += f" AND `scr` <= {str(filters['scr_max'])}"
+                    if filters.get('egfr_min') is not None:
+                        criteria += f" AND `egfr` >= {str(filters['egfr_min'])}"
+                    if filters.get('egfr_max') is not None:
+                        criteria += f" AND `egfr` <= {str(filters['egfr_max'])}"
+                    if filters.get('imaging_type') is not None:
+                        criteria += f" AND `imaging_type` = '{str(filters['imaging_type'])}'"
+                    if filters.get('kidney_stone_diagnosis') is not None:
+                        criteria += f" AND `kidney_stone_diagnosis` = {str(filters['kidney_stone_diagnosis'])}"
+                    if filters.get('date_from') is not None:
+                        criteria += f" AND `created_at` >= '{str(filters['date_from'])}'"
+                    if filters.get('date_to') is not None:
+                        criteria += f" AND `created_at` <= '{str(filters['date_to'])} 23:59:59'"
+                    if filters.get('dm') is not None:
+                        criteria += f" AND `dm` = {str(filters['dm'])}"
+                    if filters.get('gout') is not None:
+                        criteria += f" AND `gout` = {str(istrnt(filters['gout']))}"
+                    if filters.get('bac') is not None:
+                        criteria += f" AND `bac` = {str(filters['bac'])}"
+                except (ValueError, TypeError) as e:
+                    logger.error(f"篩選條件轉換失敗: {e}")
+                    # 如果轉換失敗，跳過有問題的篩選條件
+                    pass
             
-            print("criteria: ", criteria)
+            # print("criteria: ", criteria)
             # 計算總記錄數
             total_result = self.sql.search('subjects', ['COUNT(*) as total'], criteria=criteria, verbose=verbose)
             total_records = total_result[0][0] if total_result else 0
@@ -1797,7 +1985,8 @@ class edc_db:
             offset = (page - 1) * page_size
             
             # 執行分頁查詢
-            order_clause = f"{sort_field} {sort_direction}"
+            order_clause = f"`{sort_field}` {sort_direction}"
+            print(order_clause)
             result = self.sql.search('subjects', ['*'], criteria=criteria, order=order_clause, verbose=verbose)
             
             if result:
@@ -1807,11 +1996,31 @@ class edc_db:
             
             # 格式化資料
             subjects = []
-            for row in result:
-                subject_data = self._format_subject_data(row)
-                subject_data['inclusion_criteria'] = self._get_inclusion_criteria(subject_data['subject_code'])
-                subject_data['exclusion_criteria'] = self._get_exclusion_criteria(subject_data['subject_code'])
-                subjects.append(subject_data)
+            if result == "error occurs!":
+                # 查詢失敗
+                return {
+                    'success': False,
+                    'message': '搜尋受試者資料時發生錯誤',
+                    'data': [],
+                    'pagination': {
+                        'current_page': page,
+                        'page_size': page_size,
+                        'total_records': 0,
+                        'total_pages': 0
+                    }
+                }
+            elif result and len(result) > 0:
+                # 查詢成功且有資料
+                for row in result:
+                    try:
+                        subject_data = self._format_subject_data(row)
+                        if subject_data and isinstance(subject_data, dict):
+                            subject_data['inclusion_criteria'] = self._get_inclusion_criteria(subject_data.get('subject_code', ''))
+                            subject_data['exclusion_criteria'] = self._get_exclusion_criteria(subject_data.get('subject_code', ''))
+                            subjects.append(subject_data)
+                    except Exception as e:
+                        logger.error(f"格式化受試者資料失敗: {e}")
+                        continue
             
             return {
                 'success': True,
@@ -1837,8 +2046,6 @@ class edc_db:
                     'total_pages': 0
                 }
             }
-        finally:
-            self.disconnect()
     
     def get_subject_statistics(self, verbose=0):
         """獲取受試者統計資料
@@ -1927,8 +2134,6 @@ class edc_db:
                 'success': False,
                 'message': f'獲取統計資料失敗: {str(e)}'
             }
-        finally:
-            self.disconnect()
     
     def export_subjects_data(self, filters=None, format='csv', verbose=0):
         """匯出受試者資料
@@ -2009,8 +2214,6 @@ class edc_db:
                 'success': False,
                 'message': f'匯出失敗: {str(e)}'
             }
-        finally:
-            self.disconnect()
     
     def _get_inclusion_criteria(self, subject_code):
         """獲取納入條件資料
@@ -2022,11 +2225,14 @@ class edc_db:
             納入條件資料字典或 None
         """
         try:
+            if not subject_code:
+                return None
             result = self.sql.search('inclusion_criteria', ['*'], criteria=f"`subject_code`='{subject_code}'", verbose=0)
-            if result:
+            if result and result != "error occurs!" and len(result) > 0:
                 return self._format_inclusion_criteria_data(result[0])
             return None
-        except:
+        except Exception as e:
+            logger.error(f"獲取納入條件失敗: {e}")
             return None
     
     def _get_exclusion_criteria(self, subject_code):
@@ -2039,11 +2245,14 @@ class edc_db:
             排除條件資料字典或 None
         """
         try:
+            if not subject_code:
+                return None
             result = self.sql.search('exclusion_criteria', ['*'], criteria=f"`subject_code`='{subject_code}'", verbose=0)
-            if result:
+            if result and result != "error occurs!" and len(result) > 0:
                 return self._format_exclusion_criteria_data(result[0])
             return None
-        except:
+        except Exception as e:
+            logger.error(f"獲取排除條件失敗: {e}")
             return None
     
     def _convert_to_csv(self, data):
@@ -2249,39 +2458,48 @@ class edc_db:
         try:
             self.connect()
             
-            # 查詢該受試者的所有 edit_log 記錄
-            columns = ['log_id', 'table_name', 'field_name', 'old_value', 'new_value', 'action', 'user_id', 'created_at']
+            columns = self.column_id['EDC'].get('column_id_edit_log', [])
             criteria = f"`subject_code`='{subject_code}'"
-            
             results = self.sql.search('edit_log', columns, criteria=criteria, verbose=verbose)
             
-            if not results:
+            if not results or results == "error occurs!":
                 return []
             
-            # 格式化結果
             history = []
             for row in results:
-                history.append({
-                    'log_id': row[0],
-                    'table_name': row[1],
-                    'field_name': row[2],
-                    'old_value': row[3],
-                    'new_value': row[4],
-                    'action': row[5],
-                    'user_id': row[6],
-                    'created_at': row[7].strftime('%Y-%m-%d %H:%M:%S') if row[7] else ''
-                })
+                record = {}
+                for i, column in enumerate(columns):
+                    if i < len(row):
+                        value = row[i]
+                        # 處理日期時間欄位
+                        if column == 'created_at' and value:
+                            try:
+                                if hasattr(value, 'strftime'):
+                                    record[column] = value.strftime('%Y-%m-%d %H:%M:%S')
+                                else:
+                                    # 如果已經是字串，直接使用
+                                    record[column] = str(value)
+                            except:
+                                record[column] = str(value) if value else ''
+                        else:
+                            record[column] = value
+                    else:
+                        record[column] = None
+                
+                history.append(record)
             
             # 按時間和 log_id 排序（最新的在前）
-            history.sort(key=lambda x: (x['created_at'], x['log_id']), reverse=True)
+            history.sort(key=lambda x: (x.get('created_at', ''), x.get('log_id', 0)), reverse=True)
             
             return history
             
         except Exception as e:
             logger.error(f"Error getting subject history: {e}")
-            return []
-        # finally:
-        #     self.disconnect()
+            return {
+                "success": False,
+                "message": f"取得受試者歷程記錄時發生錯誤: {e}",
+                "data": []
+            }
 
     def submit_for_review(self, subject_code, user_id, verbose=0):
         """提交受試者資料供審核
@@ -2390,8 +2608,6 @@ class edc_db:
                 'message': f'提交審核失敗: {str(e)}',
                 'error_code': 'SUBMIT_ERROR'
             }
-        finally:
-            self.disconnect()
     
     def _execute_sign_subject(self, subject_code, user_id, verbose=0):
         """執行簽署受試者資料的核心邏輯（私有方法）
@@ -2535,8 +2751,6 @@ class edc_db:
                 'message': f'簽署失敗: {str(e)}',
                 'error_code': 'SIGN_ERROR'
             }
-        finally:
-            self.disconnect()
     
     def _execute_submit_and_sign(self, subject_code, user_id, verbose=0):
         """執行提交審核並簽署的核心邏輯（私有方法）
@@ -2689,8 +2903,6 @@ class edc_db:
                 'message': f'提交並簽署失敗: {str(e)}',
                 'error_code': 'SUBMIT_AND_SIGN_ERROR'
             }
-        finally:
-            self.disconnect()
     
     def _generate_log_id(self):
         """生成日誌ID"""
@@ -3166,8 +3378,6 @@ class edc_db:
                 'message': f"更新 signature_hash 失敗: {str(e)}",
                 'error_code': 'UPDATE_SIGNATURE_EXCEPTION'
             }
-        finally:
-            self.disconnect()
 
     def validate_required_fields(self, subject_code, verbose=0):
         """驗證必填欄位是否完整
@@ -3309,6 +3519,3 @@ class edc_db:
                 'message': f'驗證失敗: {str(e)}',
                 'error_code': 'VALIDATION_ERROR'
             }
-        finally:
-            self.disconnect()
-

@@ -46,15 +46,15 @@ function setupInclusionCriteriaMonitoring() {
     const dmRadios = document.querySelectorAll('input[name="dm"]');
     const goutRadios = document.querySelectorAll('input[name="gout"]');
     dmRadios.forEach(radio => {
-        radio.addEventListener('change', () => {
+        radio.addEventListener('change', function() {
             debouncedUpdate();
-            toggleHistoryDateSection('dm', 'dmDateSection');
+            toggleHistoryDateSection('dm', this.value);
         });
     });
     goutRadios.forEach(radio => {
-        radio.addEventListener('change', () => {
+        radio.addEventListener('change', function() {
             debouncedUpdate();
-            toggleHistoryDateSection('gout', 'goutDateSection');
+            toggleHistoryDateSection('gout', this.value);
         });
     });
     
@@ -241,14 +241,7 @@ function updateExclusionCriteria() {
                             missingFields.push(`${fieldId} (empty value: "${field.value}")`);
                         }
                         
-                        // 特殊處理：檢查受試者代碼格式
-                        if (fieldId === 'subjectCode' && field.value.trim() !== '') {
-                            const subjectCodePattern = /^P[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}$/;
-                            if (!subjectCodePattern.test(field.value.trim())) {
-                                isComplete = false;
-                                missingFields.push(`subjectCode (invalid format: "${field.value}")`);
-                            }
-                        }
+                        // 受試者代碼由系統自動生成，無需格式檢查
                     }
                 } else {
                     missingFields.push(`${fieldId} (field not found)`);
@@ -281,11 +274,13 @@ function toggleExclusionDetails() {
     // 泌尿道異物種類名稱
     const urinaryForeignBodyRadio = document.querySelector('input[name="urinaryForeignBody"]:checked');
     const foreignBodyTypeSection = document.getElementById('foreignBodyTypeSection');
+    const foreignBodyType = document.getElementById('foreignBodyType');
     
     if (foreignBodyTypeSection) {
         if (urinaryForeignBodyRadio && urinaryForeignBodyRadio.value === '1') {
             foreignBodyTypeSection.style.display = 'block';
         } else {
+            foreignBodyType.value = '';
             foreignBodyTypeSection.style.display = 'none';
         }
     }
@@ -293,11 +288,13 @@ function toggleExclusionDetails() {
     // 非腎結石相關之泌尿道重大病變名稱
     const urinarySystemLesionRadio = document.querySelector('input[name="urinarySystemLesion"]:checked');
     const lesionTypeSection = document.getElementById('lesionTypeSection');
-    
+    const lesionType = document.getElementById('lesionType');
+
     if (lesionTypeSection) {
         if (urinarySystemLesionRadio && urinarySystemLesionRadio.value === '1') {
             lesionTypeSection.style.display = 'block';
         } else {
+            lesionType.value = '';
             lesionTypeSection.style.display = 'none';
         }
     }
@@ -305,11 +302,13 @@ function toggleExclusionDetails() {
     // 腎臟替代治療名稱
     const renalReplacementTherapyRadio = document.querySelector('input[name="renalReplacementTherapy"]:checked');
     const therapyTypeSection = document.getElementById('therapyTypeSection');
-    
+    const therapyType = document.getElementById('therapyType');
+
     if (therapyTypeSection) {
         if (renalReplacementTherapyRadio && renalReplacementTherapyRadio.value === '1') {
             therapyTypeSection.style.display = 'block';
         } else {
+            therapyType.value = '';
             therapyTypeSection.style.display = 'none';
         }
     }
@@ -317,11 +316,12 @@ function toggleExclusionDetails() {
     // 重大血液、免疫或惡性腫瘤疾病名稱
     const hematologicalDiseaseRadio = document.querySelector('input[name="hematologicalDisease"]:checked');
     const hematologicalDiseaseTypeSection = document.getElementById('hematologicalDiseaseTypeSection');
-    
+    const hematologicalDiseaseType = document.getElementById('hematologicalDiseaseType');
     if (hematologicalDiseaseTypeSection) {
         if (hematologicalDiseaseRadio && hematologicalDiseaseRadio.value === '1') {
             hematologicalDiseaseTypeSection.style.display = 'block';
         } else {
+            hematologicalDiseaseType.value = '';
             hematologicalDiseaseTypeSection.style.display = 'none';
         }
     }
@@ -329,11 +329,12 @@ function toggleExclusionDetails() {
     // 罕見代謝性疾病名稱
     const rareMetabolicDiseaseRadio = document.querySelector('input[name="rareMetabolicDisease"]:checked');
     const metabolicDiseaseTypeSection = document.getElementById('metabolicDiseaseTypeSection');
-    
+    const metabolicDiseaseType = document.getElementById('metabolicDiseaseType');
     if (metabolicDiseaseTypeSection) {
         if (rareMetabolicDiseaseRadio && rareMetabolicDiseaseRadio.value === '1') {
             metabolicDiseaseTypeSection.style.display = 'block';
         } else {
+            metabolicDiseaseType.value = '';
             metabolicDiseaseTypeSection.style.display = 'none';
         }
     }
@@ -341,11 +342,12 @@ function toggleExclusionDetails() {
     // 試驗主持人認定不適合納入本研究之原因
     const piJudgmentRadio = document.querySelector('input[name="piJudgment"]:checked');
     const piJudgmentReasonSection = document.getElementById('piJudgmentReasonSection');
-    
+    const piJudgmentReason = document.getElementById('piJudgmentReason');
     if (piJudgmentReasonSection) {
         if (piJudgmentRadio && piJudgmentRadio.value === '1') {
             piJudgmentReasonSection.style.display = 'block';
         } else {
+            piJudgmentReason.value = '';
             piJudgmentReasonSection.style.display = 'none';
         }
     }
@@ -435,7 +437,7 @@ function validateTreatmentData() {
 
 // 控制病史日期區段的顯示/隱藏
 function toggleHistoryDateSection(historyType, sectionId) {
-
+    console.log('toggleHistoryDateSection', historyType, sectionId);
     
     // 檢查病史選擇
     const historyRadios = document.querySelectorAll(`input[name="${historyType}"]:checked`);

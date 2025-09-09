@@ -578,16 +578,24 @@ const DataBrowserManager = {
     setupFilters() {
         // 設置日期範圍篩選器的預設值
         const today = new Date();
-        const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+        const sevenDaysAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+        // 使用本地時區格式化日期
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
 
         const dateFromInput = document.getElementById('dateFrom');
         const dateToInput = document.getElementById('dateTo');
 
         if (dateFromInput) {
-            dateFromInput.value = oneYearAgo.toISOString().split('T')[0];
+            dateFromInput.value = formatDate(sevenDaysAgo);
         }
         if (dateToInput) {
-            dateToInput.value = today.toISOString().split('T')[0];
+            dateToInput.value = formatDate(today);
         }
 
         // 初始化篩選條件
@@ -888,13 +896,32 @@ const DataBrowserManager = {
 
         // 重置日期範圍為預設值
         const today = new Date();
-        const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+        const sevenDaysAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+        // 使用本地時區格式化日期
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        console.log('重置 - 今天日期:', today);
+        console.log('重置 - 七天前日期:', sevenDaysAgo);
+        console.log('重置 - 今天本地格式:', formatDate(today));
+        console.log('重置 - 七天前本地格式:', formatDate(sevenDaysAgo));
 
         const dateFromInput = document.getElementById('dateFrom');
         const dateToInput = document.getElementById('dateTo');
 
-        if (dateFromInput) dateFromInput.value = oneYearAgo.toISOString().split('T')[0];
-        if (dateToInput) dateToInput.value = today.toISOString().split('T')[0];
+        if (dateFromInput) {
+            dateFromInput.value = formatDate(sevenDaysAgo);
+            console.log('重置 dateFrom 為:', dateFromInput.value);
+        }
+        if (dateToInput) {
+            dateToInput.value = formatDate(today);
+            console.log('重置 dateTo 為:', dateToInput.value);
+        }
 
         // 重置分頁和排序
         this.pagination.currentPage = 1;
@@ -1045,10 +1072,10 @@ const DataBrowserManager = {
 
             // 初始化頁籤切換功能
             this.initializeTabSwitching();
-
+            await new Promise(resolve => setTimeout(resolve, 300));
             // 載入歷程記錄
             this.loadSubjectHistory(data.subject?.subject_code);
-            
+            await new Promise(resolve => setTimeout(resolve, 300));
             // 載入 Query 紀錄
             this.loadQuerySection(data.subject?.subject_code, data.subject);
         } catch (error) {
@@ -1407,13 +1434,17 @@ const DataBrowserManager = {
             const result = await response.json();
 
             if (result.success) {
-                this.displaySubjectHistory(result.data);
+                // 確保 result.data 是陣列
+                const historyData = Array.isArray(result.data) ? result.data : [];
+                this.displaySubjectHistory(historyData);
             } else {
+                showErrorMessage(result.message || '載入歷程記錄失敗');
                 this.displaySubjectHistory([]);
             }
 
         } catch (error) {
             console.error('載入歷程記錄失敗:', error);
+            showErrorMessage('載入歷程記錄失敗: ' + error.message);
             this.displaySubjectHistory([]);
         }
     },
@@ -1425,7 +1456,21 @@ const DataBrowserManager = {
         const historyContainer = document.getElementById('historyRecordContent');
         if (!historyContainer) return;
 
-        if (!historyData || historyData.length === 0) {
+        // 檢查 historyData 是否為有效陣列
+        if (!Array.isArray(historyData)) {
+            console.error('historyData 不是陣列:', historyData);
+            showErrorMessage('歷程記錄資料格式錯誤');
+            historyContainer.innerHTML = `
+                <div class="text-center" style="padding: 3rem;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 4rem; color: #dc3545; margin-bottom: 1rem;"></i>
+                    <p class="text-danger" style="font-size: 1.1rem; margin-bottom: 0.5rem;">資料載入錯誤</p>
+                    <p class="text-muted">歷程記錄資料格式不正確，請重新載入頁面</p>
+                </div>
+            `;
+            return;
+        }
+
+        if (historyData.length === 0) {
             historyContainer.innerHTML = `
                 <div class="text-center" style="padding: 3rem;">
                     <i class="fas fa-clock" style="font-size: 4rem; color: #ccc; margin-bottom: 1rem;"></i>

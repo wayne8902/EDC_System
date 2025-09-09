@@ -766,10 +766,10 @@ body {
     margin-bottom: 20px;
 }
 
-.main-content-area .card:hover {
+/* .main-content-area .card:hover {
     box-shadow: var(--shadow-lg);
     transform: translateY(-2px);
-}
+} */
 
 /* Bootstrap網格系統配合 - 調整為更實用的寬度 */
 .main-content-area .col-1 { grid-column: span 1; }

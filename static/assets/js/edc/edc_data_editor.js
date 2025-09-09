@@ -179,13 +179,14 @@ const DataEditorManager = {
                 });
             }
             
-            // 病史選擇時觸發納入條件更新
-            if (input.id === 'dm' || input.name === 'dm' || 
-                input.id === 'gout' || input.name === 'gout') {
+            // 病史選擇時觸發納入條件更新和日期欄位顯示
+            if (input.name === 'dm' || input.name === 'gout') {
                 input.addEventListener('change', () => {
                     if (typeof updateInclusionCriteria === 'function') {
                         updateInclusionCriteria();
                     }
+                    // 處理病史日期欄位的條件顯示
+                    this.handleHistoryDateToggle(input);
                 });
             }
         });
@@ -210,6 +211,11 @@ const DataEditorManager = {
                 // 即時驗證
                 if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.validateField) {
                     DataBrowserManager.validateField(input);
+                }
+                
+                // 處理病史日期欄位的條件顯示
+                if (input.name === 'dm' || input.name === 'gout') {
+                    this.handleHistoryDateToggle(input);
                 }
                 
                 // 觸發納入條件更新
@@ -504,7 +510,7 @@ const DataEditorManager = {
             // 收集基本資料欄位
             const basicFields = [
                 'enrollDate', 'subjectCode', 'birthDate', 'age', 'gender', 'height', 'weight', 'bmi',
-                'biochemDate', 'scr', 'egfr', 'urineDate', 'ph', 'sg', 'urinalysisDate', 'rbc', 'bacteriuria', 'dm', 'gout', 'imgType', 'imgDate', 
+                'biochemDate', 'scr', 'egfr', 'urineDate', 'ph', 'sg', 'urinalysisDate', 'rbc', 'bacteriuria', 'dm', 'dmDateSection', 'gout', 'goutDateSection', 'imgType', 'imgDate', 
                 'stone', 'imgReport', 'imgReadingReport'
             ];
             
@@ -519,6 +525,8 @@ const DataEditorManager = {
                 'urineDate': 'urine_date',
                 'urinalysisDate': 'urinalysis_date',
                 'bacteriuria': 'bac',
+                'dmDateSection': 'dm_date',
+                'goutDateSection': 'gout_date',
                 'imgType': 'imaging_type',
                 'imgDate': 'imaging_date',
                 'stone': 'kidney_stone_diagnosis',
@@ -1308,19 +1316,19 @@ const DataEditorManager = {
     getCurrentSubjectCode() {
         // 從 URL 參數獲取
         const urlParams = new URLSearchParams(window.location.search);
-        let subjectCode = urlParams.get('subject_code');
+        let subjectCode = urlParams.get('subjectCode');
         
         if (!subjectCode) {
             // 從數據屬性獲取
-            const subjectElement = document.querySelector('[data-subject-code]');
+            const subjectElement = document.querySelector('[data-subjectCode]');
             if (subjectElement) {
-                subjectCode = subjectElement.getAttribute('data-subject-code');
+                subjectCode = subjectElement.getAttribute('data-subjectCode');
             }
         }
         
         if (!subjectCode) {
             // 從表單輸入獲取
-            const subjectInput = document.querySelector('input[name="subject_code"], #subject_code');
+            const subjectInput = document.querySelector('input[name="subjectCode"], #subjectCode');
             if (subjectInput) {
                 subjectCode = subjectInput.value;
             }
@@ -1361,6 +1369,42 @@ const DataEditorManager = {
         const loadingIndicator = document.getElementById('loadingIndicator');
         if (loadingIndicator) {
             loadingIndicator.style.display = 'none';
+        }
+    },
+    
+    /**
+     * 處理病史日期欄位的條件顯示
+     */
+    handleHistoryDateToggle(input) {
+        const fieldName = input.name || input.id;
+        const value = input.value;
+        
+        console.log('handleHistoryDateToggle called:', fieldName, value);
+        
+        if (fieldName === 'dm') {
+            const dateSection = document.getElementById('dmDateSection');
+            if (dateSection) {
+                if (value === '1') {
+                    dateSection.style.display = 'block';
+                } else {
+                    dateSection.style.display = 'none';
+                    // 清空日期欄位
+                    const dateInput = document.getElementById('dmDateSection');
+                    if (dateInput) dateInput.value = '';
+                }
+            }
+        } else if (fieldName === 'gout') {
+            const dateSection = document.getElementById('goutDateSection');
+            if (dateSection) {
+                if (value === '1') {
+                    dateSection.style.display = 'block';
+                } else {
+                    dateSection.style.display = 'none';
+                    // 清空日期欄位
+                    const dateInput = document.getElementById('goutDateSection');
+                    if (dateInput) dateInput.value = '';
+                }
+            }
         }
     }
 };

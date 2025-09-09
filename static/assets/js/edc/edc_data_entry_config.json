@@ -40,10 +40,10 @@
             "id": "subjectCode", 
             "label": "受試者代碼",
             "type": "text",
-            "required": true,
-            "placeholder": "P(1碼)+機構代碼(2碼)+流水號(4碼)，例：P01-0001",
-            "pattern": "^P[A-Za-z0-9]{2}?[A-Za-z0-9]{4}$",
-            "hint": "P(一碼)+試驗機構代碼(兩碼)+試驗者流水號(四碼)",
+            "required": false,
+            "readonly": true,
+            "placeholder": "系統自動生成",
+            "hint": "系統將根據您的機構自動生成受試者代碼，格式：P(一碼)+試驗機構代碼(兩碼)+試驗者流水號(四碼)",
             "colClass": "col-9"
           }
         ]

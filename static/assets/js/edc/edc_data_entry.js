@@ -65,14 +65,7 @@ const DataEntryManager = {
             }
         });
         
-        // 檢查受試者代碼格式
-        const subjectCodeField = form.querySelector('#subjectCode');
-        if (subjectCodeField && subjectCodeField.value.trim()) {
-            const subjectCodePattern = /^P[A-Za-z0-9]{2}-?[A-Za-z0-9]{4}$/;
-            if (!subjectCodePattern.test(subjectCodeField.value.trim())) {
-                errors.push('受試者代碼格式不正確，應為 P(1碼)+機構代碼(2碼)+流水號(4碼)，例：P01-0001');
-            }
-        }
+        // 受試者代碼由系統自動生成，無需驗證格式
         
         // 檢查性別選擇
         const genderCheckboxes = form.querySelectorAll('input[name="gender"]:checked');
@@ -131,7 +124,7 @@ const DataEntryManager = {
         const formData = {
             subject_data: {
                 enroll_date: form.querySelector('#enrollDate')?.value,
-                subject_code: form.querySelector('#subjectCode')?.value,
+                // subject_code 由系統自動生成，不從表單收集
                 date_of_birth: form.querySelector('#birthDate')?.value,
                 age: form.querySelector('#age')?.value,
                 gender: form.querySelector('input[name="gender"]:checked')?.value,
@@ -148,9 +141,11 @@ const DataEntryManager = {
                 rbc: form.querySelector('#rbc')?.value,
                 bac: form.querySelector('input[name="bacteriuria"]:checked')?.value,
                 dm: form.querySelector('input[name="dm"]:checked')?.value,
+                dm_date: form.querySelector('#dmDate')?.value || '',
                 gout: form.querySelector('input[name="gout"]:checked')?.value,
-                imaging_type: form.querySelector('input[name="imgType"]:checked')?.value || '',
-                imaging_date: form.querySelector('#imgDate')?.value || '',
+                gout_date: form.querySelector('#goutDate')?.value || '',
+                imaging_type: form.querySelector('input[name="imgType"]:checked')?.value,
+                imaging_date: form.querySelector('#imgDate')?.value,
                 kidney_stone_diagnosis: form.querySelector('input[name="stone"]:checked')?.value,
                 imaging_files: [],
                 imaging_report_summary: form.querySelector('#imgReadingReport')?.value || ''
@@ -181,16 +176,21 @@ const DataEntryManager = {
                 pregnant_female: form.querySelector('input[name="pregnantFemale"]:checked')?.value === '1' ? 1 : 0,
                 kidney_transplant: form.querySelector('input[name="kidneyTransplant"]:checked')?.value === '1' ? 1 : 0,
                 urinary_tract_foreign_body: form.querySelector('input[name="urinaryForeignBody"]:checked')?.value === '1' ? 1 : 0,
+                urinary_tract_foreign_body_type: form.querySelector('#foreignBodyType')?.value || '',
                 non_stone_urological_disease: form.querySelector('input[name="urinarySystemLesion"]:checked')?.value === '1' ? 1 : 0,
+                non_stone_urological_disease_type: form.querySelector('#lesionType')?.value || '',
                 renal_replacement_therapy: form.querySelector('input[name="renalReplacementTherapy"]:checked')?.value === '1' ? 1 : 0,
+                renal_replacement_therapy_type: form.querySelector('#therapyType')?.value || '',
                 medical_record_incomplete: form.querySelector('#missingData')?.checked ? 1 : 0,
                 major_blood_immune_cancer: form.querySelector('input[name="hematologicalDisease"]:checked')?.value === '1' ? 1 : 0,
+                major_blood_immune_cancer_type: form.querySelector('#hematologicalDiseaseType')?.value || '',
                 rare_metabolic_disease: form.querySelector('input[name="rareMetabolicDisease"]:checked')?.value === '1' ? 1 : 0,
+                rare_metabolic_disease_type: form.querySelector('#metabolicDiseaseType')?.value || '',
                 investigator_judgment: form.querySelector('input[name="piJudgment"]:checked')?.value === '1' ? 1 : 0,
                 judgment_reason: form.querySelector('#piJudgmentReason')?.value || ''
             }
         };
-        
+        console.log(formData);
         return formData;
     },
     
@@ -263,7 +263,8 @@ const DataEntryManager = {
             const result = await response.json();
             
             if (result.success) {
-                showSuccessMessage('eCRF 已成功提交！');
+                const subjectCode = result.subject_code || '未知';
+                showSuccessMessage(`eCRF 已成功提交！受試者代碼：${subjectCode}`);
                 this.clearForm();
             } else {
                 showErrorMessage(`提交失敗：${result.message}`);
@@ -381,16 +382,13 @@ function initializeResearcherForm() {
     setupFormValidation();
     setupDynamicAdditions();
     setupInclusionCriteriaMonitoring();
+    setupHistoryValidation();
     setupTabNavigation();
 }
 
 // 設置表單驗證
 function setupFormValidation() {
-    // 受試者代碼格式驗證
-    const subjectCodeInput = document.getElementById('subjectCode');
-    if (subjectCodeInput) {
-        subjectCodeInput.addEventListener('input', validateSubjectCode);
-    }
+    // 受試者代碼由系統自動生成，無需驗證
     
     // 出生日期變化時自動計算年齡
     const birthDateInput = document.getElementById('birthDate');
@@ -411,9 +409,6 @@ function setupFormValidation() {
     if (scrInput) {
         scrInput.addEventListener('input', calculateEGFR);
     }
-    
-    // 病史選擇事件監聽器
-    setupHistoryValidation();
     
     // 影像檢查類型驗證
     const imgTypeRadios = document.querySelectorAll('input[name="imgType"]');
@@ -437,20 +432,7 @@ function setupFormValidation() {
     setupTabNavigation();
 }
 
-// 驗證受試者代碼
-function validateSubjectCode() {
-    const input = document.getElementById('subjectCode');
-    const error = document.getElementById('subjectCodeErr');
-    const pattern = /^P[A-Za-z0-9]{2}?[A-Za-z0-9]{4}$/;
-    
-    if (input.value && !pattern.test(input.value)) {
-        error.hidden = false;
-        input.style.borderColor = 'var(--danger)';
-    } else {
-        error.hidden = true;
-        input.style.borderColor = 'var(--line)';
-    }
-}
+// 受試者代碼由系統自動生成，無需驗證函數
 
 // 設置病史驗證
 function setupHistoryValidation() {
@@ -477,7 +459,7 @@ function setupHistoryValidation() {
 function toggleHistoryDateSection(type, value) {
     const dateSection = document.getElementById(`${type}DateSection`);
     if (dateSection) {
-        if (value === 'yes') {
+        if (value === "1") {
             dateSection.style.display = 'block';
         } else {
             dateSection.style.display = 'none';
@@ -585,6 +567,37 @@ async function showResearcherForm() {
         mainContent.innerHTML = await generateResearcherFormHTML();
         initializeResearcherForm();
     }
+    fillSubjectCode();
+}
+
+// 填入受試者代碼
+async function fillSubjectCode() {
+    try {
+        // 從後端獲取生成的受試者代碼
+        const response = await fetch('/edc/generate-subject-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.subject_code) {
+            // 找到受試者代碼輸入欄位並填入
+            const subjectCodeInput = document.getElementById('subjectCode');
+            if (subjectCodeInput) {
+                subjectCodeInput.value = result.subject_code;
+                showSuccessMessage('受試者代碼已填入');
+            } else {
+                showErrorMessage('找不到受試者代碼輸入欄位');
+            }
+        } else {
+            showErrorMessage('獲取受試者代碼失敗:', result.message);
+        }
+    } catch (error) {
+        showErrorMessage('填入受試者代碼時發生錯誤:', error);
+    }
 }
 
 // 隱藏研究人員表單
@@ -615,7 +628,6 @@ function fillDebugValues() {
     const today = new Date().toISOString().split('T')[0];
     const debugValues = {
         'enrollDate': today,
-        'subjectCode': 'P010002',
         'birthDate': '1990-01-01',
         'measureDate': today,
         'height': '170',
@@ -747,7 +759,8 @@ async function submitForm() {
             const result = await response.json();
             
             if (result.success) {
-                alert('eCRF 已成功提交！');
+                const subjectCode = result.subject_code || '未知';
+                alert(`eCRF 已成功提交！受試者代碼：${subjectCode}`);
                 
                 // 跳轉到資料瀏覽頁面
                 if (typeof openDataBrowser === 'function') {
@@ -959,7 +972,6 @@ if (typeof module !== 'undefined' && module.exports) {
         DataEntryManager,
         initializeResearcherForm,
         setupFormValidation,
-        validateSubjectCode,
         setupHistoryValidation,
         toggleHistoryDateSection,
         clearHistoryDate,
@@ -978,6 +990,7 @@ if (typeof module !== 'undefined' && module.exports) {
         generateResearcherFormHTML,
         toggleDebugMode,
         fillDebugValues,
+        fillSubjectCode,
         submitForm,
         collectValidationErrors,
         getFieldDisplayName,
