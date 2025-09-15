@@ -413,11 +413,12 @@ const DataBrowserManager = {
     /**
      * 初始化資料瀏覽器
      */
-    init() {
+    async init() {
         this.setupEventListeners();
         this.setupFilters();
         this.setupFilterControls();
-        this.loadInitialData();
+
+        await this.loadInitialData();
 
         // 初始化資料編輯器
         if (typeof DataEditorManager !== 'undefined') {
@@ -771,6 +772,7 @@ const DataBrowserManager = {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${subject.subject_code || ''}</td>
+                <td>${subject.risk_score || ''}</td>
                 <td>${subject.age || ''}</td>
                 <td>${subject.gender === 1 ? '男' : '女'}</td>
                 <td>${subject.created_at || ''}</td>
@@ -1021,13 +1023,42 @@ const DataBrowserManager = {
     editSubject(subjectCode) {
         // 檢查編輯權限
         if (!this.hasEditPermission()) {
-            alert('您沒有編輯權限');
+            showErrorMessage('您沒有編輯權限');
             return;
         }
 
-        // 這裡可以實現編輯功能
-        // 例如：跳轉到編輯頁面或開啟編輯模態視窗
-        alert(`編輯受試者 ${subjectCode} 的資料`);
+        // 檢查受試者狀態是否允許編輯
+        const subject = this.currentData.find(s => s.subject_code === subjectCode);
+        if (!subject) {
+            showErrorMessage('找不到指定的受試者資料');
+            return;
+        }
+
+        if (!this.canShowEditButton(subject)) {
+            showErrorMessage('此受試者資料已提交或簽署，無法編輯');
+            return;
+        }
+
+        // 先載入詳細資料，然後切換到編輯模式
+        this.viewDetails(subjectCode);
+        
+        // 等待頁面載入完成後切換到編輯模式
+        setTimeout(() => {
+            if (typeof DataEditorManager !== 'undefined') {
+                DataEditorManager.switchToEditMode();
+                showSuccessMessage(`已進入編輯模式 - 受試者 ${subjectCode}`);
+            } else {
+                showErrorMessage('資料編輯器未載入，請重新整理頁面');
+            }
+        }, 1000);
+    },
+
+    /**
+     * 返回資料瀏覽器
+     */
+    returnToBrowser() {
+        // 重新載入資料瀏覽器
+        this.loadInitialData();
     },
 
     /**
@@ -1719,6 +1750,7 @@ function showDataBrowser() {
                         <thead>
                             <tr>
                                 <th class="sortable-header" data-field="subject_code">受試者編號</th>
+                                <th class="sortable-header" data-field="iStone_result">iStone 結果</th>
                                 <th class="sortable-header" data-field="age">年齡</th>
                                 <th class="sortable-header" data-field="gender">性別</th>
                                 <th class="sortable-header" data-field="created_at">建立時間</th>

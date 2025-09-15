@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class edc_db:
-    """EDC 系統核心業務邏輯類別 (仿照 permission_function.py 格式)"""
+    """EDC 系統核心業務邏輯類別"""
     
     sql = None
     column_id = {'config': ['KEY', 'VALUE'], 'EDC': {'column_id_subjects': [], 'column_id_inclusion_criteria': [], 'column_id_exclusion_criteria': []}}
@@ -43,7 +43,7 @@ class edc_db:
         print(self.config)
         self.sql=sqlconn(self.config['sql_host'],self.config['sql_port'],self.config['sql_user'],self.config['sql_passwd'],self.config['sql_dbname'])
         self.get_col_id()
-        self.disconnect()
+        # 保持連接開啟，不要立即關閉
     
     def get_col_id(self):
         """獲取資料庫欄位 ID 配置"""
@@ -234,7 +234,17 @@ class edc_db:
     
     def connect(self):
         """建立資料庫連接"""
+        # 檢查是否已有有效連接
+        if self.sql and self.sql.db:
+            return  # 已有有效連接，不需要重新建立
+        
+        # 建立新連接
         self.sql=sqlconn(self.config['sql_host'],self.config['sql_port'],self.config['sql_user'],self.config['sql_passwd'],self.config['sql_dbname'])
+        
+        # 檢查連接是否成功
+        if not self.sql.db:
+            logger.error(f"資料庫連接失敗: {self.config['sql_host']}:{self.config['sql_port']}")
+            raise Exception("資料庫連接失敗")
     
     def disconnect(self):
         """關閉資料庫連接"""
@@ -1972,7 +1982,7 @@ class edc_db:
                     if filters.get('dm') is not None:
                         criteria += f" AND `dm` = {str(filters['dm'])}"
                     if filters.get('gout') is not None:
-                        criteria += f" AND `gout` = {str(istrnt(filters['gout']))}"
+                        criteria += f" AND `gout` = {str(filters['gout'])}"
                     if filters.get('bac') is not None:
                         criteria += f" AND `bac` = {str(filters['bac'])}"
                 except (ValueError, TypeError) as e:
@@ -1980,7 +1990,7 @@ class edc_db:
                     # 如果轉換失敗，跳過有問題的篩選條件
                     pass
             
-            # print("criteria: ", criteria)
+            print("criteria: ", criteria)
             # 計算總記錄數
             total_result = self.sql.search('subjects', ['COUNT(*) as total'], criteria=criteria, verbose=verbose)
             total_records = total_result[0][0] if total_result else 0
@@ -1994,7 +2004,7 @@ class edc_db:
             print(order_clause)
             result = self.sql.search('subjects', ['*'], criteria=criteria, order=order_clause, verbose=verbose)
             
-            if result:
+            if result and result != "error occurs!":
                 start_idx = offset
                 end_idx = offset + page_size
                 result = result[start_idx:end_idx]
@@ -2039,7 +2049,9 @@ class edc_db:
             }
             
         except Exception as e:
+            import traceback
             logger.error(f"Error searching subjects: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return {
                 'success': False,
                 'message': f'搜尋失敗: {str(e)}',
@@ -2160,11 +2172,11 @@ class edc_db:
                 if filters.get('subject_code'):
                     criteria += f" AND `subject_code` LIKE '%{filters['subject_code']}%'"
                 if filters.get('gender') is not None:
-                    criteria += f" AND `gender` = {filters['gender']}"
+                    criteria += f" AND `gender` = {str(filters['gender'])}"
                 if filters.get('age_min') is not None:
-                    criteria += f" AND `age` >= {filters['age_min']}"
+                    criteria += f" AND `age` >= {str(filters['age_min'])}"
                 if filters.get('age_max') is not None:
-                    criteria += f" AND `age` <= {filters['age_max']}"
+                    criteria += f" AND `age` <= {str(filters['age_max'])}"
                 if filters.get('imaging_type'):
                     criteria += f" AND `imaging_type` = '{filters['imaging_type']}'"
                 if filters.get('date_from'):

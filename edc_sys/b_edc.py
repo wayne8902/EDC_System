@@ -13,6 +13,8 @@ import json
 import logging
 import io
 import os
+import time
+import requests
 
 logging.basicConfig(level=logging.INFO)
 VERBOSE=True
@@ -1127,4 +1129,92 @@ def generate_subject_code():
             'success': False,
             'message': f'生成受試者代碼失敗: {str(e)}'
         }), 500
+
+
+@edc_blueprints.route("/istone_calculate", methods=['POST'])
+@login_required
+def istone_calculate():
+    """
+    處理 POST 請求，驗證參數並調用外部 API
+    """
+    try:
+        # 獲取請求數據
+        if request.is_json:
+            data = request.get_json()
+            print(f"Received JSON data: {data}")
+            
+            parms = {}
+            parms['index'] = str(data.get('subject_code', ''))
+            
+            # parms['parm0'] = str(data.get('subject_code', ''))
+            parms['parm0'] = str(data.get('gender', ''))
+            parms['parm1'] = str(data.get('age', ''))
+            parms['parm2'] = str(data.get('egfr', ''))
+            parms['parm3'] = str(data.get('bmi', ''))
+            parms['parm4'] = str(data.get('ph', ''))
+            parms['parm5'] = str(data.get('dm', ''))
+            parms['parm6'] = str(data.get('gout', ''))
+            parms['parm7'] = str(data.get('bac', ''))
+            parms['parm8'] = str(data.get('sg', ''))
+            parms['parm9'] = str(data.get('rbc', ''))
+            
+            # 檢查是否有任何必要欄位為空字串
+            missing_fields = []
+            for i in range(10):
+                param_key = f'parm{i}'
+                if parms[param_key] == '' or parms[param_key] == 'None':
+                    missing_fields.append(param_key)
+            
+            if missing_fields:
+                return jsonify({
+                    'success': False,
+                    'error': f'缺少必要欄位：{", ".join(missing_fields)}。請完成所有必填項目後再提交。'
+                }), 400
+        
+            t = time.time()
+            t1 = time.localtime(t)
+            t2 = time.strftime('%Y/%m/%d %H:%M',t1)+"(UTC)"
+            parms['time'] = t2
+        
+        # print(f"Final parameters: {parms}")
+        
+        try:
+            r = requests.post('http://localhost:7000/calc', json=parms, verify=False, timeout=30)
+            # print(f"API response status: {r.status_code}")
+            # print(f"API response content: {r.text}")
+            
+            if r.status_code == 200:
+                try:
+                    res = r.json()
+                    print(f"Parsed JSON: {res}")
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error: {e}")
+                    
+                    return jsonify({
+                        'success': False,
+                        'error': 'Invalid JSON response from external API',
+                        'raw_response': r.text
+                    }), 500
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'External API returned status {r.status_code}',
+                    'response': r.text
+                }), 500
+                
+        except requests.exceptions.RequestException as e:
+            print(f"API request failed: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'External API request failed: {str(e)}'
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'data': res
+        })
+        
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return f"Internal server error: {str(e)}", 500
 

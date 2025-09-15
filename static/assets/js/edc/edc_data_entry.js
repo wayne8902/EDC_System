@@ -747,58 +747,58 @@ async function submitForm() {
             // 顯示載入狀態
             showLoadingState(true);
             
-            // 在提交之前進行 AI/ML 計算
+            // 在提交之前進行 iStone 計算
+            let Result;
             try {
-                const mlResult = await performMLCalculation(formData);
-                console.log(mlResult);
+                Result = await performiStoneCalculation(formData);
                 
-                // 檢查 ML 計算是否成功
-                if (!mlResult || mlResult.status !== 'success') {
-                    const errorMessage = mlResult?.error_message || 'AI/ML 計算失敗，請檢查資料完整性';
+                // 檢查 iStone 計算是否成功
+                if (!Result || Result.success !== true) {
+                    const errorMessage = Result?.error_message || 'iStone 計算失敗，請檢查資料完整性';
                     showErrorMessage(`無法提交：${errorMessage}`);
                     return; // 停止後續流程
                 }
-            } catch (mlError) {
-                // 處理 ML 計算過程中的錯誤（如資料準備錯誤）
-                console.error('ML 計算過程失敗:', mlError);
-                showErrorMessage(`無法提交：${mlError.message}`);
+            } catch (ResultError) {
+                // 處理 iStone 計算過程中的錯誤（如資料準備錯誤）
+                console.error('iStone 計算過程失敗:', ResultError);
+                showErrorMessage(`無法提交：${ResultError.message}`);
                 return; // 停止後續流程
             }
             
-            // 將 ML 計算結果添加到表單資料中
-            // formData.ml_result = mlResult;
+            // 將 iStone 計算結果添加到表單資料中
+            formData.subject_data.risk_score = Result.data.result;
             
             // 發送到後端
-            // const response = await fetch('/edc/submit-ecrf', {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //     },
-            //     body: JSON.stringify(formData)
-            // });
+            const response = await fetch('/edc/submit-ecrf', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
             
-            // const result = await response.json();
+            const result = await response.json();
             
-            // if (result.success) {
-            //     const subjectCode = result.subject_code || '未知';
+            if (result.success) {
+                const subjectCode = result.subject_code || '未知';
                 
-            //     // 顯示提交成功訊息，包含 ML 計算結果
-            //     let successMessage = `eCRF 已成功提交！受試者代碼：${subjectCode}`;
-            //     if (mlResult && mlResult.status === 'success') {
-            //         successMessage += `\n\nAI 分析結果：\n${formatMLResults(mlResult)}`;
-            //     }
-            //     showSuccessMessage(successMessage);
+                // 顯示提交成功訊息，包含 iStone 計算結果
+                let successMessage = `eCRF 已成功提交！受試者代碼：${subjectCode}`;
+                if (Result && Result.success === true) {
+                    successMessage += `\n\niStone 分析結果：\n${(Result.data.result * 100).toFixed(1)}%`;
+                }
+                showSuccessMessage(successMessage);
                 
-            //     // 跳轉到資料瀏覽頁面
-            //     if (typeof openDataBrowser === 'function') {
-            //         openDataBrowser();
-            //     } else {
-            //         // 備用方案：直接跳轉到主頁面
-            //         window.location.href = '/';
-            //     }
-            // } else {
-            //     showErrorMessage(`提交失敗：${result.message}`);
-            // }
+                // 跳轉到資料瀏覽頁面
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                } else {
+                    // 備用方案：直接跳轉到主頁面
+                    window.location.href = '/';
+                }
+            } else {
+                showErrorMessage(`提交失敗：${result.message}`);
+            }
             
         } catch (error) {
             console.error('提交失敗:', error);
@@ -1157,7 +1157,7 @@ function validateImageDate() {
  * @param {Object} formData - 表單資料
  * @returns {Object} 包含特定標籤的字典變數
  */
-function prepareMLInputData(formData) {
+function prepareInputData(formData) {
     try {
         // 建立 ML 輸入資料字典，包含特定的醫療標籤
         const mlInputData = {
@@ -1173,8 +1173,7 @@ function prepareMLInputData(formData) {
             ph: formData.subject_data?.ph ?? '',
             sg: formData.subject_data?.sg ?? '',
             rbc: formData.subject_data?.rbc ?? '',
-            // 時間戳記
-            timestamp: new Date().toISOString(),
+            
             data_source: 'edc_frontend'
         };
 
@@ -1204,42 +1203,37 @@ function prepareMLInputData(formData) {
  * @param {Object} formData - 表單資料
  * @returns {Promise<Object>} ML 計算結果
  */
-async function performMLCalculation(formData) {
+async function performiStoneCalculation(formData) {
     try {
-        console.log('開始執行 AI/ML 計算...');
+        // 準備 iStone 輸入資料
+        const InputData = prepareInputData(formData);
         
-        // 準備 ML 輸入資料
-        const mlInputData = prepareMLInputData(formData);
-        
-        // 發送到 AI/ML API
-        const response = await fetch('/api/ml-calculate', {
+        // 發送到 iStone API
+        const response = await fetch('/edc/istone_calculate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(mlInputData)
+            body: JSON.stringify(InputData)
         });
         
-        if (!response.ok) {
-            // 嘗試獲取詳細的錯誤訊息
+        const result = await response.json();
+
+        if (!result.success) {
+            // 獲取詳細的錯誤訊息
             let errorMessage = `ML API 回應錯誤: ${response.status}`;
-            try {
-                const errorData = await response.json();
-                if (errorData.message) {
-                    errorMessage = errorData.message;
-                }
-            } catch (e) {
-                // 如果無法解析錯誤回應，使用預設訊息
+            if (result.error) {
+                errorMessage = result.error;
+            } else if (result.message) {
+                errorMessage = result.message;
             }
             throw new Error(errorMessage);
         }
         
-        const mlResult = await response.json();
-        console.log('AI/ML 計算完成:', mlResult);
-        return mlResult;
+        return result;
         
     } catch (error) {
-        console.error('ML 計算執行失敗:', error);
+        showErrorMessage('ML 計算執行失敗:', error);
         return {
             status: 'error',
             subject_code: formData.subject_data?.subject_code || 'Unknown',
@@ -1247,21 +1241,4 @@ async function performMLCalculation(formData) {
             calculation_timestamp: new Date().toISOString()
         };
     }
-}
-
-/**
- * 格式化 ML 計算結果用於顯示
- * @param {Object} mlResult - ML 計算結果
- * @returns {string} 格式化的結果字串
- */
-function formatMLResults(mlResult) {
-    if (!mlResult || mlResult.status !== 'success') {
-        return 'AI 分析暫時無法使用';
-    }
-    
-    // 假設 API 回傳的是 0.5 這樣的小數
-    const riskScore = mlResult.risk_score || mlResult.risk || 0;
-    const riskPercentage = (riskScore * 100).toFixed(1);
-    
-    return `風險評分: ${riskPercentage}%`;
 }

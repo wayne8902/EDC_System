@@ -27,7 +27,7 @@ class permission_db:
         logging.info("permission_db/config path: " + os.path.join(os.path.dirname(__file__), 'config'))
         try:
             # 載入環境變數
-            load_dotenv("./permission_sys/.env")
+            load_dotenv("permission_sys/.env")
             self.config = {
                 'sql_host': os.getenv('PERMISSION_SQL_HOST', 'localhost'),
                 'sql_port': int(os.getenv('PERMISSION_SQL_PORT', 3306)),

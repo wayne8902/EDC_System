@@ -360,7 +360,7 @@ async function initializeEDC() {
         if (success) {
             progress.hide(); // 隱藏載入進度
             initializeDashboard(); // 初始化儀表板
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
             openDataBrowser();
         } else {
             throw new Error('模組載入失敗');
