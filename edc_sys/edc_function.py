@@ -8,6 +8,7 @@ import json
 import logging
 import sys
 import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from function_sys.sqlconn import sqlconn
@@ -26,19 +27,19 @@ class edc_db:
         """初始化 EDC 系統，載入配置並建立資料庫連接"""
         print("+++++++ INIT EDC ++++++")
         logging.info("edc_db/config path: " + os.path.join(os.path.dirname(__file__), 'config'))
-        # try:
-        #     # 載入環境變數
-        #     load_dotenv("edc_sys/.env")
-        #     self.config = {
-        #         'sql_host': os.getenv('EDC_SQL_HOST', 'localhost'),
-        #         'sql_port': int(os.getenv('EDC_SQL_PORT', 3306)),
-        #         'sql_user': os.getenv('EDC_SQL_USER'),
-        #         'sql_passwd': os.getenv('EDC_SQL_PASSWD'),
-        #         'sql_dbname': os.getenv('EDC_SQL_DBNAME')
-        #     }
-        # except:
-        with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r') as f:
-            self.config=json.load(f)
+        try:
+            # 載入環境變數
+            load_dotenv("edc_sys/.env")
+            self.config = {
+                'sql_host': os.getenv('EDC_SQL_HOST', 'localhost'),
+                'sql_port': int(os.getenv('EDC_SQL_PORT', 3306)),
+                'sql_user': os.getenv('EDC_SQL_USER'),
+                'sql_passwd': os.getenv('EDC_SQL_PASSWD'),
+                'sql_dbname': os.getenv('EDC_SQL_DBNAME')
+            }
+        except:
+            with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r') as f:
+                self.config=json.load(f)
         print(self.config)
         self.sql=sqlconn(self.config['sql_host'],self.config['sql_port'],self.config['sql_user'],self.config['sql_passwd'],self.config['sql_dbname'])
         self.get_col_id()
@@ -751,8 +752,9 @@ class edc_db:
             
             print(subject_data)
             
-            # 1. 自動生成受試者代碼（如果沒有提供）
+            # 1. 處理受試者代碼
             if not subject_data.get('subject_code'):
+                # 如果沒有提供代碼，自動生成
                 generated_code = self.generate_subject_code(user_id, verbose)
                 if not generated_code:
                     return {
@@ -762,6 +764,9 @@ class edc_db:
                     }
                 subject_data['subject_code'] = generated_code
                 logger.info(f"自動生成受試者代碼: {generated_code}")
+            else:
+                # 如果前端已經提供了代碼，記錄但不再生成
+                logger.info(f"使用前端提供的受試者代碼: {subject_data['subject_code']}")
             
             # 2. 驗證受試者編號唯一性
             result = self.sql.search('subjects', ['id'], criteria=f"`subject_code`='{subject_data['subject_code']}'", verbose=verbose)

@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 import sys
 import os
+from dotenv import load_dotenv
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'signed'))
 from function_sys.sqlconn import sqlconn
 
@@ -24,19 +25,19 @@ class permission_db:
     def __init__(self):
         print("+++++++ INIT Permission ++++++")
         logging.info("permission_db/config path: " + os.path.join(os.path.dirname(__file__), 'config'))
-        # try:
-        #     # 載入環境變數
-        #     load_dotenv("permission_sys/.env")
-        #     self.config = {
-        #         'sql_host': os.getenv('PERMISSION_SQL_HOST', 'localhost'),
-        #         'sql_port': int(os.getenv('PERMISSION_SQL_PORT', 3306)),
-        #         'sql_user': os.getenv('PERMISSION_SQL_USER'),
-        #         'sql_passwd': os.getenv('PERMISSION_SQL_PASSWD'),
-        #         'sql_dbname': os.getenv('PERMISSION_SQL_DBNAME')
-        #     }
-        # except:
-        with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r') as f:
-            self.config=json.load(f)
+        try:
+            # 載入環境變數
+            load_dotenv("./permission_sys/.env")
+            self.config = {
+                'sql_host': os.getenv('PERMISSION_SQL_HOST', 'localhost'),
+                'sql_port': int(os.getenv('PERMISSION_SQL_PORT', 3306)),
+                'sql_user': os.getenv('PERMISSION_SQL_USER'),
+                'sql_passwd': os.getenv('PERMISSION_SQL_PASSWD'),
+                'sql_dbname': os.getenv('PERMISSION_SQL_DBNAME')
+            }
+        except:
+            with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r') as f:
+                self.config=json.load(f)
         print(self.config)
         self.sql=sqlconn(self.config['sql_host'],self.config['sql_port'],self.config['sql_user'],self.config['sql_passwd'],self.config['sql_dbname'])
         self.get_col_id()

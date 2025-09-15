@@ -41,20 +41,19 @@ class login_db:
     
     def __init__(self):
         logging.info("login_db/config path: "+os.path.join(os.path.dirname(__file__), 'config'));
-        # try:
-
-        #     # 載入環境變數
-        #     load_dotenv("login_sys/.env")
-        #     self.config = {
-        #         'sql_host': os.getenv('LOGIN_SQL_HOST', 'localhost'),
-        #         'sql_port': int(os.getenv('LOGIN_SQL_PORT', 3306)),
-        #         'sql_user': os.getenv('LOGIN_SQL_USER'),
-        #         'sql_passwd': os.getenv('LOGIN_SQL_PASSWD'),
-        #         'sql_dbname': os.getenv('LOGIN_SQL_DBNAME')
-        #     }
-        # except:
-        with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r') as f:
-            self.config=json.load(f)
+        try:
+            # 載入環境變數
+            load_dotenv("login_sys/.env")
+            self.config = {
+                'sql_host': os.getenv('LOGIN_SQL_HOST', 'localhost'),
+                'sql_port': int(os.getenv('LOGIN_SQL_PORT', 3306)),
+                'sql_user': os.getenv('LOGIN_SQL_USER'),
+                'sql_passwd': os.getenv('LOGIN_SQL_PASSWD'),
+                'sql_dbname': os.getenv('LOGIN_SQL_DBNAME')
+            }
+        except:
+            with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r') as f:
+                self.config=json.load(f)
         print(self.config)
         self.sql=sqlconn(self.config['sql_host'],3306,self.config['sql_user'],self.config['sql_passwd'],self.config['sql_dbname'])
         self.get_col_id()

@@ -124,7 +124,7 @@ const DataEntryManager = {
         const formData = {
             subject_data: {
                 enroll_date: form.querySelector('#enrollDate')?.value,
-                // subject_code 由系統自動生成，不從表單收集
+                subject_code: form.querySelector('#subjectCode')?.value,
                 date_of_birth: form.querySelector('#birthDate')?.value,
                 age: form.querySelector('#age')?.value,
                 gender: form.querySelector('input[name="gender"]:checked')?.value,
@@ -190,7 +190,7 @@ const DataEntryManager = {
                 judgment_reason: form.querySelector('#piJudgmentReason')?.value || ''
             }
         };
-        console.log(formData);
+        // console.log(formData);
         return formData;
     },
     
@@ -742,40 +742,67 @@ async function submitForm() {
     if (validateAllFields()) {
         const form = document.querySelector('form') || document;
         const formData = DataEntryManager.collectFormData(form);
-        
+        console.log(formData);
         try {
             // 顯示載入狀態
             showLoadingState(true);
             
-            // 發送到後端
-            const response = await fetch('/edc/submit-ecrf', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                const subjectCode = result.subject_code || '未知';
-                alert(`eCRF 已成功提交！受試者代碼：${subjectCode}`);
+            // 在提交之前進行 AI/ML 計算
+            try {
+                const mlResult = await performMLCalculation(formData);
+                console.log(mlResult);
                 
-                // 跳轉到資料瀏覽頁面
-                if (typeof openDataBrowser === 'function') {
-                    openDataBrowser();
-                } else {
-                    // 備用方案：直接跳轉到主頁面
-                    window.location.href = '/';
+                // 檢查 ML 計算是否成功
+                if (!mlResult || mlResult.status !== 'success') {
+                    const errorMessage = mlResult?.error_message || 'AI/ML 計算失敗，請檢查資料完整性';
+                    showErrorMessage(`無法提交：${errorMessage}`);
+                    return; // 停止後續流程
                 }
-            } else {
-                alert(`提交失敗：${result.message}`);
+            } catch (mlError) {
+                // 處理 ML 計算過程中的錯誤（如資料準備錯誤）
+                console.error('ML 計算過程失敗:', mlError);
+                showErrorMessage(`無法提交：${mlError.message}`);
+                return; // 停止後續流程
             }
+            
+            // 將 ML 計算結果添加到表單資料中
+            // formData.ml_result = mlResult;
+            
+            // 發送到後端
+            // const response = await fetch('/edc/submit-ecrf', {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //     },
+            //     body: JSON.stringify(formData)
+            // });
+            
+            // const result = await response.json();
+            
+            // if (result.success) {
+            //     const subjectCode = result.subject_code || '未知';
+                
+            //     // 顯示提交成功訊息，包含 ML 計算結果
+            //     let successMessage = `eCRF 已成功提交！受試者代碼：${subjectCode}`;
+            //     if (mlResult && mlResult.status === 'success') {
+            //         successMessage += `\n\nAI 分析結果：\n${formatMLResults(mlResult)}`;
+            //     }
+            //     showSuccessMessage(successMessage);
+                
+            //     // 跳轉到資料瀏覽頁面
+            //     if (typeof openDataBrowser === 'function') {
+            //         openDataBrowser();
+            //     } else {
+            //         // 備用方案：直接跳轉到主頁面
+            //         window.location.href = '/';
+            //     }
+            // } else {
+            //     showErrorMessage(`提交失敗：${result.message}`);
+            // }
             
         } catch (error) {
             console.error('提交失敗:', error);
-            alert('提交失敗，請稍後再試');
+            showErrorMessage(`提交失敗：${error.message}`);
         } finally {
             // 恢復按鈕狀態
             showLoadingState(false);
@@ -1121,4 +1148,120 @@ function validateImageDate() {
             imgDate.style.borderColor = 'var(--line)';
         }
     }
+}
+
+// ==================== AI/ML 計算功能 ====================
+
+/**
+ * 準備 AI/ML 計算所需的輸入資料
+ * @param {Object} formData - 表單資料
+ * @returns {Object} 包含特定標籤的字典變數
+ */
+function prepareMLInputData(formData) {
+    try {
+        // 建立 ML 輸入資料字典，包含特定的醫療標籤
+        const mlInputData = {
+            // 受試者基本資訊
+            subject_code: formData.subject_data?.subject_code ?? '',
+            age: formData.subject_data?.age ?? '',
+            gender: formData.subject_data?.gender ?? '',
+            egfr: formData.subject_data?.egfr ?? '',
+            bmi: formData.subject_data?.bmi ?? '',
+            dm: formData.subject_data?.dm ?? '',
+            gout: formData.subject_data?.gout ?? '',
+            bac: formData.subject_data?.bac ?? '',
+            ph: formData.subject_data?.ph ?? '',
+            sg: formData.subject_data?.sg ?? '',
+            rbc: formData.subject_data?.rbc ?? '',
+            // 時間戳記
+            timestamp: new Date().toISOString(),
+            data_source: 'edc_frontend'
+        };
+
+        // 檢查是否有任何必要欄位為空字串
+        const missingFields = [];
+        for (const [key, value] of Object.entries(mlInputData)) {
+            if (value === '' && key !== 'data_source' && key !== 'timestamp') {
+                missingFields.push(key);
+            }
+        }
+        
+        if (missingFields.length > 0) {
+            throw new Error(`缺少必要欄位：${missingFields.join(', ')}。請完成所有必填項目後再提交。`);
+        }
+
+        console.log('已準備 ML 輸入資料:', mlInputData);
+        return mlInputData;
+
+    } catch (error) {
+        console.error('準備 ML 輸入資料失敗:', error);
+        throw error;
+    }
+}
+
+/**
+ * 執行 AI/ML 計算的入口函數
+ * @param {Object} formData - 表單資料
+ * @returns {Promise<Object>} ML 計算結果
+ */
+async function performMLCalculation(formData) {
+    try {
+        console.log('開始執行 AI/ML 計算...');
+        
+        // 準備 ML 輸入資料
+        const mlInputData = prepareMLInputData(formData);
+        
+        // 發送到 AI/ML API
+        const response = await fetch('/api/ml-calculate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(mlInputData)
+        });
+        
+        if (!response.ok) {
+            // 嘗試獲取詳細的錯誤訊息
+            let errorMessage = `ML API 回應錯誤: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.message) {
+                    errorMessage = errorData.message;
+                }
+            } catch (e) {
+                // 如果無法解析錯誤回應，使用預設訊息
+            }
+            throw new Error(errorMessage);
+        }
+        
+        const mlResult = await response.json();
+        console.log('AI/ML 計算完成:', mlResult);
+        return mlResult;
+        
+    } catch (error) {
+        console.error('ML 計算執行失敗:', error);
+        return {
+            status: 'error',
+            subject_code: formData.subject_data?.subject_code || 'Unknown',
+            error_message: `ML 計算失敗: ${error.message}`,
+            calculation_timestamp: new Date().toISOString()
+        };
+    }
+}
+
+/**
+ * 格式化 ML 計算結果用於顯示
+ * @param {Object} mlResult - ML 計算結果
+ * @returns {string} 格式化的結果字串
+ */
+function formatMLResults(mlResult) {
+    if (!mlResult || mlResult.status !== 'success') {
+        return 'AI 分析暫時無法使用';
+    }
+    
+    // 假設 API 回傳的是 0.5 這樣的小數
+    const riskScore = mlResult.risk_score || mlResult.risk || 0;
+    const riskPercentage = (riskScore * 100).toFixed(1);
+    
+    return `風險評分: ${riskPercentage}%`;
 }
