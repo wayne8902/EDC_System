@@ -233,18 +233,7 @@ class edc_db:
             }
     
     def connect(self):
-        """建立資料庫連接"""
-        # 檢查是否已有有效連接
-        if self.sql and self.sql.db:
-            return  # 已有有效連接，不需要重新建立
-        
-        # 建立新連接
         self.sql=sqlconn(self.config['sql_host'],self.config['sql_port'],self.config['sql_user'],self.config['sql_passwd'],self.config['sql_dbname'])
-        
-        # 檢查連接是否成功
-        if not self.sql.db:
-            logger.error(f"資料庫連接失敗: {self.config['sql_host']}:{self.config['sql_port']}")
-            raise Exception("資料庫連接失敗")
     
     def disconnect(self):
         """關閉資料庫連接"""
@@ -432,9 +421,21 @@ class edc_db:
                         # 特別處理 batch_data 欄位（假設名稱為 'batch_data'）
                         if col == 'batch_data':
                             query_data[col] = json.loads(row[idx]) if row[idx] else {}
+                        elif col in ['created_at', 'updated_at', 'assigned_at', 'completed_at']:
+                            # 格式化時間欄位為字串
+                            if row[idx]:
+                                if hasattr(row[idx], 'strftime'):
+                                    query_data[col] = row[idx].strftime('%Y-%m-%d %H:%M:%S')
+                                else:
+                                    query_data[col] = str(row[idx])
+                            else:
+                                query_data[col] = None
                         else:
                             query_data[col] = row[idx]
                     queries.append(query_data)
+                
+                # 按時間排序（最新的在前）
+                queries.sort(key=lambda x: x.get('created_at', ''), reverse=True)
                 
                 return {
                     'success': True,
@@ -590,6 +591,11 @@ class edc_db:
             # 格式化回應資料
             formatted_responses = []
             for response in responses:
+                # 格式化 responded_at 時間
+                responded_at = response[11]
+                if responded_at and hasattr(responded_at, 'strftime'):
+                    responded_at = responded_at.strftime('%Y-%m-%d %H:%M:%S')
+                
                 formatted_responses.append({
                     'id': response[0],
                     'batch_id': response[1],
@@ -602,7 +608,7 @@ class edc_db:
                     'corrected_value': response[8],
                     'status': response[9],
                     'responded_by': response[10],
-                    'responded_at': response[11],
+                    'responded_at': responded_at,
                     'attachments': response[12] if len(response) > 12 else None
                 })
             
@@ -1928,7 +1934,7 @@ class edc_db:
             logger.error(f"Error getting subject detail by code: {e}")
             return None
     
-    def search_subjects(self, user_id, filters=None, page=1, page_size=20, sort_field='id', sort_direction='DESC', verbose=0):
+    def search_subjects(self, user_id, filters=None, page=1, page_size=5, sort_field='id', sort_direction='DESC', verbose=0):
         """搜尋受試者資料（支援分頁和排序）
         
         Args:
@@ -1949,10 +1955,13 @@ class edc_db:
             # 構建查詢條件
             # criteria = f"`created_by` = '{user_id}'"
             criteria = "1=1"
+            print("filters: ", filters)
             if filters:
                 try:
                     if filters.get('subject_code') is not None:
                         criteria += f" AND `subject_code` LIKE '%{str(filters['subject_code'])}%'"
+                    if filters.get('risk_score') is not None:
+                        criteria += f" AND `risk_score` = {str(filters['risk_score'])}"
                     if filters.get('gender') is not None:
                         criteria += f" AND `gender` = {str(filters['gender'])}"
                     if filters.get('age_min') is not None:
@@ -1985,6 +1994,8 @@ class edc_db:
                         criteria += f" AND `gout` = {str(filters['gout'])}"
                     if filters.get('bac') is not None:
                         criteria += f" AND `bac` = {str(filters['bac'])}"
+                    if filters.get('status') is not None:
+                        criteria += f" AND `status` = '{str(filters['status'])}'"
                 except (ValueError, TypeError) as e:
                     logger.error(f"篩選條件轉換失敗: {e}")
                     # 如果轉換失敗，跳過有問題的篩選條件
@@ -2505,8 +2516,8 @@ class edc_db:
                 
                 history.append(record)
             
-            # 按時間和 log_id 排序（最新的在前）
-            history.sort(key=lambda x: (x.get('created_at', ''), x.get('log_id', 0)), reverse=True)
+            # 按時間排序（最新的在前）
+            history.sort(key=lambda x: x.get('created_at', ''), reverse=True)
             
             return history
             
@@ -2921,6 +2932,145 @@ class edc_db:
                 'error_code': 'SUBMIT_AND_SIGN_ERROR'
             }
     
+    def unsign_subject(self, subject_code, unsigned_by, verbose=0):
+        """取消受試者電子簽署（使用 update_databases 函數）
+        
+        Args:
+            subject_code: 受試者編號
+            unsigned_by: 取消簽署者
+            verbose: 詳細模式
+            
+        Returns:
+            操作結果字典
+        """
+        try:
+            self.connect()
+            
+            # 檢查受試者是否存在且已簽署
+            result = self.sql.search('subjects', ['status', 'signature_hash', 'signed_by', 'signed_at'], 
+                                criteria=f"`subject_code`='{subject_code}'", verbose=verbose)
+            
+            if not result:
+                return {
+                    'success': False,
+                    'message': '受試者不存在'
+                }
+            
+            current_status = result[0][0]
+            current_signature_hash = result[0][1]
+            current_signed_by = result[0][2]
+            current_signed_at = result[0][3]
+            
+            if current_status != 'signed':
+                return {
+                    'success': False,
+                    'message': '該受試者尚未簽署，無法取消簽署'
+                }
+            
+            # 準備更新資料
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            additional_updates = {
+                'subjects': {
+                    'status': 'draft',
+                    'signature_hash': None,
+                    'signed_by': None,
+                    'signed_at': None,
+                    'updated_by': unsigned_by,
+                    'updated_at': current_time
+                },
+                'inclusion_criteria': {
+                    'status': 'draft',
+                    'signature_hash': None,
+                    'signed_by': None,
+                    'signed_at': None,
+                    'updated_by': unsigned_by,
+                    'updated_at': current_time
+                },
+                'exclusion_criteria': {
+                    'status': 'draft',
+                    'signature_hash': None,
+                    'signed_by': None,
+                    'signed_at': None,
+                    'updated_by': unsigned_by,
+                    'updated_at': current_time
+                }
+            }
+            
+            # 使用 update_databases 函數更新三個表
+            update_result = self.update_databases(
+                subject_code=subject_code,
+                user_id=unsigned_by,
+                action_type='UNSIGN',
+                additional_updates=additional_updates,
+                verbose=verbose
+            )
+            
+            if not update_result['success']:
+                return update_result
+            
+            # 記錄取消簽署的詳細日誌
+            log_changes = [
+                {
+                    'table_name': 'system',
+                    'field_name': 'status',
+                    'old_value': current_status,
+                    'new_value': 'draft',
+                    'action': 'UNSIGN'
+                },
+                {
+                    'table_name': 'system',
+                    'field_name': 'operation',
+                    'old_value': 'update_signature',
+                    'new_value': '',
+                    'action': 'UNSIGN'
+                },
+                {
+                    'table_name': 'system',
+                    'field_name': 'signed_by',
+                    'old_value': current_signed_by,
+                    'new_value': '',
+                    'action': 'UNSIGN'
+                },
+                {
+                    'table_name': 'system',
+                    'field_name': 'signed_at',
+                    'old_value': current_signed_at,
+                    'new_value': '',
+                    'action': 'UNSIGN'
+                }
+            ]
+            
+            # 使用 update_logs 記錄變更
+            log_result = self.update_logs(
+                subject_code=subject_code,
+                user_id=unsigned_by,
+                action_type='UNSIGN',
+                log_changes=log_changes,
+                log_id=update_result.get('log_id'),
+                verbose=verbose
+            )
+            
+            if not log_result['success']:
+                return {
+                    'success': False,
+                    'message': '記錄日誌失敗'
+                }
+            
+            return {
+                'success': True,
+                'message': '取消簽署成功',
+                'log_id': update_result.get('log_id'),
+                'updated_tables': update_result.get('updated_tables', [])
+            }
+                
+        except Exception as e:
+            logger.error(f"取消簽署失敗: {e}")
+            return {
+                'success': False,
+                'message': f'取消簽署失敗: {str(e)}'
+            }
+
     def _generate_log_id(self):
         """生成日誌ID"""
         from datetime import datetime
@@ -2975,6 +3125,9 @@ class edc_db:
                     for field, value in updates.items():
                         if field == 'updated_at' or field == 'signed_at':
                             update_parts.append(f"`{field}`='{timestamp}'")
+                        elif value is None:
+                            # 對於 None 值，設為 NULL
+                            update_parts.append(f"`{field}`=NULL")
                         else:
                             update_parts.append(f"`{field}`='{value}'")
                     
@@ -3055,8 +3208,8 @@ class edc_db:
                         change['subject_code'],
                         change['table_name'],
                         change['field_name'],
-                        change['old_value'],
-                        change['new_value'],
+                        str(change['old_value']) if change['old_value'] is not None else '',
+                        str(change['new_value']) if change['new_value'] is not None else '',
                         change['action'],
                         change['user_id'],
                         'NOW()'
@@ -3092,7 +3245,7 @@ class edc_db:
                     'subject_code': subject_code,
                     'table_name': 'system',
                     'field_name': 'operation',
-                    'old_value': 'none',
+                    'old_value': '',
                     'new_value': action_type.lower(),
                     'action': action_type,
                     'user_id': user_id

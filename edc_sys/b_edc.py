@@ -362,7 +362,7 @@ def search_subjects_advanced():
         
         filters = data.get('filters', {})
         page = data.get('page', 1) # 頁碼
-        page_size = data.get('page_size', 20) # 每頁顯示的資料數量
+        page_size = data.get('page_size', 5) # 每頁顯示的資料數量
         sort_field = data.get('sort_field', 'id') # 排序欄位
         sort_direction = data.get('sort_direction', 'DESC') # 排序方向
         
@@ -994,6 +994,36 @@ def sign_subject_api(subject_code):
             "success": False,
             "message": f"{operation}失敗: {str(e)}",
             "content": "sign_operation"
+        }), 500
+
+@edc_blueprints.route('/unsign-subject', methods=['POST'])
+@login_required
+def unsign_subject():
+    """取消受試者電子簽署"""
+    try:
+        data = request.get_json()
+        subject_code = data.get('subject_code')
+        user_id = current_user.UNIQUE_ID
+        
+        if not subject_code:
+            return jsonify({
+                'success': False,
+                'message': '受試者編號不能為空'
+            }), 400
+        
+        result = edc_sys.unsign_subject(
+            subject_code=subject_code,
+            unsigned_by=user_id,
+            verbose=VERBOSE
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"取消簽署API錯誤: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'取消簽署失敗: {str(e)}'
         }), 500
 
 @edc_blueprints.route('/validate-required-fields/<subject_code>', methods=['GET'])

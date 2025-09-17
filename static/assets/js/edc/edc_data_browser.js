@@ -13,10 +13,10 @@ const DataBrowserManager = {
 
     // 分頁設定
     pagination: {
-        currentPage: 1,
-        pageSize: 20,
-        totalRecords: 0,
-        totalPages: 0
+        current_page: 1,
+        page_size: 10,
+        total_records: 0,
+        total_pages: 0
     },
 
     // 排序設定
@@ -43,6 +43,10 @@ const DataBrowserManager = {
      */
     hasEditPermission() {
         return this.hasPermission('edc.data.edit');
+    },
+
+    hasSignPermission() {
+        return this.hasPermission('edc.crf.sign');
     },
 
     /**
@@ -79,6 +83,23 @@ const DataBrowserManager = {
             // 非試驗主持人只能編輯自己建立的資料
             const currentUserId = this.getCurrentUserId();
             return subject.created_by === currentUserId;
+        }
+    },
+
+    canUnsign(subject) {
+        // 基本權限和狀態檢查
+        if (!this.hasSignPermission() || subject.status !== 'signed') {
+            return false;
+        }
+    
+        // 檢查使用者角色
+        if (this.isInvestigator()) {
+            // 試驗主持人可以取消所有已簽署的資料
+            return true;
+        } else {
+            // 非試驗主持人只能取消自己簽署的資料
+            const currentUserId = this.getCurrentUserId();
+            return subject.signed_by === currentUserId;
         }
     },
 
@@ -414,16 +435,23 @@ const DataBrowserManager = {
      * 初始化資料瀏覽器
      */
     async init() {
+        if (this.isInitialized) {
+            this.setupFilters();
+            this.setupFilterControls();
+            this.loadInitialData();
+            return;
+        }
         this.setupEventListeners();
         this.setupFilters();
         this.setupFilterControls();
-
-        await this.loadInitialData();
+        this.loadInitialData();
 
         // 初始化資料編輯器
         if (typeof DataEditorManager !== 'undefined') {
             DataEditorManager.init();
         }
+
+        this.isInitialized = true;
     },
 
     /**
@@ -466,7 +494,7 @@ const DataBrowserManager = {
             if (e.target.classList.contains('page-link')) {
                 e.preventDefault();
                 const page = parseInt(e.target.dataset.page);
-                if (page && page !== this.pagination.currentPage) {
+                if (page && page !== this.pagination.current_page) {
                     this.goToPage(page);
                 }
             }
@@ -514,6 +542,7 @@ const DataBrowserManager = {
         if (bmiMaxInput) bmiMaxInput.addEventListener('change', () => this.updateFilters());
 
         // 下拉選單篩選器
+        const riskScoreSelect = document.getElementById('riskScoreFilter');
         const genderSelect = document.getElementById('genderFilter');
         const statusSelect = document.getElementById('statusFilter');
         const imagingTypeSelect = document.getElementById('imagingTypeFilter');
@@ -522,6 +551,7 @@ const DataBrowserManager = {
         const goutSelect = document.getElementById('goutFilter');
         const bacSelect = document.getElementById('bacFilter');
 
+        if (riskScoreSelect) riskScoreSelect.addEventListener('change', () => this.updateFilters());
         if (genderSelect) genderSelect.addEventListener('change', () => this.updateFilters());
         if (statusSelect) statusSelect.addEventListener('change', () => this.updateFilters());
         if (imagingTypeSelect) imagingTypeSelect.addEventListener('change', () => this.updateFilters());
@@ -567,7 +597,7 @@ const DataBrowserManager = {
                 // 延遲搜尋，避免頻繁請求
                 clearTimeout(this.searchTimeout);
                 this.searchTimeout = setTimeout(() => {
-                    this.searchData();
+                    this.performSearch();
                 }, 500);
             });
         });
@@ -578,8 +608,8 @@ const DataBrowserManager = {
      */
     setupFilters() {
         // 設置日期範圍篩選器的預設值
-        const today = new Date();
-        const sevenDaysAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+        const EndDay = new Date();
+        const StartDay = new Date(EndDay.getTime() - (30 * 24 * 60 * 60 * 1000));
 
         // 使用本地時區格式化日期
         const formatDate = (date) => {
@@ -593,10 +623,10 @@ const DataBrowserManager = {
         const dateToInput = document.getElementById('dateTo');
 
         if (dateFromInput) {
-            dateFromInput.value = formatDate(sevenDaysAgo);
+            dateFromInput.value = '';
         }
         if (dateToInput) {
-            dateToInput.value = formatDate(today);
+            dateToInput.value = formatDate(EndDay);
         }
 
         // 初始化篩選條件
@@ -613,6 +643,12 @@ const DataBrowserManager = {
         const subjectCodeInput = document.getElementById('subjectCodeFilter');
         if (subjectCodeInput && subjectCodeInput.value.trim()) {
             this.currentFilters.subject_code = subjectCodeInput.value.trim();
+        }
+
+        // iStone 結果
+        const riskScoreSelect = document.getElementById('riskScoreFilter');
+        if (riskScoreSelect && riskScoreSelect.value !== '') {
+            this.currentFilters.risk_score = parseInt(riskScoreSelect.value);
         }
 
         // 性別
@@ -729,8 +765,8 @@ const DataBrowserManager = {
                 },
                 body: JSON.stringify({
                     filters: this.currentFilters,
-                    page: this.pagination.currentPage,
-                    page_size: this.pagination.pageSize,
+                    page: this.pagination.current_page,
+                    page_size: this.pagination.page_size,
                     sort_field: this.sorting.field,
                     sort_direction: this.sorting.direction
                 })
@@ -767,12 +803,12 @@ const DataBrowserManager = {
             tableBody.appendChild(noDataRow);
             return;
         }
-        console.log(this.currentData);
+        // console.log(this.currentData);
         this.currentData.forEach(subject => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${subject.subject_code || ''}</td>
-                <td>${subject.risk_score || ''}</td>
+                <td>${subject.risk_score === 1 ? '<span style="color: #DC3545 ;">陽性</span>' : subject.risk_score === 0 ? '<span style="color: #28A745;">陰性</span>' : ''}</td>
                 <td>${subject.age || ''}</td>
                 <td>${subject.gender === 1 ? '男' : '女'}</td>
                 <td>${subject.created_at || ''}</td>
@@ -791,6 +827,11 @@ const DataBrowserManager = {
                             編輯
                         </button>
                     ` : ''}
+                    ${this.canUnsign(subject) ? `
+                        <button class="btn-ghost" onclick="DataBrowserManager.unsignSubject('${subject.subject_code}')">
+                            取消簽署
+                        </button>
+                    ` : ''}
                 </td>
             `;
             tableBody.appendChild(row);
@@ -803,8 +844,8 @@ const DataBrowserManager = {
     displayPagination() {
         const paginationContainer = document.getElementById('paginationContainer');
         if (!paginationContainer) return;
-
-        if (this.pagination.totalPages <= 1) {
+        
+        if (this.pagination.total_pages <= 1) {
             paginationContainer.innerHTML = '';
             return;
         }
@@ -812,27 +853,27 @@ const DataBrowserManager = {
         let paginationHTML = '';
 
         // 上一頁
-        if (this.pagination.currentPage > 1) {
+        if (this.pagination.current_page > 1) {
             paginationHTML += `
-                <button class="page-btn" data-page="${this.pagination.currentPage - 1}">上一頁</button>
+                <button class="page-btn" data-page="${this.pagination.current_page - 1}">上一頁</button>
             `;
         }
 
         // 頁碼
-        const startPage = Math.max(1, this.pagination.currentPage - 2);
-        const endPage = Math.min(this.pagination.totalPages, this.pagination.currentPage + 2);
+        const startPage = Math.max(1, this.pagination.current_page - 2);
+        const endPage = Math.min(this.pagination.total_pages, this.pagination.current_page + 2);
 
         for (let i = startPage; i <= endPage; i++) {
-            const activeClass = i === this.pagination.currentPage ? 'active' : '';
+            const activeClass = i === this.pagination.current_page ? 'active' : '';
             paginationHTML += `
                 <button class="page-btn ${activeClass}" data-page="${i}">${i}</button>
             `;
         }
 
         // 下一頁
-        if (this.pagination.currentPage < this.pagination.totalPages) {
+        if (this.pagination.current_page < this.pagination.total_pages) {
             paginationHTML += `
-                <button class="page-btn" data-page="${this.pagination.currentPage + 1}">下一頁</button>
+                <button class="page-btn" data-page="${this.pagination.current_page + 1}">下一頁</button>
             `;
         }
 
@@ -853,7 +894,7 @@ const DataBrowserManager = {
         pageButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 const page = parseInt(e.target.dataset.page);
-                if (page && page !== this.pagination.currentPage) {
+                if (page && page !== this.pagination.current_page) {
                     this.goToPage(page);
                 }
             });
@@ -864,7 +905,7 @@ const DataBrowserManager = {
      * 前往指定頁面
      */
     goToPage(page) {
-        this.pagination.currentPage = page;
+        this.pagination.current_page = page;
         this.performSearch();
     },
 
@@ -887,7 +928,7 @@ const DataBrowserManager = {
      */
     resetFilters() {
         // 重置所有篩選器輸入
-        const inputs = document.querySelectorAll('#dataBrowserFilters input, #dataBrowserFilters select');
+        const inputs = document.querySelectorAll('#basicFilters input, #basicFilters select, #advancedFilters input, #advancedFilters select');
         inputs.forEach(input => {
             if (input.type === 'text' || input.type === 'number') {
                 input.value = '';
@@ -897,8 +938,8 @@ const DataBrowserManager = {
         });
 
         // 重置日期範圍為預設值
-        const today = new Date();
-        const sevenDaysAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+        const EndDay = new Date();
+        const StartDay = new Date(EndDay.getTime() - (30 * 24 * 60 * 60 * 1000));
 
         // 使用本地時區格式化日期
         const formatDate = (date) => {
@@ -908,26 +949,19 @@ const DataBrowserManager = {
             return `${year}-${month}-${day}`;
         };
 
-        console.log('重置 - 今天日期:', today);
-        console.log('重置 - 七天前日期:', sevenDaysAgo);
-        console.log('重置 - 今天本地格式:', formatDate(today));
-        console.log('重置 - 七天前本地格式:', formatDate(sevenDaysAgo));
-
         const dateFromInput = document.getElementById('dateFrom');
         const dateToInput = document.getElementById('dateTo');
 
         if (dateFromInput) {
-            dateFromInput.value = formatDate(sevenDaysAgo);
-            console.log('重置 dateFrom 為:', dateFromInput.value);
+            dateFromInput.value = '';
         }
         if (dateToInput) {
-            dateToInput.value = formatDate(today);
-            console.log('重置 dateTo 為:', dateToInput.value);
+            dateToInput.value = formatDate(EndDay);
         }
 
         // 重置分頁和排序
         this.pagination.currentPage = 1;
-        this.sorting.field = 'id';
+        this.sorting.field = 'subject_code';
         this.sorting.direction = 'DESC';
 
         // 清空篩選條件並重新搜尋
@@ -1051,6 +1085,39 @@ const DataBrowserManager = {
                 showErrorMessage('資料編輯器未載入，請重新整理頁面');
             }
         }, 1000);
+    },
+
+    /**
+     * 添加取消簽署功能
+     */
+    async unsignSubject(subjectCode) {
+        if (!confirm(`確定要取消受試者 ${subjectCode} 的電子簽署嗎？`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/edc/unsign-subject', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    subject_code: subjectCode,
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showSuccessMessage('取消簽署成功');
+                this.performSearch(); // 重新載入資料
+            } else {
+                showErrorMessage('取消簽署失敗: ' + result.message);
+            }
+        } catch (error) {
+            console.error('取消簽署失敗:', error);
+            showErrorMessage('取消簽署失敗: ' + error.message);
+        }
     },
 
     /**
@@ -1231,6 +1298,7 @@ const DataBrowserManager = {
      */
     backToDataBrowser() {
         // 重新顯示資料瀏覽器
+        new Promise(resolve => setTimeout(resolve, 500));
         showDataBrowser();
     },
 
@@ -1297,6 +1365,7 @@ const DataBrowserManager = {
             const statusClass = this.getQueryStatusClass(query.status);
             const batchData = query.batch_data || {};
             const queryList = batchData.queries || [];
+            console.log(query);
             
             // 載入回應資料
             const responses = await this.loadQueryResponses(query.batch_id);
@@ -1524,7 +1593,14 @@ const DataBrowserManager = {
         // 生成歷程記錄 HTML
         let historyHTML = '<div class="history-timeline">';
 
-        Object.keys(groupedHistory).sort().reverse().forEach(logId => {
+        // 按照時間排序 log_id（最新的在前）
+        const sortedLogIds = Object.keys(groupedHistory).sort((a, b) => {
+            const timeA = groupedHistory[a][0]?.created_at || '';
+            const timeB = groupedHistory[b][0]?.created_at || '';
+            return timeB.localeCompare(timeA); // 降序排序，最新的在前
+        });
+
+        sortedLogIds.forEach(logId => {
             const records = groupedHistory[logId];
             const firstRecord = records[0];
 
@@ -1601,6 +1677,14 @@ function showDataBrowser() {
                         <div class="col-8">
                             <label>受試者編號</label>
                             <input type="text" id="subjectCodeFilter" placeholder="輸入受試者編號" class="filter-input">
+                        </div>
+                        <div class="col-6">
+                            <label>iStone 結果</label>
+                            <select id="riskScoreFilter" class="filter-select">
+                                <option value="">全部</option>
+                                <option value="1">陽性</option>
+                                <option value="0">陰性</option>
+                            </select>
                         </div>
                         <div class="col-10">
                             <label>年齡範圍</label>
@@ -1750,7 +1834,7 @@ function showDataBrowser() {
                         <thead>
                             <tr>
                                 <th class="sortable-header" data-field="subject_code">受試者編號</th>
-                                <th class="sortable-header" data-field="iStone_result">iStone 結果</th>
+                                <th class="sortable-header" data-field="risk_score">iStone 結果</th>
                                 <th class="sortable-header" data-field="age">年齡</th>
                                 <th class="sortable-header" data-field="gender">性別</th>
                                 <th class="sortable-header" data-field="created_at">建立時間</th>

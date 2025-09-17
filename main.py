@@ -53,13 +53,13 @@ app.register_blueprint(edc_blueprints, url_prefix='/edc')
 if __name__ == '__main__':  
     app.debug = True  
     #app.run(host="0.0.0.0", port=8002,ssl_context=(crt_path, key_path))
-    app.run(port=8000)
+    app.run(port=5000)
     print([configuration,domain,crt_path,key_path])
     if configuration:
         try:
             # app.run(  host="0.0.0.0",  port=int(port_str),ssl_context=(crt_path, key_path))
             app.run(host="0.0.0.0", port=int(port_str))
         except:
-            app.run(port=8000)
+            app.run(port=5000)
     else:
-        app.run(port=8000)
+        app.run(port=5000)

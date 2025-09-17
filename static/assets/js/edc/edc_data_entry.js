@@ -766,7 +766,7 @@ async function submitForm() {
             }
             
             // 將 iStone 計算結果添加到表單資料中
-            formData.subject_data.risk_score = Result.data.result;
+            formData.subject_data.risk_score = Result.data.result >= 0.5 ? 1 : 0;; // 風險百分比
             
             // 發送到後端
             const response = await fetch('/edc/submit-ecrf', {
@@ -785,12 +785,13 @@ async function submitForm() {
                 // 顯示提交成功訊息，包含 iStone 計算結果
                 let successMessage = `eCRF 已成功提交！受試者代碼：${subjectCode}`;
                 if (Result && Result.success === true) {
-                    successMessage += `\n\niStone 分析結果：\n${(Result.data.result * 100).toFixed(1)}%`;
+                    successMessage += `\n\niStone 分析結果：\n${formData.subject_data.risk_score === 1 ? '陽性' : '陰性'}`;
                 }
                 showSuccessMessage(successMessage);
                 
                 // 跳轉到資料瀏覽頁面
                 if (typeof openDataBrowser === 'function') {
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     openDataBrowser();
                 } else {
                     // 備用方案：直接跳轉到主頁面
