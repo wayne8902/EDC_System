@@ -509,7 +509,7 @@ const DataEditorManager = {
             
             // 收集基本資料欄位
             const basicFields = [
-                'enrollDate', 'subjectCode', 'birthDate', 'age', 'gender', 'height', 'weight', 'bmi',
+                'enrollDate', 'subjectCode', 'riskScore', 'birthDate', 'age', 'gender', 'height', 'weight', 'bmi',
                 'biochemDate', 'scr', 'egfr', 'urineDate', 'ph', 'sg', 'urinalysisDate', 'rbc', 'bacteriuria', 'dm', 'dmDateSection', 'gout', 'goutDateSection', 'imgType', 'imgDate', 
                 'stone', 'imgReport', 'imgReadingReport'
             ];
@@ -518,6 +518,7 @@ const DataEditorManager = {
             const basicFieldMapping = {
                 'enrollDate': 'enroll_date',
                 'subjectCode': 'subject_code',
+                'riskScore': 'risk_score',
                 'birthDate': 'date_of_birth',
                 'height': 'height_cm',
                 'weight': 'weight_kg',
@@ -1027,6 +1028,11 @@ const DataEditorManager = {
                 console.log('後端回應:', result);
                 
                 this.updateUIAfterSigning(result);
+                
+                // 執行 openDataBrowser
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                }
             } else {
                 showErrorMessage(`提交審核並簽署失敗: ${result.message}`);
             }
@@ -1101,6 +1107,11 @@ const DataEditorManager = {
                 console.log('後端回應:', result);
                 
                 this.updateUIAfterSigning(result);
+                
+                // 執行 openDataBrowser
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                }
             } else {
                 showErrorMessage(`簽署失敗: ${result.message}`);
             }
@@ -1189,7 +1200,7 @@ const DataEditorManager = {
                 this.notifyPI(subjectCode);
                 
                 // 顯示成功訊息
-                alert(`✅ ${result.message}\n\n受試者：${subjectCode}\n提交時間：${result.submitted_at}`);
+                showSuccessMessage(`✅ ${result.message}\n\n受試者：${subjectCode}\n提交時間：${result.submitted_at}`);
                 
                 // 重新載入頁面資料以反映新狀態
                 this.reloadPageData();
@@ -1200,12 +1211,12 @@ const DataEditorManager = {
                 if (result.missing_fields && result.missing_fields.length > 0) {
                     errorMessage += '\n\n缺少的必填欄位：\n' + result.missing_fields.join('\n');
                 }
-                alert(`❌ ${errorMessage}`);
+                showErrorMessage(`❌ ${errorMessage}`);
             }
             
         } catch (error) {
             console.error('提交流程失敗:', error);
-            alert(`❌ 提交失敗：${error.message}`);
+            aleshowErrorMessaget(`❌ 提交失敗：${error.message}`);
         } finally {
             this.hideLoadingState();
         }

@@ -16,7 +16,7 @@ class DataBrowserGenerator {
         try {
 
             
-            const response = await fetch('assets/js/edc/edc_data_browser_config.json');
+            const response = await fetch('/static/assets/js/edc/edc_data_browser_config.json');
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -112,11 +112,14 @@ class DataBrowserGenerator {
         const styles = config.styles || this.getDefaultStyles();
         const canShowEditButton = DataBrowserManager.canShowEditButton(data.subject);
         
-        // 檢查是否可以顯示簽署按鈕（狀態為 submitted 且用戶為試驗主持人）
-        const canShowSignButton = data.subject?.status === 'submitted' && DataBrowserManager.isInvestigator();
+        // 檢查是否可以顯示簽署按鈕（狀態為 submitted 且用戶為試驗主持人，且不是 frozen 狀態）
+        const canShowSignButton = data.subject?.status === 'submitted' && DataBrowserManager.isInvestigator() && data.subject?.status !== 'frozen';
         
-        // 檢查是否可以顯示 Query 發起按鈕（用戶為試驗監測者且有權限）
-        const canShowQueryButton = DataBrowserManager.canCreateQuery();
+        // 檢查是否可以顯示 Query 發起按鈕（用戶為試驗監測者且有權限，且不是 frozen 狀態）
+        const canShowQueryButton = DataBrowserManager.canCreateQuery(data.subject);
+        
+        // 檢查是否可以顯示凍結按鈕（用戶有凍結權限且資料已簽署，且不是 frozen 狀態）
+        const canShowFreezeButton = DataBrowserManager.canFreezeData() && data.subject?.status === 'signed' && data.subject?.status !== 'frozen';
 
         return `
             <div class="wrap">
@@ -127,7 +130,7 @@ class DataBrowserGenerator {
                             <h2><i class="${config.icon}"></i> ${config.title}</h2>
                             <p class="text-muted">受試者編號: ${data.subject?.subject_code || 'N/A'}</p>
                         </div>
-                        <div class="col-4 text-right">
+                        <div class="col-8 text-right">
                             <button class="btn btn-secondary" onclick="DataBrowserManager.backToDataBrowser()">
                                 <i class="fas fa-arrow-left"></i> 返回資料瀏覽
                             </button>
@@ -144,6 +147,11 @@ class DataBrowserGenerator {
                             ${canShowQueryButton ? `
                                 <button class="btn btn-warning" onclick="DataBrowserManager.createQuery('${data.subject?.subject_code || ''}')" style="margin-left: 10px;">
                                     <i class="fas fa-question-circle"></i> 發起 Query
+                                </button>
+                            ` : ''}
+                            ${canShowFreezeButton ? `
+                                <button class="btn btn-info" onclick="DataBrowserManager.freezeData('${data.subject?.subject_code || ''}')" style="margin-left: 10px;">
+                                    <i class="fas fa-lock"></i> 凍結資料
                                 </button>
                             ` : ''}
                         </div>

@@ -1,5 +1,5 @@
 #https://medium.com/seaniap/python-web-flask-blueprints-%E8%A7%A3%E6%B1%BA%E5%A4%A7%E6%9E%B6%E6%A7%8B%E7%9A%84%E7%B6%B2%E7%AB%99-1f9878312526
-from flask import Flask,Blueprint,render_template,redirect,url_for
+from flask import Flask,Blueprint,render_template,redirect,url_for, send_from_directory
 
 from flask_login import LoginManager, login_required
 from login_sys import login_blueprints, user_loader
@@ -38,6 +38,16 @@ login_manager.user_loader(user_loader)
 def unauthorized():    
     print("unauthorized!",flush=True)
     return redirect('/login/checklogin')
+
+@app.route('/')
+def index():
+    return redirect('/edc/')
+
+@app.route('/edc/')
+@app.route('/edc/<path:subpath>')
+@login_required
+def edc_frontend(subpath=None):
+    return send_from_directory('static', 'edc_dashboard.html')
 
 @app.route('/protected/<path:filename>')
 @login_required

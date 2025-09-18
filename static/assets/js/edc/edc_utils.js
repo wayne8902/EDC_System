@@ -405,6 +405,7 @@ function loadUserPermissions() {
                 userPermissions = data.permissions || [];
                 determineUserRole(data.roles || []);
                 setupQuickActions();
+                updateiStoneButtonVisibility();
             } else {
                 console.error('載入權限失敗:', data.message);
                 showDefaultRole();
@@ -480,6 +481,18 @@ function setupQuickActions() {
     });
     
     quickActions.innerHTML = html || '<p class="text-muted">無快速操作</p>';
+}
+
+// 更新 iStone 按鈕可見性
+function updateiStoneButtonVisibility() {
+    const istoneButton = document.getElementById('istoneButton');
+    if (istoneButton) {
+        if (userPermissions && userPermissions.includes('edc.data.create')) {
+            istoneButton.style.display = 'inline-block';
+        } else {
+            istoneButton.style.display = 'none';
+        }
+    }
 }
 
 // 頁面刷新相關函數
@@ -850,6 +863,7 @@ if (typeof window !== 'undefined') {
     window.determineUserRole = determineUserRole;
     window.showDefaultRole = showDefaultRole;
     window.setupQuickActions = setupQuickActions;
+    window.updateiStoneButtonVisibility = updateiStoneButtonVisibility;
     window.loadDashboardStats = loadDashboardStats;
     window.logout = logout;
     

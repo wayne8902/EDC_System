@@ -60,8 +60,8 @@ const DataBrowserManager = {
         }
 
         const status = subject.status.toLowerCase();
-        // 只有 'submitted' 和 'signed' 狀態不能編輯，其他狀態（包括 'query'）都可以編輯
-        return status !== 'submitted' && status !== 'signed';
+        // 'submitted'、'signed' 和 'frozen' 狀態不能編輯，其他狀態（包括 'query'）都可以編輯
+        return status !== 'submitted' && status !== 'signed' && status !== 'frozen';
     },
 
     /**
@@ -123,8 +123,18 @@ const DataBrowserManager = {
      * 檢查是否可以發起 Query
      * @returns {boolean} - 是否可以發起 Query
      */
-    canCreateQuery() {
-        return this.isMonitor() && this.hasPermission('edc.query.create');
+    canCreateQuery(subject = null) {
+        // 基本權限檢查
+        if (!this.isMonitor() || !this.hasPermission('edc.query.create')) {
+            return false;
+        }
+        
+        // 如果提供了受試者資料，檢查狀態
+        if (subject && subject.status === 'frozen') {
+            return false;
+        }
+        
+        return true;
     },
 
     /**
@@ -150,6 +160,14 @@ const DataBrowserManager = {
         }
         
         return true;
+    },
+
+    /**
+     * 檢查是否可以凍結資料
+     * @returns {boolean} - 是否可以凍結資料
+     */
+    canFreezeData() {
+        return this.hasPermission('edc.data.freeze');
     },
 
     /**
@@ -1009,8 +1027,19 @@ const DataBrowserManager = {
 
     // 查看詳細資料
     viewDetails(subjectCode) {
-        // 調用後台API獲取詳細資料
-        this.fetchSubjectDetails(subjectCode);
+        setTimeout(() => {
+            this.fetchSubjectDetails(subjectCode);
+        }, 200);
+        
+        
+        // 同時更新 URL（如果路由器可用）
+        if (typeof frontendRouter !== 'undefined') {
+            // 只更新 URL，不觸發路由處理
+            const newPath = `/edc/browser/${subjectCode}`;
+            if (window.location.pathname !== newPath) {
+                window.history.pushState({}, '', newPath);
+            }
+        }
     },
 
     // 獲取受試者詳細資料
@@ -1035,11 +1064,8 @@ const DataBrowserManager = {
             const result = await response.json();
 
             if (result.success) {
-
-
-                // 顯示成功訊息
-                showSuccessMessage(`成功獲取受試者 ${subjectCode} 的詳細資料`);
                 this.showSubjectDetailBlock(result.data); // 顯示詳細資料區塊
+                showSuccessMessage(`成功獲取受試者 ${subjectCode} 的詳細資料`);
             } else {
                 // 顯示錯誤訊息
                 showErrorMessage('錯誤: ' + (result.message || '獲取詳細資料失敗'));
@@ -1072,7 +1098,7 @@ const DataBrowserManager = {
             showErrorMessage('此受試者資料已提交或簽署，無法編輯');
             return;
         }
-
+        setTimeout(() => {}, 500);
         // 先載入詳細資料，然後切換到編輯模式
         this.viewDetails(subjectCode);
         
@@ -1111,6 +1137,11 @@ const DataBrowserManager = {
             if (result.success) {
                 showSuccessMessage('取消簽署成功');
                 this.performSearch(); // 重新載入資料
+                
+                // 執行 openDataBrowser
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                }
             } else {
                 showErrorMessage('取消簽署失敗: ' + result.message);
             }
@@ -1155,6 +1186,65 @@ const DataBrowserManager = {
     },
 
     /**
+     * 凍結資料
+     * @param {string} subjectCode - 受試者編號
+     */
+    freezeData(subjectCode) {
+        // 檢查凍結資料的權限
+        if (!this.canFreezeData()) {
+            alert('您沒有凍結資料的權限');
+            return;
+        }
+
+        // 檢查受試者編號
+        if (!subjectCode) {
+            alert('無效的受試者編號');
+            return;
+        }
+
+        // 確認凍結操作
+        if (!confirm(`確定要凍結受試者 ${subjectCode} 的資料嗎？\n\n凍結後資料將變為唯讀，無法再進行修改。`)) {
+            return;
+        }
+
+        // 調用後端 API 凍結資料
+        this.callFreezeDataAPI(subjectCode);
+    },
+
+    /**
+     * 調用後端 API 凍結資料
+     * @param {string} subjectCode - 受試者編號
+     */
+    callFreezeDataAPI(subjectCode) {
+        fetch(`/edc/freeze/${subjectCode}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                subject_code: subjectCode,
+                frozen_by: this.getCurrentUserId()
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessMessage(`成功凍結受試者 ${subjectCode} 的資料！`);
+                // 重新載入資料瀏覽器
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                }
+            } else {
+                showErrorMessage('凍結失敗：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('凍結資料 API 調用失敗:', error);
+            showErrorMessage('凍結失敗，請稍後再試');
+        });
+    },
+
+    /**
      * 顯示受試者詳細資料區塊
      */
     async showSubjectDetailBlock(data) {
@@ -1167,13 +1257,13 @@ const DataBrowserManager = {
 
             // 替換主內容區域
             mainContent.innerHTML = detailPage;
-
+            setTimeout(() => {}, 1000);
             // 初始化頁籤切換功能
             this.initializeTabSwitching();
-            await new Promise(resolve => setTimeout(resolve, 300));
+            setTimeout(() => {}, 1000);
             // 載入歷程記錄
             this.loadSubjectHistory(data.subject?.subject_code);
-            await new Promise(resolve => setTimeout(resolve, 300));
+            setTimeout(() => {}, 1000);
             // 載入 Query 紀錄
             this.loadQuerySection(data.subject?.subject_code, data.subject);
         } catch (error) {
@@ -1244,7 +1334,7 @@ const DataBrowserManager = {
                             <i class="fas fa-edit"></i> 編輯模式
                         </button>
                         ` : ''}
-                        ${this.canCreateQuery() ? `
+                        ${this.canCreateQuery(subject) ? `
                         <button class="btn btn-warning" onclick="DataBrowserManager.createQuery('${subject?.subject_code || ''}')">
                             <i class="fas fa-question-circle"></i> 發起 Query
                         </button>
@@ -1298,7 +1388,6 @@ const DataBrowserManager = {
      */
     backToDataBrowser() {
         // 重新顯示資料瀏覽器
-        new Promise(resolve => setTimeout(resolve, 500));
         showDataBrowser();
     },
 
@@ -1340,7 +1429,7 @@ const DataBrowserManager = {
                 <div class="text-center" style="padding: 3rem;">
                     <i class="fas fa-exclamation-triangle" style="font-size: 4rem; color: #dc3545; margin-bottom: 1rem;"></i>
                     <p class="text-danger" style="font-size: 1.1rem; margin-bottom: 0.5rem;">載入 Query 失敗</p>
-                    <p class="text-muted">無法載入 Query 記錄，請稍後再試</p>
+                    <p class="text-muted">無法載入 Query 記錄，請重新整理</p>
                 </div>
             `;
             return;

@@ -38,13 +38,13 @@ body {
 
 /* 限制主要內容區域的最大寬度為 80% */
 .container-fluid {
-    max-width: 80% !important;
+    max-width: 90% !important;
     margin: 0 auto !important;
 }
 
 /* navbar 內部間距 */
 .medical-navbar {
-    padding: 0.75rem 20px;
+    padding: 0.75rem 40px;
 }
 
 /* 狀態標籤樣式 */
@@ -80,6 +80,13 @@ body {
     background-color: #d1fae5;
     color: #059669;
     border: 1px solid #10b981;
+}
+
+.status-frozen {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #0284c7;
+    position: relative;
 }
 
 /* 詳細檢視分頁樣式 */

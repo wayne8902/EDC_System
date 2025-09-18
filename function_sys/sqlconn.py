@@ -122,7 +122,18 @@ class sqlconn:
         """
         if len(informations)!=len(values):
             raise Exception("value and index mismatch")
-        query= f"INSERT INTO {sheet}("+",".join(informations)+") VALUES('"+"','".join(values)+"')"
+        
+        # 處理 None 值，將其轉換為 NULL
+        processed_values = []
+        for value in values:
+            if value is None:
+                processed_values.append('NULL')
+            else:
+                # 轉義單引號以防止 SQL 注入
+                escaped_value = str(value).replace("'", "''")
+                processed_values.append(f"'{escaped_value}'")
+        
+        query= f"INSERT INTO {sheet}("+",".join(informations)+") VALUES("+",".join(processed_values)+")"
         if verbose:
             print("Query String(Insert): "+query)
         try:

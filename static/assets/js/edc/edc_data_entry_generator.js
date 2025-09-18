@@ -3,11 +3,11 @@ class FormGenerator {
         this.config = config;
     }
 
-    // 主要生成函數
+    // 主要生成函數 ${this.generateDebugSection()}
     generateForm() {
         return `
             <div class="wrap">
-                ${this.generateDebugSection()}
+                
                 ${this.generateTabNavigation()}
                 ${this.generateTabContents()}
                 ${this.generateActionBar()}

@@ -69,14 +69,14 @@ def _build_auth_url():
 def get_client_ip():
     # 取得 X-Forwarded-For 標頭
     x_forwarded_for = request.headers.get('X-Forwarded-For')
- 
+
     if x_forwarded_for:
         # X-Forwarded-For 可能包含多個 IP，第一個通常是真實客戶端 IP
         client_ip = x_forwarded_for.split(',')[0].strip()
     else:
         # 如果沒有 X-Forwarded-For，使用 remote_addr
         client_ip = request.remote_addr
- 
+
     return client_ip
 
 #https://flask-login.readthedocs.io/en/latest/
@@ -111,9 +111,6 @@ class User(UserMixin):
             self.UNIQUE_ID = ''
             self.EMAIL = ''
             self.DUEDATE = None
-  
-  
-
 
 @login_blueprints.route('/test', methods=['GET','POST'])
 def test():
@@ -210,7 +207,7 @@ def api_login():
     #     due: due time
     fidb.disconnect()
     if(result["state"]):
-        resp = make_response(json.dumps({"content":"登入成功","success":True,"redirect":"/static/edc_dashboard.html"}))
+        resp = make_response(json.dumps({"content":"登入成功","success":True,"redirect":"/edc/"}))
         user = User(username)
         login_user(user)
     else:
@@ -258,7 +255,7 @@ def authorized():
             if(result["state"]):
                 user = User(result['user'])
                 login_user(user)
-                resp = make_response(redirect('/static/edc_dashboard.html'))
+                resp = make_response(redirect('/edc/'))
                 resp.set_cookie('user_id', urllib.parse.quote_plus(user.NAME), expires=result["due"])
                 resp.set_cookie('unique_id', value=user.UNIQUE_ID, expires=result["due"])
                 return resp

@@ -34,18 +34,18 @@
                                     <form class="user">
 
                                         <div class="mb-3"><input class="form-control form-control-user" type="text"
-                                                id="account" placeholder="User ID"></div>
+                                                id="account" placeholder="User ID" onkeypress="handleEnterKey(event)"></div>
                                         <div class="mb-3"><input class="form-control form-control-user" type="password"
-                                                id="password" placeholder="Password"></div>
-                                        <a href="/login/login?type=ms">以 Microsoft 登入</a>
+                                                id="password" placeholder="Password" onkeypress="handleEnterKey(event)"></div>
+                                        <!-- <a href="/login/login?type=ms">以 Microsoft 登入</a> -->
                                         <div class="mb-3">
-                                            <div class="custom-control custom-checkbox small">
+                                            <!-- <div class="custom-control custom-checkbox small">
                                                 <div class="form-check"><input
                                                         class="form-check-input custom-control-input" type="checkbox"
                                                         id="formCheck-1"><label
                                                         class="form-check-label custom-control-label"
                                                         for="formCheck-1">Remember Me</label></div>
-                                            </div>
+                                            </div> -->
                                         </div><button class="btn btn-primary d-block btn-user w-100" type="button"
                                             onclick="login()">Login</button>
                                         <hr>

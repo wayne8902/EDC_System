@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>iStone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+</head>
+<style>
+	body {
+		font-family: "Roboto", sans-serif;
+		background-color: #e9e9e9;
+		margin: 0px;
+	}
+	.navbar_horizon {
+		display: flex;
+		justify-content: space-around;
+		align-items: center;
+		height: 0px;
+		/* background-color: #333; */
+	}
+	.nav-item {
+		flex: 1;
+		text-align: center;
+		padding: 15px 0;
+		color: white;
+		font-size: 18px;
+		font-weight: bold;
+	}
+	.navbar {
+		/* position: fixed; */
+		top: 10px;
+		width: 100%;
+		height: 500px;
+		background-color: #447aee;
+		color: white;
+		text-align: center;
+	}
+	.navbar h1 {
+		margin-top: 0px;
+		font-size: 3em;
+		margin-bottom: 10px;
+		position: relative; 
+		z-index: 1;
+	}
+
+	.navbar h2 {
+		margin-top: 0px;
+		font-size: 2em;
+		margin-bottom: 0px;
+		position: relative; 
+		z-index: 1;
+	}
+	.background-img {
+		position: absolute;
+		margin-top: 20px;
+		top: 0;
+		width: 100%;
+		height: 120%;
+		z-index: 0; 
+		opacity: 0.3;
+	}
+	.form {
+		width: 70%;
+		margin: auto;
+		margin-top: -200px;
+		margin-bottom: 100px;
+		background-color: #fff;
+		padding: 20px;
+		border-radius: 20px;
+		border:1px #ccc solid;
+		border-collapse: collapse;
+	}
+	table, th, td {
+        border: none;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 8px;
+        text-align: left;
+    }
+	input[type="text"] {
+		width: 50%;
+		padding: 5px;
+    	font-size: 24px;
+    	height: 100%;
+		box-shadow: 3px 3px 3px #ccc;
+		border-radius: 3px;
+		border:1px #ccc solid;
+	}
+	hr {
+		width: 100%;
+		text-align: left;
+		margin: 0;
+		color: gray;
+		background-color: gray;
+	}
+	input[type="submit"] {
+		background-color: #447aee;
+		border: none;
+		color: white;
+		padding: 15px 32px;
+		text-align: center;
+		text-decoration: none;
+		display: inline-block;
+		font-size: 16px;
+		border-radius: 12px;
+	}
+</style>
+<body>
+	<nav class="navbar_horizon">
+        <div class="nav-item" style="background-color: #447aee;"></div>
+        <div class="nav-item" style="background-color: #79e48d;"></div>
+        <div class="nav-item" style="background-color: #fdf917;"></div>
+        <div class="nav-item" style="background-color: #e65b43;"></div>
+        <div class="nav-item" style="background-color: #447aee;"></div>
+    </nav>
+	<nav class="navbar">
+        <div style="width:50em; margin: auto;  text-align: left; position: relative;">
+			<a href="/edc/" class="btn btn-danger">首頁</a>
+			<a href="/login/logout" class="btn btn-danger">登出</a>
+            <img src="/static/assets/img/logo_text.png" class="background-img">
+            <h1>
+                <img src="/static/assets/img/logo_fig.png" style="width: 60px; height: 60px; margin-top: 50px; margin-right: 10px;">
+                iStone - AI Based Kidney Stone Screening System
+            </h1>
+            <h2>Evaluate</h2>
+        </div>
+    </nav>
+	
+	<form class="form" action="post" method="post">
+		<h1>Please input the following informations: </h1><br>
+		<table style="width:100%; border-collapse: collapse;" border="1" ><thead><tr><th style="width:35%">Test Name</th><th style="width:40%">Value</th><th style="width:25%">Units</th></tr></thead>
+			<tr><td colspan="3"><hr></td></tr>
+			<tbody>
+				<tr>
+					<td colspan="3" style="text-align: left"><b>Informations</b></td>
+				</tr>
+				<!-- <tr>
+					<td>Index</td>
+					<td style="text-align: left"><input type="text" name="index"></td>
+					<td>   </td>
+				</tr> -->
+				<!------------------------------------>
+				<tr><td>Gender</td><td style="text-align: left">
+					<input type="radio" name="parm0" value="1" checked /><label for="Male">Male</label>
+					<input type="radio" name="parm0" value="0" /><label for="Female">Female</label>
+				</td><td>   </td></tr>
+				<!------------------------------------>
+				<tr><td>Age</td><td style="text-align: left"><input type="text" name="parm1"></td><td>   </td></tr>
+				<!------------------------------------>
+				<tr><td>BMI</td><td style="text-align: left"><input type="text" name="parm3"></td><td>kg/m^2</td></tr>
+				<tr><td colspan="3"><hr></td></tr>
+				<!---------------------------------------------------------------------------------------------->
+				<tr>
+					<td colspan="3" style="text-align:left"><b>Past History</b></td>
+				</tr>
+				<tr><td>Diabetes</td><td style="text-align: left">
+					<input type="radio" name="parm5" value="0" checked /><label for="NO">NO</label>
+					<input type="radio" name="parm5" value="1" /><label for="YES">YES</label>
+				</td><td>   </td></tr>
+				<!------------------------------------>
+				<tr><td>Gout</td><td style="text-align: left">
+					<input type="radio" name="parm6" value="0" checked /><label for="NO">NO</label>
+					<input type="radio" name="parm6" value="1" /><label for="YES">YES</label>
+				</td><td>   </td></tr>
+				<tr><td colspan="3"><hr></td></tr>
+				<!---------------------------------------------------------------------------------------------->
+				<tr><td colspan="3" style="text-align:left"><b>Urine Examination</b></td></tr>
+				<tr><td>Urine Bacteria</td><td style="text-align: left">
+					<input type="radio" name="parm7" value="0" checked /><label for="Neg">Neg(-)</label>
+					<input type="radio" name="parm7" value="1" /><label for="Pos">Pos(+)</label>
+				</td><td>   </td></tr>
+				<!------------------------------------>
+				<tr><td>Urine PH</td><td style="text-align: left"><input type="text" name="parm4"></td><td>   </td></tr>
+				<tr><td colspan="3"><hr></td></tr>
+				<!------------------------------------>
+				<tr><td>Urine SG</td><td style="text-align: left"><input type="text" name="parm8"></td><td>g/cm^3</td></tr>
+				<!------------------------------------>
+				<tr><td>Urine RBC</td><td style="text-align: left"><input type="text" name="parm9"></td><td>HPF</td></tr>
+				<!------------------------------------>
+				<tr><td>eGFR</td><td style="text-align: left"><input type="text" name="parm2"></td><td>mL/min/1.73m^2</td></tr>
+				<tr><td colspan="3"><hr></td></tr>
+				<!------------------------------------>
+			</tbody>
+		</table>
+
+		<br>
+		<input type="submit" value="submit" style="width:10em;height:3em">
+	</form>
+</body>
+</html>

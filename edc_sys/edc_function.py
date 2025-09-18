@@ -823,8 +823,9 @@ class edc_db:
                     values.append(str(subject_data.get(col, 0)))
                 else:
                     value = subject_data.get(col)
-                    values.append(str(value) if value is not None else '')
+                    values.append(value)
 
+            print("AAA", values)  
             if self.sql.insert('subjects', columns, values, verbose=verbose):
                 # 獲取新插入的 ID
                 result = self.sql.search('subjects', ['id'], criteria=f"`subject_code`='{subject_data['subject_code']}'", verbose=verbose)
@@ -895,7 +896,7 @@ class edc_db:
                         values.append(str(inclusion_data[col]))
                     else:
                         value = inclusion_data.get(col, 0)
-                        values.append(str(value) if value is not None else '0')
+                        values.append(value)
             
             if self.sql.insert('inclusion_criteria', columns, values, verbose=verbose):
                 # 獲取新插入的 ID
@@ -968,7 +969,7 @@ class edc_db:
                         values.append(str(value) if value is not None else '')
                     else:
                         value = exclusion_data.get(col, 0)
-                        values.append(str(value) if value is not None else '0')
+                        values.append(value)
             
             if self.sql.insert('exclusion_criteria', columns, values, verbose=verbose):
                 # 獲取新插入的 ID
@@ -1438,62 +1439,62 @@ class edc_db:
         print("data: ", data)
         
         # 必填欄位檢查
-        required_fields = ['subject_code', 'date_of_birth', 'gender']
+        required_fields = ['subject_code'] # , 'date_of_birth', 'gender'
         for field in required_fields:
             if not data.get(field):
                 errors.append(f'缺少必填欄位: {field}')
         
-        # 日期格式驗證
-        date_fields = [
-            ('date_of_birth', '出生日期'),
-            ('enroll_date', '個案納入日期'),
-            ('biochem_date', '生化檢驗採檢日期'),
-            ('urine_date', '尿液檢驗採檢日期'),
-            ('urinalysis_date', '尿液鏡檢採檢日期'),
-            ('imaging_date', '影像檢查日期')
-        ]
+        # # 日期格式驗證
+        # date_fields = [
+        #     ('date_of_birth', '出生日期'),
+        #     ('enroll_date', '個案納入日期'),
+        #     ('biochem_date', '生化檢驗採檢日期'),
+        #     ('urine_date', '尿液檢驗採檢日期'),
+        #     ('urinalysis_date', '尿液鏡檢採檢日期'),
+        #     ('imaging_date', '影像檢查日期')
+        # ]
         
-        for field, label in date_fields:
-            try:
-                if data.get(field):
-                    datetime.strptime(data[field], '%Y-%m-%d')
-            except ValueError:
-                errors.append(f'{label}格式錯誤')
+        # for field, label in date_fields:
+        #     try:
+        #         if data.get(field):
+        #             datetime.strptime(data[field], '%Y-%m-%d')
+        #     except ValueError:
+        #         errors.append(f'{label}格式錯誤')
         
-        # 數值範圍驗證
-        try:
-            if data.get('height_cm'):
-                height = float(data['height_cm'])
-                if height < 50 or height > 300:
-                    errors.append('身高數值異常 (應在 50-300 cm 之間)')
-        except (ValueError, TypeError):
-            errors.append('身高數值格式錯誤')
+        # # 數值範圍驗證
+        # try:
+        #     if data.get('height_cm'):
+        #         height = float(data['height_cm'])
+        #         if height < 50 or height > 300:
+        #             errors.append('身高數值異常 (應在 50-300 cm 之間)')
+        # except (ValueError, TypeError):
+        #     errors.append('身高數值格式錯誤')
         
-        try:
-            if data.get('weight_kg'):
-                weight = float(data['weight_kg'])
-                if weight < 20 or weight > 500:
-                    errors.append('體重數值異常 (應在 20-500 kg 之間)')
-        except (ValueError, TypeError):
-            errors.append('體重數值格式錯誤')
+        # try:
+        #     if data.get('weight_kg'):
+        #         weight = float(data['weight_kg'])
+        #         if weight < 20 or weight > 500:
+        #             errors.append('體重數值異常 (應在 20-500 kg 之間)')
+        # except (ValueError, TypeError):
+        #     errors.append('體重數值格式錯誤')
         
-        # 年齡驗證
-        try:
-            if data.get('age'):
-                age = int(data['age'])
-                if age < 0 or age > 150:
-                    errors.append('年齡數值異常 (應在 0-150 歲之間)')
-        except (ValueError, TypeError):
-            errors.append('年齡數值格式錯誤')
+        # # 年齡驗證
+        # try:
+        #     if data.get('age'):
+        #         age = int(data['age'])
+        #         if age < 0 or age > 150:
+        #             errors.append('年齡數值異常 (應在 0-150 歲之間)')
+        # except (ValueError, TypeError):
+        #     errors.append('年齡數值格式錯誤')
         
-        # BMI 驗證
-        try:
-            if data.get('bmi'):
-                bmi = float(data['bmi'])
-                if bmi < 10 or bmi > 100:
-                    errors.append('BMI 數值異常 (應在 10-100 之間)')
-        except (ValueError, TypeError):
-            errors.append('BMI 數值格式錯誤')
+        # # BMI 驗證
+        # try:
+        #     if data.get('bmi'):
+        #         bmi = float(data['bmi'])
+        #         if bmi < 10 or bmi > 100:
+        #             errors.append('BMI 數值異常 (應在 10-100 之間)')
+        # except (ValueError, TypeError):
+        #     errors.append('BMI 數值格式錯誤')
         
         # 性別驗證
         try:
@@ -1514,51 +1515,51 @@ class edc_db:
             except (ValueError, TypeError):
                 errors.append(f'{field_label}數值格式錯誤')
         
-        # 檢驗數值欄位驗證
-        try:
-            if data.get('scr') is not None:
-                scr = float(data['scr'])
-                if scr < 0 or scr > 50:
-                    errors.append('血清肌酸酐數值異常 (應在 0-50 mg/dL 之間)')
-        except (ValueError, TypeError):
-            if data.get('scr'):  # 只有當有值時才報錯
-                errors.append('血清肌酸酐數值格式錯誤')
+        # # 檢驗數值欄位驗證
+        # try:
+        #     if data.get('scr') is not None:
+        #         scr = float(data['scr'])
+        #         if scr < 0 or scr > 50:
+        #             errors.append('血清肌酸酐數值異常 (應在 0-50 mg/dL 之間)')
+        # except (ValueError, TypeError):
+        #     if data.get('scr'):  # 只有當有值時才報錯
+        #         errors.append('血清肌酸酐數值格式錯誤')
         
-        try:
-            if data.get('egfr') is not None:
-                egfr = float(data['egfr'])
-                if egfr < 0 or egfr > 200:
-                    errors.append('估算腎絲球過濾率數值異常 (應在 0-200 mL/min/1.73m² 之間)')
-        except (ValueError, TypeError):
-            if data.get('egfr'):  # 只有當有值時才報錯
-                errors.append('估算腎絲球過濾率數值格式錯誤')
+        # try:
+        #     if data.get('egfr') is not None:
+        #         egfr = float(data['egfr'])
+        #         if egfr < 0 or egfr > 200:
+        #             errors.append('估算腎絲球過濾率數值異常 (應在 0-200 mL/min/1.73m² 之間)')
+        # except (ValueError, TypeError):
+        #     if data.get('egfr'):  # 只有當有值時才報錯
+        #         errors.append('估算腎絲球過濾率數值格式錯誤')
         
-        try:
-            if data.get('ph') is not None:
-                ph = float(data['ph'])
-                if ph < 4.0 or ph > 10.0:
-                    errors.append('尿液酸鹼值異常 (應在 4.0-10.0 之間)')
-        except (ValueError, TypeError):
-            if data.get('ph'):  # 只有當有值時才報錯
-                errors.append('尿液酸鹼值格式錯誤')
+        # try:
+        #     if data.get('ph') is not None:
+        #         ph = float(data['ph'])
+        #         if ph < 4.0 or ph > 10.0:
+        #             errors.append('尿液酸鹼值異常 (應在 4.0-10.0 之間)')
+        # except (ValueError, TypeError):
+        #     if data.get('ph'):  # 只有當有值時才報錯
+        #         errors.append('尿液酸鹼值格式錯誤')
         
-        try:
-            if data.get('sg') is not None:
-                sg = float(data['sg'])
-                if sg < 1.000 or sg > 1.050:
-                    errors.append('尿液比重異常 (應在 1.000-1.050 之間)')
-        except (ValueError, TypeError):
-            if data.get('sg'):  # 只有當有值時才報錯
-                errors.append('尿液比重格式錯誤')
+        # try:
+        #     if data.get('sg') is not None:
+        #         sg = float(data['sg'])
+        #         if sg < 1.000 or sg > 1.050:
+        #             errors.append('尿液比重異常 (應在 1.000-1.050 之間)')
+        # except (ValueError, TypeError):
+        #     if data.get('sg'):  # 只有當有值時才報錯
+        #         errors.append('尿液比重格式錯誤')
         
-        try:
-            if data.get('rbc') is not None:
-                rbc = int(data['rbc'])
-                if rbc < 0 or rbc > 1000:
-                    errors.append('尿液紅血球計數異常 (應在 0-1000 /HPF 之間)')
-        except (ValueError, TypeError):
-            if data.get('rbc'):  # 只有當有值時才報錯
-                errors.append('尿液紅血球計數格式錯誤')
+        # try:
+        #     if data.get('rbc') is not None:
+        #         rbc = int(data['rbc'])
+        #         if rbc < 0 or rbc > 1000:
+        #             errors.append('尿液紅血球計數異常 (應在 0-1000 /HPF 之間)')
+        # except (ValueError, TypeError):
+        #     if data.get('rbc'):  # 只有當有值時才報錯
+        #         errors.append('尿液紅血球計數格式錯誤')
         
         # 受試者編號格式驗證
         if data.get('subject_code'):
@@ -2560,6 +2561,13 @@ class edc_db:
             subject_id, current_status = subject_result[0]
             
             # 檢查當前狀態是否允許提交
+            if current_status is None:
+                self.sql.execute("ROLLBACK")
+                return {
+                    'success': False,
+                    'message': '受試者尚未編輯，無法提交審核',
+                    'error_code': 'NOT_EDITED'
+                }
             if current_status != 'draft':
                 self.sql.execute("ROLLBACK")
                 return {
@@ -3125,8 +3133,8 @@ class edc_db:
                     for field, value in updates.items():
                         if field == 'updated_at' or field == 'signed_at':
                             update_parts.append(f"`{field}`='{timestamp}'")
-                        elif value is None:
-                            # 對於 None 值，設為 NULL
+                        elif value is None or value == '':
+                            # 對於 None 值或空字串，設為 NULL
                             update_parts.append(f"`{field}`=NULL")
                         else:
                             update_parts.append(f"`{field}`='{value}'")
@@ -3688,4 +3696,123 @@ class edc_db:
                 'success': False,
                 'message': f'驗證失敗: {str(e)}',
                 'error_code': 'VALIDATION_ERROR'
+            }
+
+    def freeze_subject_data(self, subject_code, frozen_by, verbose=0):
+        """凍結受試者資料
+        
+        Args:
+            subject_code: 受試者編號
+            frozen_by: 凍結者 ID
+            verbose: 詳細模式 (0/1)
+            
+        Returns:
+            凍結結果字典
+        """
+        try:
+            from datetime import datetime
+            
+            # 生成凍結日誌 ID
+            log_id = self._generate_log_id()
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            if verbose:
+                print(f"開始凍結受試者 {subject_code} 的資料")
+                print(f"凍結者: {frozen_by}")
+                print(f"凍結時間: {timestamp}")
+                print(f"日誌 ID: {log_id}")
+            
+            # 檢查受試者是否存在
+            subject_exists = self.sql.search('subjects', ['subject_code'], f"`subject_code`='{subject_code}'")
+            if not subject_exists or subject_exists == "error occurs!":
+                return {
+                    'success': False,
+                    'message': f'受試者 {subject_code} 不存在',
+                    'error_code': 'SUBJECT_NOT_FOUND'
+                }
+            
+            # 檢查資料是否已經凍結
+            current_status = self.sql.search('subjects', ['status'], f"`subject_code`='{subject_code}'")
+            if current_status and current_status != "error occurs!" and len(current_status) > 0:
+                status = current_status[0][0]  # 第一個結果的第一個欄位
+                if status == 'frozen':
+                    return {
+                        'success': False,
+                        'message': f'受試者 {subject_code} 的資料已經凍結',
+                        'error_code': 'ALREADY_FROZEN'
+                    }
+                
+                # 檢查資料是否已簽署（凍結前必須先簽署）
+                if status != 'signed':
+                    return {
+                        'success': False,
+                        'message': f'受試者 {subject_code} 的資料尚未簽署，無法凍結',
+                        'error_code': 'NOT_SIGNED'
+                    }
+            
+            # 使用 update_databases 函數凍結三個資料表
+            additional_updates = {
+                'subjects': {
+                    'status': 'frozen',
+                    'frozen_by': frozen_by,
+                    'frozen_at': timestamp
+                },
+                'inclusion_criteria': {
+                    'status': 'frozen',
+                    'frozen_by': frozen_by,
+                    'frozen_at': timestamp
+                },
+                'exclusion_criteria': {
+                    'status': 'frozen',
+                    'frozen_by': frozen_by,
+                    'frozen_at': timestamp
+                }
+            }
+            
+            # 調用 update_databases 函數
+            update_result = self.update_databases(
+                subject_code=subject_code,
+                user_id=frozen_by,
+                action_type='FREEZE',
+                additional_updates=additional_updates,
+                log_id=log_id,
+                verbose=verbose
+            )
+            
+            if update_result['success']:
+                # 記錄凍結操作的系統日誌（統一記錄，不記錄具體欄位變更）
+                log_result = self.update_logs(
+                    subject_code=subject_code,
+                    user_id=frozen_by,
+                    action_type='FREEZE',
+                    log_changes=None,  # 使用系統版記錄，不傳入 log_changes
+                    log_id=log_id,
+                    verbose=verbose
+                )
+                
+                if not log_result['success']:
+                    if verbose:
+                        print(f"日誌記錄失敗: {log_result.get('message', '未知錯誤')}")
+                
+                return {
+                    'success': True,
+                    'message': f'成功凍結受試者 {subject_code} 的資料',
+                    'log_id': log_id,
+                    'frozen_tables': update_result.get('updated_tables', []),
+                    'frozen_at': timestamp,
+                    'log_recorded': log_result['success']
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f'凍結失敗: {update_result.get("message", "未知錯誤")}',
+                    'error_code': 'FREEZE_FAILED'
+                }
+                
+        except Exception as e:
+            logger.error(f"凍結受試者資料失敗: {e}")
+            return {
+                'success': False,
+                'message': f'凍結失敗: {str(e)}',
+                'error_code': 'FREEZE_ERROR'
             }

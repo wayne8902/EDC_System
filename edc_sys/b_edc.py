@@ -8,6 +8,7 @@ EDC System Blueprint - 電子資料擷取系統藍圖
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response, send_file
 from flask_login import login_required, current_user
 from .edc_function import edc_db
+from permission_sys.b_permission import require_permission
 from datetime import datetime
 import json
 import logging
@@ -72,7 +73,7 @@ def submit_ecrf():
         user_id = current_user.UNIQUE_ID
         ip = get_client_ip(request)
         timestamp = datetime.now().strftime("%Y%m%d-%H:%M:%S")
-        
+        print(f"content: {content}")
         # 使用事務性插入，確保三個表都能成功插入
         result = edc_sys.insert_subject_with_criteria(
             content.get('subject_data', {}),
@@ -1248,3 +1249,287 @@ def istone_calculate():
         print(f"Unexpected error: {e}")
         return f"Internal server error: {str(e)}", 500
 
+@edc_blueprints.route('/istone')
+@login_required
+@require_permission('edc.data.create')
+def show_web1():
+    """顯示 web1.html 頁面 - 需要 edc.data.create 權限"""
+    try:
+        return render_template('web1.html')
+    except Exception as e:
+        logging.error(f"顯示 web1.html 失敗: {e}")
+        return redirect('/edc/')
+
+@edc_blueprints.route("/post", methods=['POST'])
+@login_required
+def hello_post():
+    try:
+        # 處理 HTML 表單請求（來自 web1.html）
+        value = request.values
+        
+        for i in range(10):
+            if value[f"parm{i}"] == "":
+                return "parameter is not enough", 400
+        
+        # 生成受試者代碼作為 index
+        user_id = current_user.UNIQUE_ID
+        subject_code = edc_sys.generate_subject_code(user_id, verbose=VERBOSE)
+        
+        if not subject_code:
+            return "無法生成受試者代碼，請檢查使用者機構設定", 500
+        
+        parms = {}
+
+        # 更新時間戳記
+        t = time.time()
+        t1 = time.localtime(t)
+        t2 = time.strftime('%Y-%m-%d', t1)
+        parms['time'] = t2
+
+        parms = {
+            "index": subject_code,  # 使用動態生成的受試者代碼
+            "time": t2   # 將在下面更新為當前時間
+        }
+        for i in range(10):
+            parms[f"parm{i}"] = float(value[f"parm{i}"])
+        
+        print(parms)
+        
+        try:
+            r = requests.post('http://localhost:7000/calc', json=parms, verify=False, timeout=30)
+            # print(f"API response status: {r.status_code}")
+            # print(f"API response content: {r.text}")
+            
+            if r.status_code == 200:
+                try:
+                    res = r.json()
+                    print(f"Parsed JSON: {res}")
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error: {e}")
+                    
+                    return jsonify({
+                        'success': False,
+                        'error': 'Invalid JSON response from external API',
+                        'raw_response': r.text
+                    }), 500
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'External API returned status {r.status_code}',
+                    'response': r.text
+                }), 500
+                
+        except requests.exceptions.RequestException as e:
+            print(f"API request failed: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'External API request failed: {str(e)}'
+            }), 500
+        
+
+        if r.status_code == 200:
+            res = r.json()
+            print(f"iStone 計算結果: {res}")
+
+            # 獲取欄位定義
+            subjects_columns = edc_sys.column_id['EDC']['column_id_subjects']
+            inclusion_columns = edc_sys.column_id['EDC']['column_id_inclusion_criteria']
+            exclusion_columns = edc_sys.column_id['EDC']['column_id_exclusion_criteria']
+            
+            subjects_row = [
+                t2,                                     # enroll_date
+                subject_code,                           # subject_code
+                str(1 if float(res['result']) >= 0.5 else 0),  # risk_score
+                None,                           # date_of_birth
+                str(int(value["parm1"])),               # age
+                str(int(value["parm0"])),               # gender
+                None,                                   # height_cm
+                None,                                   # weight_kg
+                str(float(value["parm3"])),             # bmi
+                None,                                     # biochem_date
+                None,                                   # scr
+                str(float(value["parm2"])),             # egfr
+                None,                                   # urine_date
+                str(float(value["parm4"])),             # ph
+                str(float(value["parm8"])),             # sg
+                None,                                   # urinalysis_date
+                str(int(value["parm9"])),               # rbc
+                str(int(value["parm7"])),               # bac
+                str(int(value["parm5"])),               # dm
+                None,                                   # dm_date
+                str(int(value["parm6"])),               # gout
+                None,                                   # gout_date
+                'CT',                                   # imaging_type
+                None,                                   # imaging_date
+                None,                                   # kidney_stone_diagnosis
+                [],                                     # imaging_files
+                'iStone 計算結果',                      # imaging_report_summary
+                None,                                   # signature_hash
+                None,                                   # log
+                None,                                   # status
+                str(user_id),                           # created_by
+                t2,                                     # created_at
+                None,                                   # updated_by
+                None,                                   # updated_at
+                None,                                   # signed_by
+                None                                    # signed_at
+            ]
+            
+            subject_data = {}
+            for i, col in enumerate(subjects_columns):
+                if col == 'id':
+                    continue  # 跳過 id 欄位
+                elif i-1 < len(subjects_row):  # 因為跳過了 id，所以索引要減1
+                    subject_data[col] = subjects_row[i-1]
+                else:
+                    subject_data[col] = None
+            
+
+            inclusion_row = [
+                subject_code,                           # subject_code
+                None,                                   # age_18_above
+                None,                                   # gender_available
+                None,                                   # age_available
+                None,                                   # bmi_available
+                None,                                   # dm_history_available
+                None,                                   # gout_history_available
+                None,                                   # egfr_available
+                None,                                   # urine_ph_available
+                None,                                   # urine_sg_available
+                None,                                   # urine_rbc_available
+                None,                                   # bacteriuria_available
+                None,                                   # lab_interval_7days
+                None,                                   # imaging_available
+                None,                                   # kidney_structure_visible
+                None,                                   # mid_ureter_visible
+                None,                                   # lower_ureter_visible
+                None,                                   # imaging_lab_interval_7days
+                None,                                   # no_treatment_during_exam
+                [],                                     # medications
+                [],                                     # surgeries
+                None,                                   # signature_hash
+                None,                                   # log
+                None,                                   # status
+                str(user_id),                           # created_by
+                t2,                                     # created_at
+                None,                                   # updated_by
+                None,                                   # updated_at
+                None,                                   # signed_by
+                None                                    # signed_at
+            ]
+            
+            inclusion_data = {}
+            for i, col in enumerate(inclusion_columns):
+                if col == 'id':
+                    continue  # 跳過 id 欄位
+                elif i-1 < len(inclusion_row):  # 因為跳過了 id，所以索引要減1
+                    inclusion_data[col] = inclusion_row[i-1]
+                else:
+                    inclusion_data[col] = None
+            
+            exclusion_row = [
+                subject_code,   # subject_code
+                None,           # pregnant_female
+                None,           # kidney_transplant
+                None,           # urinary_tract_foreign_body
+                '',             # urinary_tract_foreign_body_type
+                None,           # non_stone_urological_disease
+                '',             # non_stone_urological_disease_type
+                None,           # renal_replacement_therapy
+                '',             # renal_replacement_therapy_type
+                None,           # medical_record_incomplete
+                None,           # major_blood_immune_cancer
+                '',             # major_blood_immune_cancer_type
+                None,           # rare_metabolic_disease
+                '',             # rare_metabolic_disease_type
+                None,           # investigator_judgment
+                '',             # judgment_reason
+                None,           # signature_hash
+                None,           # log
+                None,           # status
+                str(user_id),   # created_by
+                t2,             # created_at
+                None,           # updated_by
+                None,           # updated_at
+                None,           # signed_by
+                None            # signed_at
+            ]
+            
+            exclusion_data = {}
+            for i, col in enumerate(exclusion_columns):
+                if col == 'id':
+                    continue  # 跳過 id 欄位
+                elif i-1 < len(exclusion_row):  # 因為跳過了 id，所以索引要減1
+                    exclusion_data[col] = exclusion_row[i-1]
+                else:
+                    exclusion_data[col] = None
+            
+            # 調用事務性插入
+            insert_result = edc_sys.insert_subject_with_criteria(
+                subject_data, 
+                inclusion_data, 
+                exclusion_data, 
+                user_id, 
+                verbose=VERBOSE
+            )
+            
+            if insert_result['success']:
+                f = open('demo_eng.html', 'r')
+                html_template = '<!doctype html>' + f.read()
+                f.close()
+                istone_result = "high risk" if float(res.get("result", 0)) >= 0.5 else "low risk"
+                text = html_template.replace(
+                    "[istone_result]", istone_result
+                )
+                return text
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'資料庫插入失敗: {insert_result["message"]}',
+                    'istone_result': res
+                }), 500
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'External API returned status {r.status_code}',
+                'response': r.text
+            }), 500
+        
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return f"Internal server error: {str(e)}", 500
+
+@edc_blueprints.route('/freeze/<subject_code>', methods=['POST'])
+@login_required
+@require_permission('edc.data.freeze')
+def freeze_subject_data(subject_code):
+    """凍結受試者資料"""
+    try:
+        data = request.get_json()
+        frozen_by = data.get('frozen_by', current_user.id)
+        
+        # 調用後端函數凍結資料
+        result = edc_sys.freeze_subject_data(
+            subject_code=subject_code,
+            frozen_by=frozen_by,
+            verbose=1
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f'成功凍結受試者 {subject_code} 的資料',
+                'log_id': result.get('log_id')
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': result.get('message', '凍結失敗')
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"凍結資料失敗: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'凍結資料失敗: {str(e)}'
+        }), 500

@@ -105,6 +105,14 @@ var sha256 = function sha256(ascii) {
     return result;
 };
 
+// 處理 Enter 鍵事件
+function handleEnterKey(event) {
+    if (event.key === 'Enter' || event.keyCode === 13) {
+        event.preventDefault();
+        login();
+    }
+}
+
 function login() {
     var EMAIL = document.getElementById('account').value;
     var PASSWORD = sha256(document.getElementById('password').value);

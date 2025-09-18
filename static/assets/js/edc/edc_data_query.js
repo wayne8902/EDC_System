@@ -1319,6 +1319,10 @@ const QueryManager = {
                 if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.loadQueryList) {
                     DataBrowserManager.loadQueryList();
                 }
+                // 執行 openDataBrowser
+                if (typeof openDataBrowser === 'function') {
+                    openDataBrowser();
+                }
             } else {
                 alert('回應失敗：' + data.message);
             }

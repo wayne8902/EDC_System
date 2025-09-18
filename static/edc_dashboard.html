@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EDC 系統 - 電子資料擷取系統</title>
-    <link href="assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="assets/css/fontawesome.min.css" rel="stylesheet">
-    <link href="assets/css/edc_dashboard.css" rel="stylesheet">
+    <link rel="icon" href="/static/assets/img/logo_fig.png" type="image/x-icon">
+    <link href="/static/assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/assets/fonts/fontawesome-all.min.css" rel="stylesheet">
+    <link href="/static/assets/css/edc_dashboard.css" rel="stylesheet">
 
 </head>
 <body>
@@ -15,8 +16,7 @@
         <!-- 品牌標識 -->
         <div class="navbar-brand d-flex align-items-center">
             <div class="brand-icon me-2">
-                <img src="assets/img/logo_fig.png" alt="系統LOGO" style="height:40px;">
-                <i class="fas fa-hospital"></i>
+                <img src="/static/assets/img/logo_fig.png" alt="系統LOGO" style="height:40px;">
             </div>
             <div class="brand-text">
                 <h4 class="mb-0">EDC 醫療系統</h4>
@@ -60,6 +60,27 @@
             </div>
         </div>
     </nav>
+    <div style="height: 50px;">
+    </div>
+
+    <!-- 導航按鈕區 -->
+    <div class="container-fluid mb-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex gap-3 justify-content-start mb-4">
+                    <a href="/edc/" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home me-2"></i>
+                        首頁
+                    </a>
+                    <a href="/edc/istone" class="btn btn-success btn-lg" id="istoneButton" style="display: none;">
+                        <i class="fas fa-calculator me-2"></i>
+                        iStone 計算
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container-fluid">
         <!-- 統計資訊區 -->
         <div class="stats-section">
@@ -112,11 +133,10 @@
         </div>
     </div>
 
-    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
-    <script src="assets/js/fontawesome.min.js"></script>
-    <script src="assets/js/chart.min.js"></script>
+    <script src="/static/assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="/static/assets/js/chart.min.js"></script>
     
-    <script src="assets/js/edc/edc_loader.js"></script>
+    <script src="/static/assets/js/edc/edc_loader.js"></script>
 
 </body>
 </html>

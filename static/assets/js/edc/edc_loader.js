@@ -15,6 +15,183 @@ const MODULE_DEPENDENCIES = {
     'edc_data_editor': ['edc_core', 'edc_utils', 'edc_calculations']
 };
 
+class FrontendRouter {
+    constructor() {
+        this.isHandlingRoute = false;
+        this.routes = {
+            '/edc/': () => this.showDashboard(),
+            '/edc/browser': () => this.checkRoutePermission('edc.data.view', () => this.showDataBrowser()),
+            '/edc/browser/:subjectCode': (subjectCode) => this.checkRoutePermission('edc.data.view', () => this.showSubjectDetail(subjectCode)),
+            '/edc/entry': () => this.checkRoutePermission('edc.data.create', () => this.showDataEntry())
+        };
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // 監聽瀏覽器的前進/後退按鈕
+        window.addEventListener('popstate', (event) => {
+            this.handleRoute(window.location.pathname, false);
+        });
+    }
+
+    // 導航到指定路徑
+    navigateTo(path, addToHistory = true) {
+        // 確保路徑以 / 開頭
+        if (!path.startsWith('/')) {
+            path = '/' + path;
+        }
+        
+        if (addToHistory && window.location.pathname !== path) {
+            window.history.pushState({}, '', path);
+        }
+        this.handleRoute(path, false);
+    }
+
+    // 處理路由
+    handleRoute(path, addToHistory = true) {
+        // 防止無限循環
+        if (this.isHandlingRoute) {
+            return;
+        }
+        
+        this.isHandlingRoute = true;
+        
+        try {
+            // 匹配路由
+            for (const [pattern, handler] of Object.entries(this.routes)) {
+                const match = this.matchRoute(pattern, path);
+                if (match) {
+                    if (match.params) {
+                        handler(...Object.values(match.params));
+                    } else {
+                        handler();
+                    }
+                    return;
+                }
+            }
+
+            // 如果沒有匹配到路由，導航到首頁
+            if (path !== '/edc/') {
+                window.history.replaceState({}, '', '/edc/');
+                this.showDashboard();
+            }
+        } finally {
+            this.isHandlingRoute = false;
+        }
+    }
+
+    /**
+     * 檢查權限並顯示頁面
+     * @param {string} permission - 需要的權限
+     * @param {Function} showFunction - 顯示頁面的函數
+     */
+    checkRoutePermission(permission, showFunction) {
+        // console.log('權限檢查:', {
+        //     permission: permission,
+        //     userPermissions: userPermissions,
+        //     hasPermission: typeof userPermissions !== 'undefined' && userPermissions.includes(permission)
+        // });
+        
+        // 檢查用戶權限
+        if (typeof userPermissions !== 'undefined' && userPermissions.includes(permission)) {
+            showFunction();
+        } else {
+            // 沒有權限，顯示錯誤訊息並導航到首頁
+            const errorMsg = typeof userPermissions === 'undefined' 
+                ? '權限資訊尚未載入，請稍後再試' 
+                : `您沒有 ${this.getPermissionName(permission)} 權限，無法訪問此頁面`;
+            showErrorMessage(errorMsg);
+            this.navigateTo('/edc/');
+        }
+    }
+
+    /**
+     * 獲取權限的中文名稱
+     * @param {string} permission - 權限代碼
+     * @returns {string} 權限中文名稱
+     */
+    getPermissionName(permission) {
+        const permissionNames = {
+            'edc.data.view': '資料查看',
+            'edc.data.create': '資料建立',
+            'edc.data.edit': '資料編輯',
+            'edc.data.freeze': '資料凍結',
+            'edc.query.create': 'Query 發起',
+            'edc.query.view': 'Query 查看',
+            'edc.query.response': 'Query 回應',
+            'edc.crf.sign': '電子簽署',
+            'edc.system.admin': '系統管理'
+        };
+        return permissionNames[permission] || permission;
+    }
+
+    // 路由匹配
+    matchRoute(pattern, path) {
+        // 移除空字串元素
+        const patternParts = pattern.split('/').filter(part => part !== '');
+        const pathParts = path.split('/').filter(part => part !== '');
+
+        if (patternParts.length !== pathParts.length) {
+            return null;
+        }
+
+        const params = {};
+        for (let i = 0; i < patternParts.length; i++) {
+            const patternPart = patternParts[i];
+            const pathPart = pathParts[i];
+
+            if (patternPart.startsWith(':')) {
+                // 動態參數
+                const paramName = patternPart.substring(1);
+                params[paramName] = pathPart;
+            } else if (patternPart !== pathPart) {
+                // 靜態路徑不匹配
+                return null;
+            }
+        }
+
+        return { params: Object.keys(params).length > 0 ? params : null };
+    }
+
+    showDashboard() {
+        // 顯示儀表板首頁
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML = '<div class="text-center"><h3>EDC 系統首頁</h3></div>';
+        }
+    }
+
+    showDataBrowser() {
+        // 顯示資料瀏覽器，避免無限循環
+        if (typeof showDataBrowser === 'function') {
+            showDataBrowser();
+        } else {
+            console.error('showDataBrowser 函數未找到');
+            showErrorMessage('資料瀏覽功能載入失敗，請重新整理頁面');
+        }
+    }
+
+    showDataEntry() {
+        // 顯示資料輸入頁面
+        if (typeof showResearcherForm === 'function') {
+            showResearcherForm();
+        } else {
+            console.error('showResearcherForm 函數未找到');
+            showErrorMessage('資料輸入功能載入失敗，請重新整理頁面');
+        }
+    }
+
+    showSubjectDetail(subjectCode) {
+        // 顯示受試者詳細資料
+        if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.fetchSubjectDetails) {
+            DataBrowserManager.fetchSubjectDetails(subjectCode);
+        } else {
+            console.error('DataBrowserManager.fetchSubjectDetails 函數未找到');
+            showErrorMessage('資料詳細功能載入失敗，請重新整理頁面');
+        }
+    }
+}
+
 // 模組載入狀態
 const moduleLoadStatus = new Map();
 
@@ -79,7 +256,7 @@ class EDCModuleLoader {
         
         try {
             const script = document.createElement('script');
-            script.src = `assets/js/edc/${moduleName}.js`;
+            script.src = `/static/assets/js/edc/${moduleName}.js`;
             script.async = true;
             
             await new Promise((resolve, reject) => {
@@ -205,17 +382,45 @@ function waitForEDCReady() {
 }
 
 // 初始化儀表板
-function initializeDashboard() {
+async function initializeDashboard() {
     // console.log('初始化 EDC 儀表板...');
+
+    // 初始化前端路由
+    window.frontendRouter = new FrontendRouter();
     
-    // 載入用戶資訊
+    // 先載入用戶資訊和權限
     if (typeof loadUserInfo === 'function') {
         loadUserInfo();
     }
     
-    // 載入用戶權限
+    // 等待權限載入完成
     if (typeof loadUserPermissions === 'function') {
-        loadUserPermissions();
+        await new Promise((resolve) => {
+            const originalLoadUserPermissions = loadUserPermissions;
+            loadUserPermissions = function() {
+                originalLoadUserPermissions();
+                // 等待權限載入完成
+                const checkPermissions = () => {
+                    if (typeof userPermissions !== 'undefined') {
+                        resolve();
+                    } else {
+                        setTimeout(checkPermissions, 50);
+                    }
+                };
+                checkPermissions();
+            };
+            loadUserPermissions();
+        });
+    }
+
+    // 處理當前 URL，如果是根路徑則導航到 EDC 首頁
+    const currentPath = window.location.pathname;
+    if (currentPath === '/' || currentPath === '/static/edc_dashboard.html') {
+        // 直接設置 URL 而不觸發路由處理
+        window.history.replaceState({}, '', '/edc/');
+        frontendRouter.showDashboard();
+    } else {
+        frontendRouter.handleRoute(currentPath, false);
     }
     
     // 更新登入時間
@@ -262,13 +467,17 @@ function openSystemConfig() {
 
 // 功能按鈕點擊處理 - 試驗委託者
 function openDataBrowser() {
-
-    if (typeof showDataBrowser === 'function') {
-        showDataBrowser();
+    if (!frontendRouter.isHandlingRoute) {
+        frontendRouter.navigateTo('/edc/browser');
     } else {
-        console.error('showDataBrowser 函數未找到');
-        showErrorMessage('資料瀏覽功能載入失敗，請重新整理頁面');
+        if (typeof showDataBrowser === 'function') {
+            showDataBrowser();
+        } else {
+            console.error('showDataBrowser 函數未找到');
+            showErrorMessage('資料瀏覽功能載入失敗，請重新整理頁面');
+        }
     }
+    
 }
 
 function openReports() { 
@@ -281,8 +490,17 @@ function openDataExport() {
 
 // 功能按鈕點擊處理 - 研究人員
 function openDataEntry() { 
-    if (typeof showResearcherForm === 'function') {
-        showResearcherForm();
+    // 避免在路由處理中再次調用路由
+    if (!frontendRouter.isHandlingRoute) {
+        frontendRouter.navigateTo('/edc/entry');
+    } else {
+        // 直接顯示資料輸入
+        if (typeof showResearcherForm === 'function') {
+            showResearcherForm();
+        } else {
+            console.error('showResearcherForm 函數未找到');
+            showErrorMessage('資料輸入功能載入失敗，請重新整理頁面');
+        }
     }
 }
 
@@ -352,16 +570,14 @@ async function initializeEDC() {
     try {
         // 顯示載入進度
         const progress = showEDCLoadingProgress();
-        await new Promise(resolve => setTimeout(resolve, 500));
         
         // 載入所有模組
         const success = await edcModuleLoader.loadAllModules();
         
         if (success) {
             progress.hide(); // 隱藏載入進度
-            initializeDashboard(); // 初始化儀表板
-            await new Promise(resolve => setTimeout(resolve, 500));
-            openDataBrowser();
+            await initializeDashboard(); // 初始化儀表板
+            // openDataBrowser();
         } else {
             throw new Error('模組載入失敗');
         }

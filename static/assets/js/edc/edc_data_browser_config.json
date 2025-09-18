@@ -83,6 +83,18 @@
             ]
           },
           {
+            "id": "riskScore",
+            "label": "腎結石風險判斷結果",
+            "type": "radio",
+            "source": "subject.risk_score",
+            "width": "col-10",
+            "required": true,
+            "options": [
+              {"value": "1", "text": "高風險"},
+              {"value": "0", "text": "低風險"}
+            ]
+          },
+          {
             "id": "height",
             "label": "身高 (cm)",
             "type": "number",

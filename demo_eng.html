@@ -1,0 +1,132 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<!-- <link rel="stylesheet" type="text/css" href="https://istone.ee.nsysu.edu.tw/html/report/report.css" /> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+</head>
+<style>
+    body {
+		font-family: "Roboto", sans-serif;
+		background-color: #e9e9e9;
+		margin: 0px;
+	}
+	.navbar_horizon {
+		display: flex;
+		justify-content: space-around;
+		align-items: center;
+		height: 0px;
+		/* background-color: #333; */
+	}
+	.nav-item {
+		flex: 1;
+		text-align: center;
+		padding: 15px 0;
+		color: white;
+		font-size: 18px;
+		font-weight: bold;
+	}
+	.navbar {
+		/* position: fixed; */
+		top: 10px;
+		width: 100%;
+		height: 500px;
+		background-color: #447aee;
+		color: white;
+		text-align: center;
+	}
+	.navbar h1 {
+		margin-top: 0px;
+		font-size: 3em;
+		margin-bottom: 10px;
+		position: relative; 
+		z-index: 1;
+	}
+
+	.navbar h2 {
+		margin-top: 0px;
+		font-size: 2em;
+		margin-bottom: 0px;
+		position: relative; 
+		z-index: 1;
+	}
+	.background-img {
+		position: absolute;
+		margin-top: 20px;
+		top: 0;
+		width: 100%;
+		height: 120%;
+		z-index: 0; 
+		opacity: 0.3;
+	}
+    .form {
+		width: 70%;
+		margin: auto;
+		margin-top: -200px;
+		margin-bottom: 100px;
+		background-color: #fff;
+		padding: 20px;
+		border-radius: 20px;
+		border:1px #ccc solid;
+		border-collapse: collapse;
+	}
+    table, th, td {
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 8px;
+        text-align: left;
+    }
+</style>
+<body>
+    <nav class="navbar_horizon">
+        <div class="nav-item" style="background-color: #447aee;"></div>
+        <div class="nav-item" style="background-color: #79e48d;"></div>
+        <div class="nav-item" style="background-color: #fdf917;"></div>
+        <div class="nav-item" style="background-color: #e65b43;"></div>
+        <div class="nav-item" style="background-color: #447aee;"></div>
+    </nav>
+	<nav class="navbar">
+        <div style="width:50em; margin: auto;  text-align: left; position: relative;">
+			<a href="/edc/" class="btn btn-danger">首頁</a>
+			<img src="/static/assets/img/logo_text.png" class="background-img">
+            <h1>
+                <img src="/static/assets/img/logo_fig.png" style="width: 60px; height: 60px; margin-top: 50px; margin-right: 10px;">
+                iStone - AI Based Kidney Stone Screening System
+            </h1>
+            <h2>Evaluate</h2>
+        </div>
+    </nav>
+    <form class="form" action="post" method="post">
+        <div style="width: 50em; margin: auto;">
+            <center>
+                <h1>iStone - AI Based Kidney Stone Screening System</h1><h2>Evaluation Result</h2>
+            </center>
+            <table style="width:100%">
+                <thead>
+                    <tr><td style="text-align: left;width:50%;">Name: USER</td><td style="text-align: right;width:50%;">Time: [time]</td></tr>
+                </thead>
+            </table>
+            <table style="width:100%" border="1" style="border: solid;">
+                <thead>
+                    <tr><th>Test Name</th><th>Value</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>iStone Kidney Stone Index</td>
+                        <td style="text-align:center">[istone_result]</td>
+                    </tr>
+                </tbody>
+            </table>
+            <br><div style="height:5em;"></div><br>Reference value:<br>
+            less than 0.5 : low risk - less than 15% people in this group get 2 mm kidney stone.<br>
+            greater than or equal to 0.5 : high risk - more than 85% people in this group get 2 mm kidney stone.
+            <hr>
+            <center><h3>United Kaohsiung AI Medical Technology</h3>  <h5>Tel:+886-955-xxxxxx</h5></center>
+        </div>
+    </form>
+    
+</body>
+</html>
