@@ -16,10 +16,11 @@ logging.info("這是 Blueprint 的訊息")
 
 #load_dotenv(dotenv_path="/path/to/.env")
 load_dotenv()
-crt_path=os.getenv("webservice_crt_path")
-key_path=os.getenv("webservice_key_path")
-port_str=os.getenv("webservice_port")
-domain=os.getenv("webservice_domain") +":"+port_str
+crt_path = os.getenv("webservice_crt_path")
+key_path = os.getenv("webservice_key_path")
+port_str = os.getenv("webservice_port")
+domain = os.getenv("webservice_domain") + ":" + port_str
+
 configuration=True
 
 app = Flask(__name__)
@@ -60,8 +61,6 @@ app.register_blueprint(login_blueprints, url_prefix='/login')
 app.register_blueprint(permission_blueprints, url_prefix='/permission')
 app.register_blueprint(edc_blueprints, url_prefix='/edc')
 
-crt_path = "cert.pem" # 或 "server.crt" 
-key_path = "key.pem" # 或 "server.key"
 setproctitle.setproctitle("EDC_sys")
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5000, ssl_context=(crt_path, key_path))
