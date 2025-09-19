@@ -60,9 +60,11 @@ app.register_blueprint(login_blueprints, url_prefix='/login')
 app.register_blueprint(permission_blueprints, url_prefix='/permission')
 app.register_blueprint(edc_blueprints, url_prefix='/edc')
 
+crt_path = "cert.pem" # 或 "server.crt" 
+key_path = "key.pem" # 或 "server.key"
 setproctitle.setproctitle("EDC_sys")
 if __name__ == '__main__':  
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, ssl_context=(crt_path, key_path))
     # app.debug = True  
     # #app.run(host="0.0.0.0", port=8002,ssl_context=(crt_path, key_path))
     # app.run(port=5000)
