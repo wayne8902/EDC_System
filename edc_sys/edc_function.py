@@ -2291,10 +2291,64 @@ class edc_db:
             data: 資料列表
             
         Returns:
-            CSV 字串
+            CSV 字串 (UTF-8 with BOM)
         """
         if not data:
             return ""
+        
+        import csv
+        import io
+        from datetime import datetime
+        
+        # 欄位名稱對應表（英文 -> 中文）
+        field_names = {
+            'subject_code': '受試者編號',
+            'enroll_date': '個案納入日期',
+            'date_of_birth': '出生日期',
+            'age': '年齡',
+            'gender': '性別',
+            'measure_date': '身高體重測量日期',
+            'height_cm': '身高(cm)',
+            'weight_kg': '體重(kg)',
+            'bmi': 'BMI',
+            'biochem_date': '生化檢驗採檢日期',
+            'scr': '血清肌酸酐',
+            'egfr': '腎絲球過濾率估計值',
+            'urine_date': '尿液檢驗採檢日期',
+            'ph': '尿液酸鹼值',
+            'sg': '尿液比重',
+            'urinalysis_date': '尿液鏡檢採檢日期',
+            'rbc': '尿液紅血球數量',
+            'bac': '菌尿症',
+            'dm': '糖尿病',
+            'dm_date': '糖尿病診斷日期',
+            'gout': '痛風',
+            'gout_date': '痛風診斷日期',
+            'imaging_type': '影像檢查類型',
+            'imaging_date': '影像檢查日期',
+            'kidney_stone_diagnosis': '腎結石診斷',
+            'imaging_files': '影像檔案',
+            'imaging_report_summary': '影像報告摘要',
+            'risk_score': '風險評分',
+            'created_at': '建立時間',
+            'created_by': '建立者',
+            'updated_at': '更新時間',
+            'updated_by': '更新者',
+            'signed_at': '簽核時間',
+            'signed_by': '簽核者',
+            'status': '狀態'
+        }
+        
+        # 日期欄位列表
+        date_fields = [
+            'enroll_date', 'date_of_birth', 'measure_date', 'biochem_date', 
+            'urine_date', 'urinalysis_date', 'dm_date', 'gout_date', 
+            'imaging_date', 'created_at', 'updated_at', 'signed_at'
+        ]
+        
+        # 性別和布林值對應
+        gender_map = {0: '女性', 1: '男性', '0': '女性', '1': '男性'}
+        boolean_map = {0: '否', 1: '是', '0': '否', '1': '是', False: '否', True: '是'}
         
         # 獲取所有欄位
         fields = set()
@@ -2303,9 +2357,12 @@ class edc_db:
         
         # 排序欄位
         field_order = [
-            'subject_code', 'date_of_birth', 'age', 'gender', 'height_cm', 'weight_kg', 'bmi',
-            'bac', 'dm', 'gout', 'imaging_type', 'imaging_date', 'kidney_stone_diagnosis',
-            'created_at', 'created_by'
+            'subject_code', 'enroll_date', 'date_of_birth', 'age', 'gender', 
+            'measure_date', 'height_cm', 'weight_kg', 'bmi', 'biochem_date', 
+            'scr', 'egfr', 'urine_date', 'ph', 'sg', 'urinalysis_date', 'rbc', 
+            'bac', 'dm', 'dm_date', 'gout', 'gout_date', 'imaging_type', 
+            'imaging_date', 'kidney_stone_diagnosis', 'risk_score', 'status',
+            'created_at', 'created_by', 'updated_at', 'updated_by', 'signed_at', 'signed_by'
         ]
         
         # 添加其他欄位
@@ -2313,20 +2370,64 @@ class edc_db:
             if field not in field_order:
                 field_order.append(field)
         
-        # 生成 CSV
-        csv_lines = []
-        csv_lines.append(','.join(field_order))
+        # 使用 StringIO 和 csv.writer 來生成正確的 CSV
+        output = io.StringIO()
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL, lineterminator='\n')
         
+        # 寫入中文標題行
+        chinese_headers = []
+        for field in field_order:
+            chinese_headers.append(field_names.get(field, field))
+        writer.writerow(chinese_headers)
+        
+        # 寫入資料行
         for item in data:
             row = []
             for field in field_order:
                 value = item.get(field, '')
-                if isinstance(value, (dict, list)):
+                
+                # 處理日期格式
+                if field in date_fields and value:
+                    try:
+                        if isinstance(value, str) and value.strip():
+                            # 嘗試解析日期並格式化為 YYYY/MM/DD
+                            if ' ' in value:
+                                # 包含時間的日期
+                                dt = datetime.strptime(value.split(' ')[0], '%Y-%m-%d')
+                                value = dt.strftime('%Y/%m/%d')
+                            else:
+                                # 只有日期
+                                dt = datetime.strptime(value, '%Y-%m-%d')
+                                value = dt.strftime('%Y/%m/%d')
+                    except:
+                        # 如果解析失敗，保持原值
+                        pass
+                
+                # 處理性別
+                elif field == 'gender' and value is not None:
+                    value = gender_map.get(value, str(value))
+                
+                # 處理布林值欄位
+                elif field in ['bac', 'dm', 'gout', 'kidney_stone_diagnosis'] and value is not None:
+                    value = boolean_map.get(value, str(value))
+                
+                # 處理其他特殊欄位
+                elif isinstance(value, (dict, list)):
                     value = json.dumps(value, ensure_ascii=False)
-                row.append(str(value))
-            csv_lines.append(','.join(row))
+                elif value is None:
+                    value = ''
+                else:
+                    value = str(value)
+                
+                row.append(value)
+            writer.writerow(row)
         
-        return '\n'.join(csv_lines)
+        # 獲取 CSV 內容並添加 UTF-8 BOM
+        csv_content = output.getvalue()
+        output.close()
+        
+        # 添加 UTF-8 BOM 以確保 Excel 正確識別中文
+        return '\ufeff' + csv_content
 
     def _format_subject_data(self, row):
         """格式化受試者資料

@@ -363,12 +363,12 @@ class DataBrowserGenerator {
                 return `
                     <label class="radio-checkbox-option" style="display: flex; align-items: center; margin-right: 1.5rem; margin-bottom: 0.5rem;">
                         <input type="${inputType}" 
-                               value="${option.value}" 
-                               ${nameAttr}
-                               ${idAttr}
-                               ${checkedAttr} 
-                               ${disabledAttr}
-                               style="margin-right: 0.5rem; opacity: 0.6; cursor: not-allowed;">
+                            value="${option.value}" 
+                            ${nameAttr}
+                            ${idAttr}
+                            ${checkedAttr} 
+                            ${disabledAttr}
+                            style="margin-right: 0.5rem; opacity: 0.6; cursor: not-allowed;">
                         <span>${option.text}</span>
                     </label>
                 `;
@@ -383,13 +383,13 @@ class DataBrowserGenerator {
                 optionsHTML = `
                     <label class="radio-checkbox-option" style="display: flex; align-items: center; margin-right: 1.5rem; margin-bottom: 0.5rem;">
                         <input type="${inputType}" 
-                               name="${field.id}"
-                               id="${field.id}"
-                               value="1" 
-                               ${checkedAttr} 
-                               ${disabledAttr}
-                               style="margin-right: 0.5rem; opacity: 0.6; cursor: not-allowed;">
-                        <span>${isChecked ? '是' : '否'}</span>
+                            name="${field.id}"
+                            id="${field.id}"
+                            value="1" 
+                            ${checkedAttr} 
+                            ${disabledAttr}
+                            style="margin-right: 0.5rem; opacity: 0.6; cursor: not-allowed;">
+                        <span>是</span>
                     </label>
                 `;
             }
@@ -451,7 +451,7 @@ class DataBrowserGenerator {
         
         // 根據欄位類型決定 input type
         const inputType = field.type === 'number' ? 'number' : 
-                         field.type === 'date' ? 'date' : 'text';
+                        field.type === 'date' ? 'date' : 'text';
         
         // 生成驗證屬性
         const validationAttrs = this.buildValidationAttributes(field);

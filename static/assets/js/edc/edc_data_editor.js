@@ -118,6 +118,16 @@ const DataEditorManager = {
      * 將欄位轉換為可編輯狀態
      */
     convertFieldsToEditable() {
+        // 設置納入條件監控
+        if (typeof setupInclusionCriteriaMonitoring === 'function') {
+            setupInclusionCriteriaMonitoring();
+        }
+        
+        // 確保排除條件也被更新
+        if (typeof updateExclusionCriteria === 'function') {
+            updateExclusionCriteria();
+        }
+        
         // 轉換所有文字欄位（包括不在 .options-container 內的）
         const textInputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], textarea');
         textInputs.forEach(input => {
@@ -170,22 +180,9 @@ const DataEditorManager = {
                 });
             }
             
-            // 影像檢查類型變化時觸發納入條件更新
-            if (input.id === 'imgType' || input.name === 'imgType') {
-                input.addEventListener('change', () => {
-                    if (typeof updateInclusionCriteria === 'function') {
-                        updateInclusionCriteria();
-                    }
-                });
-            }
-            
-            // 病史選擇時觸發納入條件更新和日期欄位顯示
+            // 處理病史日期欄位的條件顯示
             if (input.name === 'dm' || input.name === 'gout') {
                 input.addEventListener('change', () => {
-                    if (typeof updateInclusionCriteria === 'function') {
-                        updateInclusionCriteria();
-                    }
-                    // 處理病史日期欄位的條件顯示
                     this.handleHistoryDateToggle(input);
                 });
             }
@@ -193,9 +190,18 @@ const DataEditorManager = {
 
         // 轉換單選和複選欄位
         const radioCheckboxes = document.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+        
+        // 定義系統自動計算的唯讀欄位
+        const readonlyFields = [
+            'missingData', 'age18', 'hasGender', 'hasAge', 'hasBMI', 
+            'hasDMHistory', 'hasGoutHistory', 'hasEGFR', 'hasUrinePH', 
+            'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria', 'labTimeWithin7', 
+            'hasImagingData', 'imgLabWithin7'
+        ];
+        
         radioCheckboxes.forEach(input => {
-            // 特殊處理：missingData 欄位保持 disabled 狀態
-            if (input.id === 'missingData') {
+            // 檢查是否為系統自動計算的唯讀欄位
+            if (readonlyFields.includes(input.id)) {
                 input.disabled = true;
                 input.style.opacity = '0.6';
                 input.style.cursor = 'not-allowed';
@@ -206,7 +212,7 @@ const DataEditorManager = {
                 input.style.cursor = 'pointer';
             }
             
-            // 添加事件監聽器
+            // 添加事件監聽器（只添加編輯模式特有的邏輯）
             input.addEventListener('change', () => {
                 // 即時驗證
                 if (typeof DataBrowserManager !== 'undefined' && DataBrowserManager.validateField) {
@@ -216,21 +222,6 @@ const DataEditorManager = {
                 // 處理病史日期欄位的條件顯示
                 if (input.name === 'dm' || input.name === 'gout') {
                     this.handleHistoryDateToggle(input);
-                }
-                
-                // 觸發納入條件更新
-                if (typeof updateInclusionCriteria === 'function') {
-                    updateInclusionCriteria();
-                }
-                
-                // 觸發排除條件更新
-                if (typeof updateExclusionCriteria === 'function') {
-                    updateExclusionCriteria();
-                }
-                
-                // 性別變化時重新計算eGFR
-                if (input.name === 'gender' && typeof calculateEGFR === 'function') {
-                    calculateEGFR();
                 }
             });
         });
@@ -906,7 +897,7 @@ const DataEditorManager = {
     setupPageEvents() {
         // 這裡可以重新綁定需要的事件監聽器
         // 例如：按鈕點擊事件、表單驗證等
-        console.log('重新設置頁面事件');
+        // console.log('重新設置頁面事件');
     },
 
     /**

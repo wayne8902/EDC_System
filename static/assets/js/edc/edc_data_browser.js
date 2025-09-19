@@ -454,6 +454,7 @@ const DataBrowserManager = {
      */
     async init() {
         if (this.isInitialized) {
+            this.setupEventListeners();
             this.setupFilters();
             this.setupFilterControls();
             this.loadInitialData();
@@ -478,20 +479,23 @@ const DataBrowserManager = {
     setupEventListeners() {
         // 搜尋按鈕
         const searchBtn = document.getElementById('dataSearchBtn');
-        if (searchBtn) {
+        if (searchBtn && !searchBtn._hasSearchListener) {
             searchBtn.addEventListener('click', () => this.performSearch());
+            searchBtn._hasSearchListener = true;
         }
 
         // 重置按鈕
         const resetBtn = document.getElementById('dataResetBtn');
-        if (resetBtn) {
+        if (resetBtn && !resetBtn._hasResetListener) {
             resetBtn.addEventListener('click', () => this.resetFilters());
+            resetBtn._hasResetListener = true;
         }
 
         // 匯出按鈕
         const exportBtn = document.getElementById('dataExportBtn');
-        if (exportBtn) {
+        if (exportBtn && !exportBtn._hasExportListener) {
             exportBtn.addEventListener('click', () => this.exportData());
+            exportBtn._hasExportListener = true;
         }
 
         // 分頁事件
@@ -508,6 +512,10 @@ const DataBrowserManager = {
      * 設置分頁事件
      */
     setupPaginationEvents() {
+        if (this._paginationListenerAdded) {
+            return;
+        }
+        
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('page-link')) {
                 e.preventDefault();
@@ -517,12 +525,18 @@ const DataBrowserManager = {
                 }
             }
         });
+        
+        this._paginationListenerAdded = true;
     },
 
     /**
      * 設置排序事件
      */
     setupSortingEvents() {
+        if (this._sortingListenerAdded) {
+            return;
+        }
+        
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('sortable-header')) {
                 const field = e.target.dataset.field;
@@ -531,21 +545,29 @@ const DataBrowserManager = {
                 }
             }
         });
+        
+        this._sortingListenerAdded = true;
     },
 
     /**
      * 設置篩選器事件
      */
     setupFilterEvents() {
+        if (this._filterEventsSetup) {
+            return;
+        }
+        
         // 日期範圍篩選器
         const dateFromInput = document.getElementById('dateFrom');
         const dateToInput = document.getElementById('dateTo');
 
-        if (dateFromInput) {
+        if (dateFromInput && !dateFromInput._hasFilterListener) {
             dateFromInput.addEventListener('change', () => this.updateFilters());
+            dateFromInput._hasFilterListener = true;
         }
-        if (dateToInput) {
+        if (dateToInput && !dateToInput._hasFilterListener) {
             dateToInput.addEventListener('change', () => this.updateFilters());
+            dateToInput._hasFilterListener = true;
         }
 
         // 數值範圍篩選器
@@ -554,10 +576,22 @@ const DataBrowserManager = {
         const bmiMinInput = document.getElementById('bmiMin');
         const bmiMaxInput = document.getElementById('bmiMax');
 
-        if (ageMinInput) ageMinInput.addEventListener('change', () => this.updateFilters());
-        if (ageMaxInput) ageMaxInput.addEventListener('change', () => this.updateFilters());
-        if (bmiMinInput) bmiMinInput.addEventListener('change', () => this.updateFilters());
-        if (bmiMaxInput) bmiMaxInput.addEventListener('change', () => this.updateFilters());
+        if (ageMinInput && !ageMinInput._hasFilterListener) {
+            ageMinInput.addEventListener('change', () => this.updateFilters());
+            ageMinInput._hasFilterListener = true;
+        }
+        if (ageMaxInput && !ageMaxInput._hasFilterListener) {
+            ageMaxInput.addEventListener('change', () => this.updateFilters());
+            ageMaxInput._hasFilterListener = true;
+        }
+        if (bmiMinInput && !bmiMinInput._hasFilterListener) {
+            bmiMinInput.addEventListener('change', () => this.updateFilters());
+            bmiMinInput._hasFilterListener = true;
+        }
+        if (bmiMaxInput && !bmiMaxInput._hasFilterListener) {
+            bmiMaxInput.addEventListener('change', () => this.updateFilters());
+            bmiMaxInput._hasFilterListener = true;
+        }
 
         // 下拉選單篩選器
         const riskScoreSelect = document.getElementById('riskScoreFilter');
@@ -569,21 +603,53 @@ const DataBrowserManager = {
         const goutSelect = document.getElementById('goutFilter');
         const bacSelect = document.getElementById('bacFilter');
 
-        if (riskScoreSelect) riskScoreSelect.addEventListener('change', () => this.updateFilters());
-        if (genderSelect) genderSelect.addEventListener('change', () => this.updateFilters());
-        if (statusSelect) statusSelect.addEventListener('change', () => this.updateFilters());
-        if (imagingTypeSelect) imagingTypeSelect.addEventListener('change', () => this.updateFilters());
-        if (stoneDiagnosisSelect) stoneDiagnosisSelect.addEventListener('change', () => this.updateFilters());
-        if (dmSelect) dmSelect.addEventListener('change', () => this.updateFilters());
-        if (goutSelect) goutSelect.addEventListener('change', () => this.updateFilters());
-        if (bacSelect) bacSelect.addEventListener('change', () => this.updateFilters());
+        if (riskScoreSelect && !riskScoreSelect._hasFilterListener) {
+            riskScoreSelect.addEventListener('change', () => this.updateFilters());
+            riskScoreSelect._hasFilterListener = true;
+        }
+        if (genderSelect && !genderSelect._hasFilterListener) {
+            genderSelect.addEventListener('change', () => this.updateFilters());
+            genderSelect._hasFilterListener = true;
+        }
+        if (statusSelect && !statusSelect._hasFilterListener) {
+            statusSelect.addEventListener('change', () => this.updateFilters());
+            statusSelect._hasFilterListener = true;
+        }
+        if (imagingTypeSelect && !imagingTypeSelect._hasFilterListener) {
+            imagingTypeSelect.addEventListener('change', () => this.updateFilters());
+            imagingTypeSelect._hasFilterListener = true;
+        }
+        if (stoneDiagnosisSelect && !stoneDiagnosisSelect._hasFilterListener) {
+            stoneDiagnosisSelect.addEventListener('change', () => this.updateFilters());
+            stoneDiagnosisSelect._hasFilterListener = true;
+        }
+        if (dmSelect && !dmSelect._hasFilterListener) {
+            dmSelect.addEventListener('change', () => this.updateFilters());
+            dmSelect._hasFilterListener = true;
+        }
+        if (goutSelect && !goutSelect._hasFilterListener) {
+            goutSelect.addEventListener('change', () => this.updateFilters());
+            goutSelect._hasFilterListener = true;
+        }
+        if (bacSelect && !bacSelect._hasFilterListener) {
+            bacSelect.addEventListener('change', () => this.updateFilters());
+            bacSelect._hasFilterListener = true;
+        }
 
         // 文字輸入篩選器
         const subjectCodeInput = document.getElementById('subjectCodeFilter');
         const createdByInput = document.getElementById('createdByFilter');
 
-        if (subjectCodeInput) subjectCodeInput.addEventListener('input', () => this.updateFilters());
-        if (createdByInput) createdByInput.addEventListener('input', () => this.updateFilters());
+        if (subjectCodeInput && !subjectCodeInput._hasFilterListener) {
+            subjectCodeInput.addEventListener('input', () => this.updateFilters());
+            subjectCodeInput._hasFilterListener = true;
+        }
+        if (createdByInput && !createdByInput._hasFilterListener) {
+            createdByInput.addEventListener('input', () => this.updateFilters());
+            createdByInput._hasFilterListener = true;
+        }
+        
+        this._filterEventsSetup = true;
     },
 
     /**
@@ -1004,17 +1070,34 @@ const DataBrowserManager = {
             });
 
             if (response.ok) {
+                // 使用正確的編碼讀取 blob
                 const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `subjects_export_${new Date().toISOString().slice(0, 10)}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+                
+                // 創建 FileReader 來讀取 UTF-8 編碼的內容
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    
+                    // 創建新的 blob 並確保使用正確的 MIME 類型
+                    const csvBlob = new Blob([text], { 
+                        type: 'text/csv;charset=utf-8;' 
+                    });
+                    
+                    const url = window.URL.createObjectURL(csvBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `subjects_export_${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
 
-                showSuccessMessage('資料匯出成功！');
+                    showSuccessMessage('資料匯出成功！');
+                };
+                
+                // 以 UTF-8 編碼讀取 blob
+                reader.readAsText(blob, 'UTF-8');
+                
             } else {
                 const result = await response.json();
                 showErrorMessage('錯誤: ' + (result.message || '匯出失敗'));
@@ -1064,7 +1147,7 @@ const DataBrowserManager = {
             const result = await response.json();
 
             if (result.success) {
-                this.showSubjectDetailBlock(result.data); // 顯示詳細資料區塊
+                await this.showSubjectDetailBlock(result.data); // 顯示詳細資料區塊
                 showSuccessMessage(`成功獲取受試者 ${subjectCode} 的詳細資料`);
             } else {
                 // 顯示錯誤訊息
@@ -1257,15 +1340,15 @@ const DataBrowserManager = {
 
             // 替換主內容區域
             mainContent.innerHTML = detailPage;
-            setTimeout(() => {}, 1000);
+            
             // 初始化頁籤切換功能
-            this.initializeTabSwitching();
-            setTimeout(() => {}, 1000);
+            await this.initializeTabSwitching();
+            
             // 載入歷程記錄
-            this.loadSubjectHistory(data.subject?.subject_code);
-            setTimeout(() => {}, 1000);
+            await this.loadSubjectHistory(data.subject?.subject_code);
+            
             // 載入 Query 紀錄
-            this.loadQuerySection(data.subject?.subject_code, data.subject);
+            await this.loadQuerySection(data.subject?.subject_code, data.subject);
         } catch (error) {
             console.error('創建詳細資料頁面失敗:', error);
         }
@@ -1454,7 +1537,7 @@ const DataBrowserManager = {
             const statusClass = this.getQueryStatusClass(query.status);
             const batchData = query.batch_data || {};
             const queryList = batchData.queries || [];
-            console.log(query);
+            // console.log(query);
             
             // 載入回應資料
             const responses = await this.loadQueryResponses(query.batch_id);
@@ -1746,7 +1829,6 @@ const DataBrowserManager = {
 function showDataBrowser() {
     const mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
-
     mainContent.innerHTML = `
         <div class="wrap">
             <!-- 篩選器 -->
@@ -1945,7 +2027,7 @@ function showDataBrowser() {
             </section>
         </div>
     `;
-
+    
     // 初始化資料瀏覽器
     DataBrowserManager.init();
 }

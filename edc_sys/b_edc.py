@@ -422,8 +422,8 @@ def export_subjects():
         if not result['success']:
             return jsonify(result), 400
         
-        # 創建檔案物件
-        file_obj = io.BytesIO(result['data'].encode('utf-8'))
+        # 創建檔案物件，使用 UTF-8 編碼
+        file_obj = io.BytesIO(result['data'].encode('utf-8-sig'))
         file_obj.seek(0)
         
         # 設定檔案名稱
@@ -431,7 +431,7 @@ def export_subjects():
         
         return send_file(
             file_obj,
-            mimetype=result['content_type'],
+            mimetype=result['content_type'] + '; charset=utf-8',
             as_attachment=True,
             download_name=filename
         )
@@ -1343,6 +1343,7 @@ def hello_post():
                 None,                           # date_of_birth
                 str(int(value["parm1"])),               # age
                 str(int(value["parm0"])),               # gender
+                None,                                   # measure_date
                 None,                                   # height_cm
                 None,                                   # weight_kg
                 str(float(value["parm3"])),             # bmi

@@ -249,6 +249,7 @@ function updateExclusionCriteria() {
                 }
             }
         });
+        
         // 根據完整性自動勾選
         missingDataCheckbox.checked = !isComplete;
         toggleExclusionDetails();
@@ -500,6 +501,11 @@ function updatePregnantFemaleSelection() {
             } else {
                 // console.log('未找到懷孕女性「否」選項');
             }
+        } else if (selectedGender === '0') { // 女性
+            // 如果是女性，啟用懷孕女性選項
+            pregnantFemaleRadios.forEach(radio => {
+                radio.disabled = false;
+            });
         } 
     }
 }

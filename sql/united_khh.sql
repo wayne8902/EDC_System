@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.2
+-- version 5.2.1deb3
 -- https://www.phpmyadmin.net/
 --
--- 主機： localhost
--- 產生時間： 2025 年 09 月 08 日 10:24
--- 伺服器版本： 9.0.1
--- PHP 版本： 8.4.12
+-- 主機： localhost:3306
+-- 產生時間： 2025 年 09 月 19 日 02:17
+-- 伺服器版本： 8.0.43-0ubuntu0.24.04.1
+-- PHP 版本： 8.3.6
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -76,6 +76,7 @@ CREATE TABLE `user` (
   `USER` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '帳號',
   `NAME` text NOT NULL,
   `UNIQUE_ID` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '員工編號',
+  `INSTITUTION_CODE` varchar(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '試驗機構代碼',
   `EMAIL` varchar(100) NOT NULL,
   `PASSWORD` varchar(256) NOT NULL,
   `DUEDATE` date NOT NULL,
@@ -87,10 +88,11 @@ CREATE TABLE `user` (
 -- 傾印資料表的資料 `user`
 --
 
-INSERT INTO `user` (`ID`, `USER`, `NAME`, `UNIQUE_ID`, `EMAIL`, `PASSWORD`, `DUEDATE`, `SESSION_KEY`, `LOGIN_LOG`) VALUES
-(1, 'pei', '試驗主持人A', 'khh00001', '', '5c0c50176f3e7d77d1eaeecd586451d1706b433d4b1c2816928ac814d6e5319a', '2025-06-26', '10a456a8d874c13329c3c38528970b5c02a5996fbe105a014232d7dcf0315f6e,250908115554', '127.0.0.1,20250906 00:52:09,local login success;127.0.0.1,20250906 00:58:19,local login success;127.0.0.1,20250906 01:05:39,local login success;127.0.0.1,20250906 22:40:09,local login success;127.0.0.1,20250906 22:47:25,local login success;127.0.0.1,20250906 23:11:41,local login success;127.0.0.1,20250907 11:46:00,local login success;127.0.0.1,20250907 22:35:59,local login success;127.0.0.1,20250908 10:23:31,local login success;127.0.0.1,20250908 11:25:54,local login success'),
-(2, 'yenwen', '試驗監測者A', 'khh00002', 'yenwen@united-khh.com.tw', '4dce09d5e12e0ab49f0cbc1a4abecead05b68ab699af6a1c6f49851183f0aa25', '2025-06-30', 'a7687c84d10863acefb6b2d0bced707bf46e6407a61d8764937ee3a16aed4dd6,250908182416;5eec7503684d64680142488225a7ba4e45281c9f532364b917b650ce261c8893,250908182603;1a73db9c5585a242fddc58a9ebd79d07108bd2b734f142328b81245224df9c44,250908183121;3e453316975fede5ac0d0564adb534166d8d021002ed91d26dac4d825e0b932d,250908183221;e7fde22b9aefa805502a510b0ec0ee3236fc658fd629eec00472c9411ac0c3f3,250908184233', '127.0.0.1,20250908 17:40:16,ms login success;127.0.0.1,20250908 17:45:34,ms login success;127.0.0.1,20250908 17:46:38,ms login success;127.0.0.1,20250908 17:47:56,ms login success;127.0.0.1,20250908 17:53:09,ms login success;127.0.0.1,20250908 17:54:16,ms login success;127.0.0.1,20250908 17:56:03,ms login success;127.0.0.1,20250908 18:01:21,ms login success;127.0.0.1,20250908 18:02:21,ms login success;127.0.0.1,20250908 18:12:33,ms login success'),
-(3, 'testor', '研究人員A', 'khh00000', '', '45b7ec52f1e77d58dc27dfd79a46d21979531bca25d5f2578b3cd002f6975ab2', '2025-05-01', 'd57108c013971c3c5bcf12261a554548722d87aea698b5ee33d299d22494d4b9,250908181722;01873c59f5499e599d2c2bc87c54ba4eb837a6d4146d680e2a7670d54f71847d,250908182358;acabd367b5f91c51f59385f86f1d4487ee173ccf923e7d2484034b55de6a1ea1,250908183158;dbc5ef940a7fd0dbbdb921208ee8a2371920e375ffafd6f201c6f6a30a1e7107,250908183400;d194bc30e3e7fd29953fb07720c899c0819e0bb4565abacb19664ef683c79e2b,250908185145', '127.0.0.1,20250908 16:43:10,local login success;127.0.0.1,20250908 16:53:32,local login success;127.0.0.1,20250908 17:02:22,local login success;127.0.0.1,20250908 17:26:18,local login success;127.0.0.1,20250908 17:46:15,local login success;127.0.0.1,20250908 17:47:22,local login success;127.0.0.1,20250908 17:53:58,local login success;127.0.0.1,20250908 18:01:58,local login success;127.0.0.1,20250908 18:04:00,local login success;127.0.0.1,20250908 18:21:45,local login success');
+INSERT INTO `user` (`ID`, `USER`, `NAME`, `UNIQUE_ID`, `INSTITUTION_CODE`, `EMAIL`, `PASSWORD`, `DUEDATE`, `SESSION_KEY`, `LOGIN_LOG`) VALUES
+(1, 'test03', '測試03', 'khh00001', '01', 'pswei@united-khh.com.tw', '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', '2025-06-26', '34cc6d175afbf3eacdc2bbb7dcf864d5dbac55458fa7bdcb57028df3160b8aea,250919091921;789c0e72a52dd207521c10100fe1242890892b09c8389f3a53a5278ffb26dbd9,250919092120', '172.17.208.1,20250918 16:24:07,local login success;172.17.208.1,20250918 16:51:19,local login success;172.17.208.1,20250918 16:58:58,local login success;172.17.208.1,20250918 17:01:51,local login success;172.17.208.1,20250918 17:10:46,local login success;172.17.208.1,20250918 17:32:17,local login success;172.17.208.1,20250918 23:18:25,local login success;172.17.208.1,20250919 00:02:36,local login success;172.17.208.1,20250919 08:49:21,local login success;172.17.208.1,20250919 08:51:20,local login success'),
+(2, 'test04', '測試04', 'khh00002', '02', 'yenwen@united-khh.com.tw', '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', '2025-06-30', '018293706133f70d65843ed4df23237dbbaba73beb1aaaa95611db2eb064802c,250918180315', '172.17.208.1,20250918 16:31:17,local login success;172.17.208.1,20250918 16:32:37,local login success;172.17.208.1,20250918 16:34:37,local login success;172.17.208.1,20250918 16:37:22,local login success;172.17.208.1,20250918 16:39:13,local login success;172.17.208.1,20250918 16:49:20,local login success;172.17.208.1,20250918 16:51:52,local login success;172.17.208.1,20250918 17:00:15,local login success;172.17.208.1,20250918 17:11:21,local login success;172.17.208.1,20250918 17:33:15,local login success'),
+(3, 'test02', '測試02', 'khh00000', '03', 'yenwen1@united-khh.com.tw', '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', '2025-05-01', 'dffc4d00ba8546f13683deae6da4826112432c856bbc27a17858dfdee74bda83,250919102524', '172.17.208.1,20250918 17:45:24,local login success;172.17.208.1,20250918 18:04:59,local login success;172.17.208.1,20250918 18:15:14,local login success;172.17.208.1,20250918 23:16:13,local login success;172.17.208.1,20250918 23:59:18,local login success;172.17.208.1,20250919 00:20:48,local login success;172.17.208.1,20250919 08:46:17,local login success;172.17.208.1,20250919 09:00:45,local login success;172.17.208.1,20250919 09:13:04,local login success;172.17.208.1,20250919 09:55:24,local login success'),
+(4, 'test01', '測試01', 'khh00003', '04', 'Pooiyt29@united-khh.com.tw', '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0', '2025-09-10', '7d1f32804d34453199f0195a124f3b3b760bb382d632da69aa652849dc6d0619,250919091603', '127.0.0.1,20250912 13:43:27,local login success;127.0.0.1,20250912 13:55:38,local login success;127.0.0.1,20250912 15:21:09,local login success;127.0.0.1,20250916 16:16:04,local login success;127.0.0.1,20250918 11:41:59,local login success;127.0.0.1,20250918 11:48:05,local login success;172.17.208.1,20250918 17:31:05,local login success;172.17.208.1,20250918 22:53:44,local login success;172.17.208.1,20250918 23:15:09,local login success;172.17.208.1,20250919 08:46:03,local login success');
 
 --
 -- 已傾印資料表的索引
@@ -136,7 +138,7 @@ ALTER TABLE `reset_password`
 -- 使用資料表自動遞增(AUTO_INCREMENT) `user`
 --
 ALTER TABLE `user`
-  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `ID` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

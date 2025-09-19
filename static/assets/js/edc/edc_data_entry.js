@@ -128,6 +128,7 @@ const DataEntryManager = {
                 date_of_birth: form.querySelector('#birthDate')?.value,
                 age: form.querySelector('#age')?.value,
                 gender: form.querySelector('input[name="gender"]:checked')?.value,
+                measure_date: form.querySelector('#measureDate')?.value,
                 height_cm: form.querySelector('#height')?.value,
                 weight_kg: form.querySelector('#weight')?.value,
                 bmi: form.querySelector('#bmi')?.getAttribute('data-precise-value') || form.querySelector('#bmi')?.value,
@@ -519,7 +520,6 @@ function setupDynamicAdditions() {
 
 // 動態新增藥物
 function addDrug() {
-    const id = `drug-${crypto.randomUUID().slice(0,8)}`;
     const wrap = document.createElement('div');
     wrap.className = 'row block fade-in';
     wrap.innerHTML = `

@@ -17,7 +17,7 @@ const EDCConstants = {
     INPUT_FIELDS: [
         'enrollDate', 'subjectCode', 'birthDate', 'age', 
         'measureDate', 'height', 'weight', 'bmi', 'biochemDate', 
-        'scr', 'egfr', 'ph', 'sg', 'rbc', 
+        'egfr', 'ph', 'sg', 'rbc', 
         'urineDate', 'urinalysisDate', 'imgDate'
     ],
     
@@ -37,7 +37,7 @@ const EDCConstants = {
     // 系統自動判斷欄位（永遠不可編輯）
     SYSTEM_AUTO_FIELDS: [
         // 基本資料自動計算欄位
-        'age', 'bmi',
+        'subjectCode', 'age', 'riskScore', 'bmi',
         // 納入條件自動判斷欄位
         'age18', 'hasGender', 'hasAge', 'hasBMI', 'hasDMHistory', 'hasGoutHistory',
         'hasEGFR', 'hasUrinePH', 'hasUrineSG', 'hasUrineRBC', 'hasBacteriuria', 'labTimeWithin7',
@@ -93,13 +93,13 @@ const EDCConstants = {
      */
     isSystemAutoField(input) {
         return this.SYSTEM_AUTO_FIELDS.includes(input.id) || 
-               this.SYSTEM_AUTO_FIELDS.includes(input.name) ||
-               input.placeholder?.includes('受試者編號') || 
-               input.previousElementSibling?.textContent?.includes('受試者編號') ||
-               input.placeholder?.includes('年齡') || 
-               input.placeholder?.includes('BMI') ||
-               input.previousElementSibling?.textContent?.includes('年齡') ||
-               input.previousElementSibling?.textContent?.includes('BMI');
+            this.SYSTEM_AUTO_FIELDS.includes(input.name) ||
+            input.placeholder?.includes('受試者編號') || 
+            input.previousElementSibling?.textContent?.includes('受試者編號') ||
+            input.placeholder?.includes('年齡') || 
+            input.placeholder?.includes('BMI') ||
+            input.previousElementSibling?.textContent?.includes('年齡') ||
+            input.previousElementSibling?.textContent?.includes('BMI');
     },
 
     /**
@@ -523,7 +523,7 @@ async function reloadPageData() {
             // 重新生成並更新頁面內容
             await refreshPageContent(result.data);
             
-            console.log('頁面資料刷新完成');
+            // console.log('頁面資料刷新完成');
             if (typeof LoadingManager !== 'undefined') {
                 LoadingManager.hide();
             }
@@ -563,7 +563,7 @@ async function refreshPageContent(data) {
                 // 重新初始化事件監聽器
                 setupPageEvents();
                 
-                console.log('使用 DataBrowserGenerator 刷新頁面內容');
+                // console.log('使用 DataBrowserGenerator 刷新頁面內容');
             }
         } else {
             // 備用方案：手動更新關鍵資訊
